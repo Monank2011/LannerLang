@@ -70,3 +70,5 @@ curl -fsSL https://raw.githubusercontent.com/Monank2011/STABLE/main/tools/instal
 ```
 
 See [`docs/INSTALL.md`](../INSTALL.md) for the full installation guide.
+
+New users can read the [**Stable 1.0.0 Handbook**](../../Stable_handbook.md) for a practical introduction to Stable syntax, types, ownership, borrowing, memory safety, runtime APIs, and the V1 feature set.

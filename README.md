@@ -56,6 +56,8 @@ Each binary package includes the `stablec` compiler, runtime support files, exam
 
 For convenience, see the [installation guide](docs/INSTALL.md) for a `pip` command that fetches the latest release and a `g++` source-build command.
 
+New users can start with the [**Stable 1.0.0 Handbook**](Stable_handbook.md), a practical guide to the language, ownership model, syntax, runtime, and V1 capabilities.
+
 
 ---
 
