@@ -1,72 +1,52 @@
-Stable Bootstrap
+# **Stable 1.0.0 Bootstrap**
 
-Stable contains a Stable-written compiler track and reproducible bootstrap infrastructure.
-Production compiler
-The normal production flow is:
+Stable contains a Stable-written compiler track and recursive self-hosting verification.
+
+## **Production path**
+
+```text
 Stable source
     |
     v
-C++17 Stable compiler
+C++ bootstrap compiler
     |
     v
-Native LLVM IR
+LLVM IR
     |
     v
 Clang/LLVM
     |
     v
-native executable
-Native Stable-written compiler
-The repository contains:
-selfhost/lexer.st
-selfhost/parser.st
-selfhost/compiler.st
-The compiler is written in Stable and contains the bootstrap frontend/compiler machinery needed for the supported self-hosting path.
-Build the reference compiler:
-cmake -S . -B build -DSTABLE_BUILD_TESTS=ON
-cmake --build build -j2
-Build the Stable-written compiler through the native LLVM backend:
-./build/stablec selfhost/compiler.st --backend=llvm -o build/stage1-native-llvm
-Recursive bootstrap
-The authoritative native bootstrap path is:
-stage 0
-  |
-  v
-Stable-written compiler
-  |
-  v
-stage 1
-  |
-  v
-Stable-written compiler
-  |
-  v
-stage 2
-  |
-  v
-Stable-written compiler
-  |
-  v
-stage 3
-The verification scripts compare compiler outputs and probe artifacts.
-The goal is a stable fixed point where repeated compilation does not change the compiler output.
-Byte-identical fixed point
-The native bootstrap verifier checks that the relevant stage-2 and stage-3 outputs are byte-identical.
-This is stronger than merely checking that both binaries happen to run.
-Legacy HIR path
-Stable also contains a legacy HIR/SSA backend.
-Enable it with:
+Native executable
+```
+
+## **Native self-hosting**
+
+The Stable-written compiler is located under **`selfhost/`**.
+
+The native LLVM self-hosting verifier compiles the Stable-written compiler through the Stable compiler and compares the resulting stages.
+
+The validated production path reaches a **byte-identical stage-2/stage-3 fixed point**.
+
+## **Legacy HIR**
+
+The legacy HIR/SSA path is optional:
+
+```sh
 cmake -S . -B build \
     -DSTABLE_ENABLE_LEGACY_HIR=ON \
     -DSTABLE_BUILD_TESTS=ON
-The legacy path remains useful for:
-compatibility testing
-bootstrap/reference comparison
-HIR inspection
-optimizer development
-The production backend remains native LLVM.
-Verification scripts
+```
+
+It remains useful for bootstrap/reference testing and IR inspection.
+
+The production `auto` backend uses the **native LLVM path**.
+
+## **Verification tools**
+
 Important scripts include:
+
+```text
 tools/verify_selfhost.sh
 tools/verify_selfhost_bootstrap.sh
 tools/verify_selfhost_native_llvm.sh
@@ -74,4 +54,13 @@ tools/verify_selfhost_typed_frontend.sh
 tools/verify_native_selfhost.sh
 tools/verify_llvm_compat.sh
 tools/verify_native_readfile_failure.sh
-The exact set used depends on whether legacy HIR compatibility is enabled. 
+```
+
+LLVM toolchain selection is available through **`STABLE_CLANG`** and **`LLVM_CC`**.
+
+
+## **Current bootstrap boundary**
+
+The recursive native bootstrap is a **supported-subset fixed point**, not a claim that the entire 1.0 compiler is self-hosted. The full production compiler remains implemented in C++ for the authoritative lexer, parser, typechecker, comptime evaluator, native LLVM code generator, command-line/toolchain driver, and mobile/game project generators. The optional legacy HIR implementation is also C++.
+
+The Stable-written compiler currently does not cover the Step 2-7 runtime namespaces (Web, backend/cloud, ML/AI, Mobile, Game, and DevOps) or the complete systems/unsafe/toolchain surface.

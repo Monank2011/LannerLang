@@ -1,0 +1,7 @@
+if(NOT DEFINED PROGRAM OR NOT DEFINED EXPECTED)
+    message(FATAL_ERROR "PROGRAM and EXPECTED are required")
+endif()
+execute_process(COMMAND "${PROGRAM}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err)
+if(NOT rc EQUAL EXPECTED)
+    message(FATAL_ERROR "program exited with ${rc}, expected ${EXPECTED}\nstdout:\n${out}\nstderr:\n${err}")
+endif()

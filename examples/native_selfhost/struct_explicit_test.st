@@ -1,0 +1,5 @@
+Point[x: i32, y: i32]
+
+main() i32:
+    p: Point = Point[x: 20, y: 22]
+    return p.x + p.y

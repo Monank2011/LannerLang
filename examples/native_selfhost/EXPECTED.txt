@@ -1,0 +1,71 @@
+# name  expected-exit-code   (program compiled by the SELF-HOSTED native LLVM path)
+inf_scalar 12
+inf_struct 42
+inf_array 60
+fn_local_arg 42
+fn_struct_param 42
+fn_struct_return 42
+fn_array_param 60
+fn_array_return 24
+ref_push 84
+ref_struct 42
+ref_forward 14
+ref_len_read 18
+struct_explicit_test 42
+array_explicit_test 60
+fibonly 55
+integ 88
+array_struct 51
+lvalue_store 42
+aggregate_field_ref 67
+array_is_empty 0
+
+fixed_arrays 69
+
+# Optional / Result aggregate parity
+optional 7
+optional_none 7
+optional_dyn 7
+optional_fixed 7
+result 42
+result_dyn 42
+result_err 9
+
+# View / EditView and slice parity
+view_fixed 13
+view_dynamic 8
+view_reslice 8
+edit_view 21
+view_methods 0
+view_empty 0
+view_fn 13
+edit_view_fn 21
+enum 0
+read_file_ok 0
+
+# Ownership / arena native lowering
+memory_drop_array 30
+memory_move_return 8
+memory_arena 8
+memory_nested_drop 13
+memory_result_drop 3
+memory_nested_assign 7
+memory_push_owner 5
+
+# Feature-parity expansion: float lowering, for loops, and comptime
+for_sum 60
+float_ops 3
+float_array 2
+float_push 1
+for_float 4
+comptime_local 13
+comptime_runtime 8
+comptime_bool 1
+print_values 0
+else_if 3
+integer_literals 34
+unary_bitwise 0
+comptime_global 14
+comptime_fixed_array 30
+
+mutual_recursion 1

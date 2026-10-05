@@ -1,0 +1,15 @@
+{
+  "$schema": "vscode://schemas/icon-theme",
+  "iconDefinitions": {
+    "_stable": {
+      "iconPath": "../icons/stable.png"
+    }
+  },
+  "fileExtensions": {
+    "st": "_stable"
+  },
+  "languageIds": {
+    "stable": "_stable"
+  },
+  "showLanguageModeIcons": true
+}

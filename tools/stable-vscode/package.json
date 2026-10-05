@@ -1,0 +1,41 @@
+{
+  "name": "stable-language-support",
+  "displayName": "Stable Language Support",
+  "description": "Stable language identification and the official Stable logo for .st files.",
+  "version": "1.0.0",
+  "publisher": "stable-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Themes"
+  ],
+  "icon": "./icons/stable.png",
+  "contributes": {
+    "languages": [
+      {
+        "id": "stable",
+        "aliases": [
+          "Stable",
+          "stable"
+        ],
+        "extensions": [
+          ".st"
+        ],
+        "icon": {
+          "light": "./icons/stable.png",
+          "dark": "./icons/stable.png"
+        }
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "stable-file-icons",
+        "label": "Stable File Icons",
+        "path": "./fileicons/stable-icon-theme.json"
+      }
+    ]
+  }
+}

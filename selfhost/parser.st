@@ -1,0 +1,279 @@
+Token[kind: u8, start: usize, length: usize]
+
+isIdentStart(c: u8) bool:
+    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95
+
+isDigit(c: u8) bool:
+    return c >= 48 && c <= 57
+
+isIdentContinue(c: u8) bool:
+    return isIdentStart(c) || isDigit(c)
+
+pushToken(tokens: &mut []Token, kind: u8, start: usize, length: usize) void:
+    tokens.push(Token[kind: kind, start: start, length: length])
+
+lex(src: View[u8]) []Token:
+    tokens = []Token
+    indentStack = []usize
+    indentStack.push(0)
+    indentDepth: usize = 1
+    lineStart: bool = true
+    i: usize = 0
+
+    while i < src.len():
+        if lineStart:
+            count: usize = 0
+            while i < src.len() && (src[i] == 32 || src[i] == 9):
+                if src[i] == 9:
+                    count = count + 4
+                else:
+                    count = count + 1
+                i = i + 1
+            if i >= src.len():
+                break
+            if src[i] == 10 || src[i] == 13:
+                if src[i] == 13:
+                    i = i + 1
+                    if i < src.len() && src[i] == 10:
+                        i = i + 1
+                else:
+                    i = i + 1
+                pushToken(&mut tokens, 5, i - 1, 0)
+                lineStart = true
+            else:
+                if src[i] == 47 && i + 1 < src.len() && src[i + 1] == 47:
+                    while i < src.len() && src[i] != 10 && src[i] != 13:
+                        i = i + 1
+                else:
+                    previous: usize = indentStack[indentDepth - 1]
+                    if count > previous:
+                        if indentDepth < indentStack.len():
+                            indentStack[indentDepth] = count
+                        else:
+                            indentStack.push(count)
+                        indentDepth = indentDepth + 1
+                        pushToken(&mut tokens, 6, i, 0)
+                    else:
+                        while count < indentStack[indentDepth - 1] && indentDepth > 1:
+                            indentDepth = indentDepth - 1
+                            pushToken(&mut tokens, 7, i, 0)
+                    lineStart = false
+        else:
+            c: u8 = src[i]
+            if c == 10 || c == 13:
+                if c == 13:
+                    i = i + 1
+                    if i < src.len() && src[i] == 10:
+                        i = i + 1
+                else:
+                    i = i + 1
+                pushToken(&mut tokens, 5, i - 1, 0)
+                lineStart = true
+            else:
+                if c == 32 || c == 9:
+                    i = i + 1
+                else:
+                    start: usize = i
+                    if c == 47 && i + 1 < src.len() && src[i + 1] == 47:
+                        while i < src.len() && src[i] != 10 && src[i] != 13:
+                            i = i + 1
+                    else:
+                        if isIdentStart(c):
+                            i = i + 1
+                            while i < src.len() && isIdentContinue(src[i]):
+                                i = i + 1
+                            length: usize = i - start
+                            kind: u8 = 1
+                            if length == 2 && src[start] == 105 && src[start + 1] == 102:
+                                kind = 8
+                            else:
+                                if length == 6 && src[start] == 114 && src[start + 1] == 101 && src[start + 2] == 116 && src[start + 3] == 117 && src[start + 4] == 114 && src[start + 5] == 110:
+                                    kind = 9
+                                else:
+                                    if length == 5 && src[start] == 119 && src[start + 1] == 104 && src[start + 2] == 105 && src[start + 3] == 108 && src[start + 4] == 101:
+                                        kind = 10
+                                    else:
+                                        if length == 4 && src[start] == 101 && src[start + 1] == 108 && src[start + 2] == 115 && src[start + 3] == 101:
+                                            kind = 11
+                            pushToken(&mut tokens, kind, start, length)
+                        else:
+                            if isDigit(c):
+                                i = i + 1
+                                while i < src.len() && isDigit(src[i]):
+                                    i = i + 1
+                                pushToken(&mut tokens, 2, start, i - start)
+                            else:
+                                if c == 34:
+                                    i = i + 1
+                                    while i < src.len() && src[i] != 34:
+                                        if src[i] == 92 && i + 1 < src.len():
+                                            i = i + 2
+                                        else:
+                                            i = i + 1
+                                    if i < src.len():
+                                        i = i + 1
+                                    pushToken(&mut tokens, 3, start, i - start)
+                                else:
+                                    i = i + 1
+                                    if (c == 61 || c == 33 || c == 60 || c == 62 || c == 38 || c == 124 || c == 45) && i < src.len():
+                                        d: u8 = src[i]
+                                        if d == 61 || (c == 38 && d == 38) || (c == 124 && d == 124) || (c == 45 && d == 62):
+                                            i = i + 1
+                                    pushToken(&mut tokens, 4, start, i - start)
+
+    if !lineStart:
+        pushToken(&mut tokens, 5, src.len(), 0)
+    while indentDepth > 1:
+        indentDepth = indentDepth - 1
+        pushToken(&mut tokens, 7, src.len(), 0)
+    tokens.push(Token[kind: 0, start: src.len(), length: 0])
+    return tokens
+
+isKind(tokens: View[Token], pos: usize, kind: u8) bool:
+    return pos < tokens.len() && tokens[pos].kind == kind
+
+consume(tokens: View[Token], pos: usize, kind: u8) i64:
+    if isKind(tokens, pos, kind):
+        return (pos + 1) as i64
+    return (0 as i64) - 1
+
+isByte(src: View[u8], tokens: View[Token], pos: usize, value: u8) bool:
+    if !isKind(tokens, pos, 4):
+        return false
+    return tokens[pos].length == 1 && src[tokens[pos].start] == value
+
+consumeByte(src: View[u8], tokens: View[Token], pos: usize, value: u8) i64:
+    if !isByte(src, tokens, pos, value):
+        return (0 as i64) - 1
+    return (pos + 1) as i64
+
+parseLine(tokens: View[Token], pos: usize) i64:
+    p: usize = pos
+    while !isKind(tokens, p, 5) && !isKind(tokens, p, 7) && !isKind(tokens, p, 0):
+        p = p + 1
+    if !isKind(tokens, p, 5):
+        return (0 as i64) - 1
+    return (p + 1) as i64
+
+parseBlock(src: View[u8], tokens: View[Token], pos: usize) i64:
+    p: usize = pos
+    while !isKind(tokens, p, 7) && !isKind(tokens, p, 0):
+        if isKind(tokens, p, 5):
+            p = p + 1
+        else:
+            if isKind(tokens, p, 8) || isKind(tokens, p, 10):
+                p = p + 1
+                while !isKind(tokens, p, 5) && !isKind(tokens, p, 0) && !isByte(src, tokens, p, 58):
+                    p = p + 1
+                next: i64 = consumeByte(src, tokens, p, 58)
+                if next < 0:
+                    return (0 as i64) - 1
+                p = next as usize
+                next = consume(tokens, p, 5)
+                if next < 0:
+                    return (0 as i64) - 1
+                p = next as usize
+                next = consume(tokens, p, 6)
+                if next < 0:
+                    return (0 as i64) - 1
+                p = next as usize
+                next = parseBlock(src, tokens, p)
+                if next < 0:
+                    return (0 as i64) - 1
+                p = next as usize
+                next = consume(tokens, p, 7)
+                if next < 0:
+                    return (0 as i64) - 1
+                p = next as usize
+                if isKind(tokens, p, 11):
+                    p = p + 1
+                    next = consumeByte(src, tokens, p, 58)
+                    if next < 0:
+                        return (0 as i64) - 1
+                    p = next as usize
+                    next = consume(tokens, p, 5)
+                    if next < 0:
+                        return (0 as i64) - 1
+                    p = next as usize
+                    next = consume(tokens, p, 6)
+                    if next < 0:
+                        return (0 as i64) - 1
+                    p = next as usize
+                    next = parseBlock(src, tokens, p)
+                    if next < 0:
+                        return (0 as i64) - 1
+                    p = next as usize
+                    next = consume(tokens, p, 7)
+                    if next < 0:
+                        return (0 as i64) - 1
+                    p = next as usize
+            else:
+                if isKind(tokens, p, 9):
+                    p = p + 1
+                next: i64 = parseLine(tokens, p)
+                if next < 0:
+                    return (0 as i64) - 1
+                p = next as usize
+    return p as i64
+
+parseFunction(src: View[u8], tokens: View[Token], pos: usize) i64:
+    if !isKind(tokens, pos, 1):
+        return (0 as i64) - 1
+    p: usize = pos + 1
+    next: i64 = consumeByte(src, tokens, p, 40)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = consumeByte(src, tokens, p, 41)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = consume(tokens, p, 1)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = consumeByte(src, tokens, p, 58)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = consume(tokens, p, 5)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = consume(tokens, p, 6)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = parseBlock(src, tokens, p)
+    if next < 0:
+        return (0 as i64) - 1
+    p = next as usize
+    next = consume(tokens, p, 7)
+    if next < 0:
+        return (0 as i64) - 1
+    return next
+
+parseProgram(src: View[u8], tokens: View[Token]) i64:
+    pos: usize = 0
+    functions: i64 = 0
+    while !isKind(tokens, pos, 0):
+        if isKind(tokens, pos, 5):
+            pos = pos + 1
+        else:
+            next: i64 = parseFunction(src, tokens, pos)
+            if next < 0:
+                return (0 as i64) - 1
+            pos = next as usize
+            functions = functions + 1
+    return functions
+
+main() i32:
+    src = readFile("examples/selfhost_input.st")
+    source = src[0:src.len()]
+    tokenOwner = lex(source)
+    tokens = tokenOwner[0:tokenOwner.len()]
+    functions = parseProgram(source, tokens)
+    printInt(functions)
+    if functions == 1:
+        return 0
+    return 1

@@ -1,0 +1,33 @@
+isIdentStart(c: u8) bool:
+    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95
+
+isDigit(c: u8) bool:
+    return c >= 48 && c <= 57
+
+scanTokens(src: []u8) i64:
+    i: usize = 0
+    tokens: i64 = 0
+    while i < src.len():
+        c: u8 = src[i]
+        if c == 32 || c == 9 || c == 10 || c == 13:
+            i = i + 1
+        else:
+            tokens = tokens + 1
+            if isIdentStart(c):
+                i = i + 1
+                while i < src.len() && (isIdentStart(src[i]) || isDigit(src[i])):
+                    i = i + 1
+            else:
+                if isDigit(c):
+                    i = i + 1
+                    while i < src.len() && isDigit(src[i]):
+                        i = i + 1
+                else:
+                    i = i + 1
+    return tokens
+
+main() i32:
+    src = readFile("examples/selfhost_input.st")
+    count = scanTokens(src)
+    printInt(count)
+    return count as i32

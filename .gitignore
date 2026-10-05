@@ -1,0 +1,24 @@
+# **Build outputs**
+build/
+build-*/
+cmake-build-*/
+
+# **Compiler outputs**
+stablec
+*.o
+*.a
+*.so
+*.ll
+*.exe
+
+# **Local benchmark/test artifacts**
+benchmark-results/
+test-results/
+bench-out/
+*.log
+
+# **Editor/OS files**
+.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,139 @@
+Token[kind: u8, start: usize, length: usize]
+
+isIdentStart(c: u8) bool:
+    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95
+
+isDigit(c: u8) bool:
+    return c >= 48 && c <= 57
+
+isIdentContinue(c: u8) bool:
+    return isIdentStart(c) || isDigit(c)
+
+pushToken(tokens: &mut []Token, kind: u8, start: usize, length: usize) void:
+    tokens.push(Token[kind: kind, start: start, length: length])
+
+lex(src: View[u8]) []Token:
+    tokens = []Token
+    indentStack = []usize
+    indentStack.push(0)
+    indentDepth: usize = 1
+    lineStart: bool = true
+    i: usize = 0
+
+    while i < src.len():
+        if lineStart:
+            count: usize = 0
+            while i < src.len() && (src[i] == 32 || src[i] == 9):
+                if src[i] == 9:
+                    count = count + 4
+                else:
+                    count = count + 1
+                i = i + 1
+
+            if i >= src.len():
+                break
+
+            if src[i] == 10 || src[i] == 13:
+                if src[i] == 13:
+                    i = i + 1
+                    if i < src.len() && src[i] == 10:
+                        i = i + 1
+                else:
+                    i = i + 1
+                pushToken(&mut tokens, 5, i - 1, 0)
+                lineStart = true
+            else:
+                if src[i] == 47 && i + 1 < src.len() && src[i + 1] == 47:
+                    while i < src.len() && src[i] != 10 && src[i] != 13:
+                        i = i + 1
+                else:
+                    previous: usize = indentStack[indentDepth - 1]
+                    if count > previous:
+                        if indentDepth < indentStack.len():
+                            indentStack[indentDepth] = count
+                        else:
+                            indentStack.push(count)
+                        indentDepth = indentDepth + 1
+                        pushToken(&mut tokens, 6, i, 0)
+                    else:
+                        while count < indentStack[indentDepth - 1] && indentDepth > 1:
+                            indentDepth = indentDepth - 1
+                            pushToken(&mut tokens, 7, i, 0)
+                    lineStart = false
+        else:
+            c: u8 = src[i]
+            if c == 10 || c == 13:
+                if c == 13:
+                    i = i + 1
+                    if i < src.len() && src[i] == 10:
+                        i = i + 1
+                else:
+                    i = i + 1
+                pushToken(&mut tokens, 5, i - 1, 0)
+                lineStart = true
+            else:
+                if c == 32 || c == 9:
+                    i = i + 1
+                else:
+                    start: usize = i
+                    if c == 47 && i + 1 < src.len() && src[i + 1] == 47:
+                        while i < src.len() && src[i] != 10 && src[i] != 13:
+                            i = i + 1
+                    else:
+                        if isIdentStart(c):
+                            i = i + 1
+                            while i < src.len() && isIdentContinue(src[i]):
+                                i = i + 1
+                            length: usize = i - start
+                            kind: u8 = 1
+                            if length == 2 && src[start] == 105 && src[start + 1] == 102:
+                                kind = 8
+                            else:
+                                if length == 6 && src[start] == 114 && src[start + 1] == 101 && src[start + 2] == 116 && src[start + 3] == 117 && src[start + 4] == 114 && src[start + 5] == 110:
+                                    kind = 9
+                                else:
+                                    if length == 5 && src[start] == 119 && src[start + 1] == 104 && src[start + 2] == 105 && src[start + 3] == 108 && src[start + 4] == 101:
+                                        kind = 10
+                                    else:
+                                        if length == 4 && src[start] == 101 && src[start + 1] == 108 && src[start + 2] == 115 && src[start + 3] == 101:
+                                            kind = 11
+                            pushToken(&mut tokens, kind, start, length)
+                        else:
+                            if isDigit(c):
+                                i = i + 1
+                                while i < src.len() && isDigit(src[i]):
+                                    i = i + 1
+                                pushToken(&mut tokens, 2, start, i - start)
+                            else:
+                                if c == 34:
+                                    i = i + 1
+                                    while i < src.len() && src[i] != 34:
+                                        if src[i] == 92 && i + 1 < src.len():
+                                            i = i + 2
+                                        else:
+                                            i = i + 1
+                                    if i < src.len():
+                                        i = i + 1
+                                    pushToken(&mut tokens, 3, start, i - start)
+                                else:
+                                    i = i + 1
+                                    if (c == 61 || c == 33 || c == 60 || c == 62 || c == 38 || c == 124 || c == 45) && i < src.len():
+                                        d: u8 = src[i]
+                                        if d == 61 || (c == 38 && d == 38) || (c == 124 && d == 124) || (c == 45 && d == 62):
+                                            i = i + 1
+                                    pushToken(&mut tokens, 4, start, i - start)
+
+    if !lineStart:
+        pushToken(&mut tokens, 5, src.len(), 0)
+    while indentDepth > 1:
+        indentDepth = indentDepth - 1
+        pushToken(&mut tokens, 7, src.len(), 0)
+    tokens.push(Token[kind: 0, start: src.len(), length: 0])
+    return tokens
+
+main() i32:
+    src = readFile("examples/selfhost_input.st")
+    source = src[0:src.len()]
+    tokens = lex(source)
+    printInt(tokens.len() as i64)
+    return 0

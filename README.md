@@ -1,828 +1,400 @@
-Stable
+# **Stable 1.0.0**
 
-Stable 1.0.0
+> **A native systems programming language with compile-time ownership safety, deterministic memory management, and LLVM code generation.**
 
-Stable is a general-purpose systems programming language designed for native performance with a statically checked ownership, borrowing, view, and region-based memory model.
+Stable is a general-purpose systems programming language built around a simple goal: make **native, predictable performance** compatible with a **strong static memory-safety model** that remains practical to learn.
 
-Stable uses indentation-based syntax, compile-time checking, deterministic destruction, and LLVM as its native code-generation target.
+Stable uses **indentation-based syntax**, **static typing**, **ownership and borrowing**, **non-owning views**, **region/arena allocation**, and **LLVM** for native code generation.
 
-The language is designed around a simple idea:
+The native engine stack includes interactive stdin, compile-time static/global tables, explicit C FFI, CPU/SIMD intrinsics, OS threads and atomics, a monotonic engine clock, and a systems/low-level layer for raw pointers, allocation, inline assembly, volatile memory, ABI/layout control, and freestanding cross-target builds. See [`docs/ENGINE_RUNTIME.md`](docs/ENGINE_RUNTIME.md), [`docs/SYSTEMS.md`](docs/SYSTEMS.md), and [`examples/uci_engine.st`](examples/uci_engine.st).
 
-T            I own this value
-&T           I can read this value temporarily
-&mut T       I can mutate this value exclusively
-View[T]      I can read this range temporarily
-EditView[T]  I can mutate this range exclusively
-Arena        this region owns these allocations
+The hosted backend/cloud runtime adds TCP/UDP sockets, scalable readiness polling, synchronization primitives, child processes, HTTP/1.1 client operations, JSON serialization/validation, and owned byte buffers. See [`docs/BACKEND_CLOUD.md`](docs/BACKEND_CLOUD.md) and the `examples/backend_*.st` programs.
 
-The programmer reasons about ownership and access. Stable infers borrow lifetimes and enforces the resulting safety rules without requiring explicit lifetime parameters.
+The DevOps/scripting runtime adds process arguments, environment management, filesystem and path APIs, lightweight regex, shell command/output helpers, executable lookup, and compiled-script execution through `stablec --script ... -- args`. See [`docs/DEVOPS_SCRIPTING.md`](docs/DEVOPS_SCRIPTING.md) and [`examples/devops_script.st`](examples/devops_script.st).
 
----
+The Version 1 native engine readiness audit now verifies that Stable can compile and execute representative chess bitboard/search code, the UCI runtime, and a representative 45,192 → 16 → 32 → 1 quantized NNUE inference path entirely from Stable source. See [`docs/CHESS_NNUE_AUDIT.md`](docs/CHESS_NNUE_AUDIT.md), [`examples/chess_engine_kernel_audit.st`](examples/chess_engine_kernel_audit.st), and [`examples/nnue_host_audit.st`](examples/nnue_host_audit.st).
 
-Current status
+The compiler is designed so the source-level memory rules are authoritative. Backend lowering must preserve those rules rather than inventing a separate safety convention.
 
-Stable 1.0.0 is the current implemented language/compiler release.
-
-The current release includes:
-
-- indentation-based syntax
-- static type checking
-- deterministic ownership and destruction
-- shared and exclusive references
-- shared and exclusive range views
-- fixed-size arrays
-- dynamic owning arrays
-- arena/region allocation
-- structs
-- enums
-- Optional values
-- Result values
-- compile-time constants and expressions
-- numeric casts
-- arithmetic and bitwise expressions
-- comparisons and logical operators
-- "if" / "else if" / "else"
-- "while"
-- "for"
-- "break"
-- "continue"
-- function calls and returns
-- indexed and field assignment
-- bounds checking
-- borrow/escape checking
-- native LLVM code generation
-- LLVM toolchain selection
-- diagnostic source locations and repair hints
-- self-hosting infrastructure
-- LLVM/HIR inspection and bootstrap tooling
-
-Future features remain tracked separately in "ROADMAP.md".
+Full self-hosting is not yet claimed: the recursive Stable-written bootstrap covers a supported subset, while the complete production compiler and platform driver remain in C++. See [`docs/BOOTSTRAP_AUDIT.md`](docs/BOOTSTRAP_AUDIT.md).
 
 ---
 
-Why Stable exists
+## **Stable at a glance**
 
-Stable targets the space between high-level memory safety and low-level control.
+```text
+T            Own this value.
+&T           Borrow this value for read-only access.
+&mut T       Borrow this value for exclusive mutable access.
+View[T]      Borrow a range for read-only access.
+EditView[T]  Borrow a range for exclusive mutable access.
+Arena        Own a region containing allocations.
+```
 
-The design goals are:
+Stable's borrow lifetimes are **inferred**. Ordinary source code does not require explicit lifetime parameters.
 
-1. Native performance without a mandatory tracing garbage collector.
-2. Ownership safety without explicit lifetime syntax.
-3. Deterministic destruction.
-4. Predictable data representation.
-5. Cheap references and views.
-6. Region allocation for short-lived object graphs.
-7. Strong alias information for optimization.
-8. A language surface that remains easier to reason about than explicit lifetime-heavy systems languages.
-9. General-purpose use rather than a domain-specific focus.
+The core model does **not** require tracing garbage collection and does **not** silently introduce reference counting for ordinary values.
 
-Chess engines are one demanding workload used during Stable development and benchmarking, but Stable is intended for general systems programming.
+[![Release](https://img.shields.io/github/v/release/Monank2011/STABLE?display_name=tag&sort=semver)](https://github.com/Monank2011/STABLE/releases/tag/v1.0.0)
+[![License](https://img.shields.io/github/license/Monank2011/STABLE)](LICENSE)
+[![Build](https://img.shields.io/badge/build-CMake%20%2B%20C%2B%2B17-blue)](CMakeLists.txt)
+
+> **Stable 1.0.0 is the first packaged release.** Download a ready-to-run compiler below, or build the compiler from source.
+
+### Release downloads
+
+- **[Linux x86_64 compiler](https://github.com/Monank2011/STABLE/releases/download/v1.0.0/stablec-1.0.0-linux-x86_64.tar.gz)**
+- **[Windows x86_64 compiler](https://github.com/Monank2011/STABLE/releases/download/v1.0.0/stablec-1.0.0-windows-x86_64.zip)**
+- **[Source code (this repository)](https://github.com/Monank2011/STABLE/tree/v1.0.0)**
+
+Each binary package includes the `stablec` compiler, runtime support files, examples, and installation notes. SHA-256 checksums are published with the GitHub release.
+
 
 ---
 
-Language overview
+## **Version 1.0.0**
 
-Indentation-based syntax
+Stable 1.0.0 is the current published implementation of the Stable compiler and language surface.
 
-Stable uses indentation to delimit blocks.
+The release includes:
 
+- **Indentation-based blocks**
+- **Static type checking**
+- **Deterministic ownership and destruction**
+- **Move/use-after-move checking**
+- **Shared `&T` and exclusive `&mut T` references**
+- **`View[T]` and `EditView[T]`**
+- **Fixed `[N]T` and dynamic `[]T` arrays**
+- **Arena/region allocation**
+- **Structs and enums**
+- **Optional values**
+- **`Result[T, E]` values**
+- **Compile-time expressions and fixed-size specialization**
+- **Integer, floating-point, boolean, and string values**
+- **Arithmetic, logical, comparison, and bitwise operators**
+- **`if`, `else if`, `else`, `while`, and `for`**
+- **`break` and `continue`**
+- **Function calls, returns, forward references, and mutual recursion**
+- **Bounds checking and bounds-check elimination when proven safe**
+- **Native LLVM code generation**
+- **LLVM toolchain selection**
+- **Source-aware diagnostics**
+- **Native self-hosting infrastructure**
+- **Recursive bootstrap verification**
+- **LLVM/HIR inspection and compatibility tooling**
+- **Explicit unsafe raw pointers, manual/aligned/stack allocation, and volatile/unaligned memory operations**
+- **Inline assembly, CPU feature control, SIMD values, atomics, and OS threads**
+- **C-compatible scalar/pointer/function-pointer FFI and external globals**
+- **Freestanding/no-runtime builds, target triples, cross-target objects, linker scripts, and custom link options**
+- **Systems regression coverage across x86-64, i386, and AArch64 object generation**
+- **Hosted backend/cloud runtime with TCP/UDP sockets, epoll-backed polling on Linux, synchronization primitives, process handles, HTTP/1.1 GET/POST, JSON primitives, and growable byte buffers**
+- **Backend integration coverage for networking, synchronization, process management, HTTP, JSON, and high-fanout poller registration**
+- **DevOps/scripting runtime with arguments, environment variables, filesystem/path operations, regex, shell execution/output, and compiled script mode**
+- **Native ML/AI tensor runtime with f32/f64 multidimensional tensors, slicing/reshape/transpose, reductions, matmul, activations, softmax, convolution, explicit autodiff tapes, and accelerator/BLAS discovery**
+
+Future expansion is tracked separately in **`ROADMAP.md`**.
+
+---
+
+## **Why Stable exists**
+
+Stable targets the part of systems programming where programmers want both:
+
+- **Low-level control and native performance**, and
+- **Strong compile-time memory guarantees**.
+
+The design deliberately avoids making safety depend on a mandatory tracing collector or pervasive hidden reference counting.
+
+The primary design goals are:
+
+1. **Native performance**.
+2. **Deterministic destruction**.
+3. **Ownership safety without explicit lifetime syntax**.
+4. **Cheap references and views**.
+5. **Predictable representations and costs**.
+6. **Region allocation for bulk-lifetime workloads**.
+7. **Strong alias information usable by optimizers**.
+8. **A memory model that is practical to learn**.
+9. **A general-purpose language rather than a domain-specific language**.
+
+---
+
+## **Hello, Stable**
+
+```stable
 main() i32:
     print("Hello, STABLE!")
     return 0
+```
 
-No brace syntax is required for ordinary blocks.
+Build:
+
+```sh
+stablec hello.st
+```
+
+Run:
+
+```sh
+./hello
+```
 
 ---
 
-Primitive types
+## **Type system**
 
-The current type system includes:
+### **Integers**
 
-Integers
+```text
+i8   i16   i32   i64   isize
+u8   u16   u32   u64   usize
+```
 
-i8
-i16
-i32
-i64
-isize
+### **Floating point**
 
-u8
-u16
-u32
-u64
-usize
-
-Floating point
-
+```text
 f32
 f64
+```
 
-Other built-in types
+### **Other built-in types**
 
+```text
 bool
 string
 void
+```
 
-Stable also has compiler-known aggregate/runtime types:
+### **Compound types**
 
-Arena
+```text
+[N]T
+[]T
+T?
+Result[T, E]
+&T
+&mut T
 View[T]
 EditView[T]
+Arena
+```
 
-and language-level aggregate forms such as arrays, Optionals, Results, structs, and enums.
-
----
-
-Literals
-
-Stable supports:
-
-- decimal integers
-- hexadecimal integers
-- binary integers
-- floating-point literals
-- string literals
-- "true"
-- "false"
-- "none"
-
-Examples:
-
-a = 42
-b = 0xFF
-c = 0b101010
-d = 3.5
-e = true
-f = "Stable"
-
-Numeric context is propagated through unary operators, so explicit declarations such as:
-
-x: f32 = -0.9
-y: i64 = -918273645
-
-preserve the intended numeric type.
+Structs and enums provide user-defined aggregate and variant types.
 
 ---
 
-Functions
+## **Ownership and moves**
 
-Functions use:
+An owning value has one responsible owner at a time.
 
-functionName(parameters) returnType:
-    ...
+For non-copy values, ownership may move through:
 
-Example:
-
-add(a: i32, b: i32) i32:
-    return a + b
-
-main() i32:
-    return add(20, 22)
-
-Functions may return scalars and supported aggregate values.
-
-The production frontend resolves function declarations independently of their textual ordering, allowing forward references and mutual recursion in the supported compiler pipeline.
-
----
-
-Variables and constants
-
-Ordinary bindings:
-
-x = 42
-
-Explicit types:
-
-x: i64 = 42
-
-Constants:
-
-const x = 42
-
-Compile-time values:
-
-comptime N = 2 + 1
-
-"comptime" values are evaluated during compilation and may participate in compile-time-known contexts such as fixed-array sizes.
-
----
-
-Control flow
-
-"if"
-
-main() i32:
-    x = 10
-
-    if x > 5:
-        return 1
-
-    return 0
-
-"else if" / "else"
-
-main() i32:
-    x = 10
-
-    if x < 5:
-        return 1
-    else if x == 10:
-        return 2
-    else:
-        return 3
-
-"while"
-
-main() i32:
-    x = 0
-
-    while x < 10:
-        x += 1
-
-    return x
-
-"for"
-
-Stable supports array/view iteration:
-
-main() i32:
-    xs = [1, 2, 3, 4]
-    sum: i32 = 0
-
-    for x in xs:
-        sum += x
-
-    return sum
-
-"break" and "continue" are supported.
-
----
-
-Structs
-
-Struct declarations:
-
-Point[x: i32, y: i32]
-
-main() i32:
-    p = Point[x: 20, y: 22]
-    return p.x + p.y
-
-Struct fields participate in the ownership and borrow system.
-
-Owning fields are transferred and destroyed according to the normal ownership rules.
-
----
-
-Enums
-
-Enums may contain integer-backed variants.
-
-enum ErrorCode:
-    Empty
-    Invalid = 7
-
-Enum members may be used as values:
-
-return ErrorCode.Empty
-
-Enums participate in "Result" and guard expressions.
-
----
-
-Optional values
-
-An Optional type is written:
-
-T?
-
-Example:
-
-x: i32? = none
-
-Stable supports contextual lifting from a payload into the corresponding Optional type where permitted.
-
----
-
-Result values
-
-Result values use:
-
-Result[T, E]
-
-with constructors:
-
-Ok(value)
-Err(error)
-
-Example:
-
-enum ErrCode:
-    Empty
-
-make(x: i32) Result[i32, ErrCode]:
-    if x == 0:
-        return Err(ErrCode.Empty)
-
-    return Ok(x + 1)
-
-main() i32:
-    r = make(41)
-
-    r is Ok(v) -> return v
-
-    return 1
-
-The "is Ok(...)" and "is Err(...)" forms provide typed guard bindings.
-
-Owning Result payloads obey the same move and destruction rules as ordinary owning values.
-
----
-
-Arrays
-
-Stable has two array forms.
-
-Fixed arrays
-
-[N]T
-
-Example:
-
-comptime N = 3
-
-main() i32:
-    xs: [N]i32 = [10, 20, 30]
-    return xs[2]
-
-Fixed arrays support:
-
-- construction
-- indexing
-- indexed assignment
-- parameters
+- initialization
+- assignment
+- function calls
 - returns
-- struct fields
-- mutable references
-- bounds checking
+- insertion into owning collections
+- aggregate construction
 
-Fixed arrays do not support "push()".
+After a valid move, the old owner cannot continue to be used as though it owns the resource.
 
----
+This prevents common **use-after-move** and **double-destruction** errors.
 
-Dynamic arrays
-
-[]T
-
-Example:
-
-main() i32:
-    xs = [1, 2]
-    xs.push(3)
-
-    return xs[2]
-
-Dynamic arrays support:
-
-- ownership
-- indexing
-- indexed assignment
-- ".len()"
-- ".isEmpty()"
-- ".push()"
-- slicing
-- shared views
-- exclusive editing views
-- passing and returning
-- recursive ownership/destruction
+Field and index projections do not silently turn into owning extraction operations.
 
 ---
 
-References
+## **Borrowing**
 
-Stable has two reference modes.
+### **Shared borrow: `&T`**
 
-Shared reference
+A shared reference is **non-owning** and **read-only**.
 
-&T
+Multiple compatible shared borrows may coexist.
 
-A shared reference is read-only and non-owning.
+### **Exclusive borrow: `&mut T`**
 
-Multiple shared references may coexist when their accesses do not conflict with mutation.
+An exclusive reference is **non-owning** and grants mutation access.
 
-Exclusive reference
-
-&mut T
-
-An exclusive mutable reference provides mutation access while the referenced object is exclusively borrowed.
+While an exclusive borrow is active, conflicting accesses are rejected.
 
 Example:
 
+```stable
 inc(v: &mut i64) void:
-    v = 1
+    v = v + 1
+```
 
-The reference does not become an owner.
-
----
-
-Views
-
-"View[T]"
-
-A "View[T]" is a non-owning read-only range.
-
-Conceptually:
-
-pointer + length
-
-Example:
-
-main() i32:
-    xs = [5, 8]
-    view: View[i32] = xs[0:2]
-
-    return view[0] + view[1]
-
-"EditView[T]"
-
-An "EditView[T]" is a non-owning exclusive mutable range.
-
-It provides mutation access while preserving exclusivity over the affected range.
+Stable automatically determines when the borrow is no longer needed.
 
 ---
 
-Slicing
+## **Views**
 
-Stable supports range slicing:
+`View[T]` is a **shared, non-owning range view**.
 
-view = xs[0:4]
+`EditView[T]` is an **exclusive, non-owning mutable range view**.
 
-Views may be created from supported fixed and dynamic arrays.
+Conceptually, both are small range descriptors containing storage information and a length. They do not own the backing storage.
 
-Views can be resliced and indexed.
-
-A view does not take ownership of its backing storage.
+Dynamic-array operations that could relocate storage are prevented while conflicting references or views are still live.
 
 ---
 
-Arenas
+## **Arrays**
 
-Stable includes region-oriented allocation through "Arena".
+### **Fixed arrays**
 
-Example:
+```stable
+comptime N = 4
+xs: [N]i32 = [1, 2, 3, 4]
+```
 
-Node[data: []i32]
+Fixed arrays support indexed access and mutation and participate in ownership/borrow checking.
 
-main() i32:
-    arena = Arena.create(256)
-    nodes = [Node[data: [10]], Node[data: [20]]] in arena
+### **Dynamic arrays**
 
-    return nodes[0].data[0] + nodes[1].data[0]
+```stable
+xs = [1, 2, 3]
+xs.push(4)
+print(xs.len())
+```
 
-Arena allocation is intended for:
+Dynamic arrays support ownership, indexed access, mutation, length queries, emptiness checks, growth, slicing, views, and deterministic cleanup.
 
-- temporary object graphs
+---
+
+## **Bounds safety**
+
+Array and view indexing is checked unless the compiler can **prove the access safe**.
+
+The implementation can use fixed sizes, loop ranges, dominating conditions, view lengths, and compile-time information to eliminate checks when safe.
+
+Invalid runtime indexing traps instead of silently touching unrelated memory.
+
+---
+
+## **Arenas and regions**
+
+`Arena` provides **region-oriented allocation** for workloads where many objects share a lifetime boundary.
+
+Typical uses include:
+
 - parsers
-- compiler data
+- compiler data structures
+- temporary graphs
 - request-scoped data
 - search structures
-- workloads with bulk lifetime boundaries
+- other bulk-lifetime workloads
 
-Existing arena allocations are not relocated merely because the arena grows.
+Arena growth does not relocate existing allocations merely because another arena chunk is required.
+
+Arena-backed values and references remain subject to **escape and lifetime checking**.
 
 ---
 
-Compile-time computation
+## **Optionals**
 
-Stable supports compile-time integer, floating-point, string, and boolean expressions.
+```stable
+value: i32? = none
+```
+
+Optional values participate in normal ownership and destruction rules when their payload is owning.
+
+---
+
+## **Results**
+
+```stable
+enum ErrorCode:
+    Empty
+
+make(x: i32) Result[i32, ErrorCode]:
+    if x == 0:
+        return Err(ErrorCode.Empty)
+    return Ok(x + 1)
+```
+
+Supported forms include `Ok(...)`, `Err(...)`, and typed `is Ok(...)` / `is Err(...)` guards.
+
+---
+
+## **Comptime**
+
+Stable evaluates supported compile-time expressions during compilation.
+
+Current compile-time values include **integer**, **floating-point**, **boolean**, and **string** expressions.
 
 Example:
 
-comptime N = 2 + 1
+```stable
+comptime N = 2 + 2
+xs: [N]i32 = [10, 20, 30, 40]
+```
 
-main() i32:
-    xs: [N]i32 = [10, 20, 30]
-    return xs[2]
-
-The current evaluator includes compile-time safety checks such as:
-
-- overflow detection
-- division-by-zero detection
-- expression folding
-- boolean evaluation
-- numeric evaluation
-- string evaluation
-- use in compile-time-known fixed-size contexts
+The compile-time evaluator includes checks such as **overflow detection** and **division-by-zero detection**.
 
 ---
 
-Operators
+## **Control flow**
 
-The current expression system includes:
+Stable provides:
 
-Arithmetic
+```text
+if / else if / else
+while
+for
+break
+continue
+```
 
-+
--
-*
-/
-%
+`for` iteration supports arrays and supported views, with loop borrows participating in the same safety rules as ordinary borrows.
 
-Bitwise
+---
 
-&
-|
-^
-~
-<<
->>
+## **Operators**
 
-Logical
+Arithmetic:
 
-&&
-||
-!
+```text
++  -  *  /  %
+```
 
-Comparisons
+Bitwise:
 
-==
-!=
-<
->
-<=
->=
+```text
+&  |  ^  ~  <<  >>
+```
 
-Cast
+Logical:
 
+```text
+&&  ||  !
+```
+
+Comparison:
+
+```text
+==  !=  <  >  <=  >=
+```
+
+Explicit conversion:
+
+```stable
 x as i64
+```
+
+Stable supports decimal, hexadecimal, and binary integer literals plus floating-point literals.
 
 ---
 
-Built-in runtime surface
+## **Diagnostics**
 
-The current compiler-known runtime operations include:
-
-readFile(string) -> []u8
-writeStdout(string) -> void
-writeRaw(string) -> void
-writeIntRaw(i64) -> void
-writeByteRaw(i64) -> void
-print(value) -> void
-printInt(i64) -> void
-stringLen(string) -> usize
-getEnv(string) -> string
-Arena.create(usize) -> Arena
-
-Collection methods currently include:
-
-array.len()
-array.isEmpty()
-array.push(value)
-view.len()
-string.len()
-
-"print()" currently supports:
-
-- strings
-- booleans
-- integer values
-- "f32"
-- "f64"
+Stable diagnostics include **file, line, column, highlighted source**, and repair-oriented help when available.
 
 Example:
 
-main() i32:
-    print("Hello")
-    print(42)
-    print(true)
-    print(3.5)
-
-    return 0
-
----
-
-Memory safety model
-
-Stable does not use tracing garbage collection as its core ownership mechanism.
-
-It also does not silently turn ordinary values into reference-counted objects.
-
-The core model is:
-
-Owned value
-    |
-    +-- shared borrow --> &T
-    |
-    +-- exclusive borrow --> &mut T
-    |
-    +-- shared range --> View[T]
-    |
-    +-- exclusive range --> EditView[T]
-    |
-    +-- region ownership --> Arena
-
-Borrow lifetimes are inferred by the compiler.
-
-The source language does not require Rust-style lifetime parameters.
-
-See:
-
-"docs/MEMORY_MODEL.md"
-
-for the complete memory-model specification.
-
----
-
-Ownership
-
-Owning values have one responsible owner at a time.
-
-For non-copy values:
-
-- assignment may transfer ownership
-- function calls may transfer ownership
-- returns may transfer ownership
-- storing into an owning collection may transfer ownership
-
-After a successful move, the old owner is no longer usable as an owner.
-
-Stable rejects accidental use-after-move.
-
----
-
-Destruction
-
-Destruction is deterministic and ownership-driven.
-
-The compiler tracks cleanup through lowering and generates the required destruction paths.
-
-The current implementation includes recursive cleanup for:
-
-- dynamic arrays
-- structs
-- Optional values
-- Result values
-- nested owning aggregates
-
-The ownership model aims for:
-
-one owner
-    ->
-zero or more ownership transfers
-    ->
-one final destruction
-
-No owning resource should be destroyed twice.
-
----
-
-Borrowing rules
-
-The important rules are:
-
-1. "&T" is read-only.
-2. "&mut T" is exclusive and mutable.
-3. "View[T]" is read-only.
-4. "EditView[T]" is exclusive and mutable.
-5. Conflicting borrows cannot overlap.
-6. Owner mutation is blocked while a conflicting borrow is active.
-7. Dynamic-array operations that may relocate storage are blocked while conflicting views/references are active.
-8. A borrow cannot outlive its backing storage.
-9. A view cannot outlive or outlive the validity of its backing storage.
-10. Non-copy field/index projections do not silently become ownership moves.
-11. Arena-backed references cannot escape the lifetime of their region.
-12. Moved values cannot be used as though they still owned their previous storage.
-
----
-
-Bounds safety
-
-Array and view indexing is bounds checked unless the compiler can safely eliminate a check.
-
-The compiler may use:
-
-- known fixed lengths
-- loop ranges
-- dominating conditions
-- view length invariants
-- compile-time information
-
-to remove checks when it can prove the access safe.
-
-Failed runtime bounds checks trap deterministically.
-
----
-
-Compiler architecture
-
-The current production compiler is:
-
-Stable source
-   |
-   v
-Lexer
-   |
-   v
-Parser / AST
-   |
-   v
-Semantic checking
-   |
-   v
-Comptime evaluation
-   |
-   v
-Native LLVM lowering
-   |
-   v
-LLVM IR
-   |
-   v
-Clang/LLVM
-   |
-   v
-Native executable
-
-The repository also contains the legacy typed HIR/SSA infrastructure used for bootstrap/reference purposes.
-
-The HIR path is optional and is enabled with:
-
--DSTABLE_ENABLE_LEGACY_HIR=ON
-
-The production "auto" backend is native/direct LLVM and does not silently fall back to HIR.
-
----
-
-LLVM toolchain support
-
-Stable emits modern opaque-pointer LLVM IR and therefore requires LLVM/Clang 15 or newer.
-
-The compiler does not hard-code one LLVM installation.
-
-Select a toolchain with:
-
-STABLE_CLANG=/path/to/clang
-
-or:
-
-LLVM_CC=/path/to/clang
-
-Otherwise Stable uses:
-
-clang
-
-from the environment.
-
-The repository includes:
-
-tools/verify_llvm_compat.sh
-
-for compatibility checking.
-
-Floating-point constants are emitted using an exact LLVM-compatible representation so non-exact values do not depend on one particular LLVM release's decimal parser behavior.
-
----
-
-Optimization
-
-The compiler exposes:
-
--O0
--O1
--O2
--O3
-
-The default driver optimization level is "-O2".
-
-The typed-HIR optimizer currently includes safe transformations such as:
-
-- scalar constant folding
-- floating-point constant folding
-- constant conditional simplification
-- unreachable block removal
-- dead pure-value elimination
-- safe fixed-array bounds-check elimination
-- conservative same-block scalar load forwarding
-
-Ownership-bearing and reference-bearing aggregates are deliberately excluded from unsafe load forwarding.
-
-The backend then passes the generated LLVM IR to Clang/LLVM for native optimization.
-
----
-
-Diagnostics
-
-Stable reports diagnostics with:
-
-- file name
-- line
-- column
-- highlighted source line
-- error description
-- repair-oriented help where available
-
-Example:
-
+```text
 file.st:4:7: error: cannot modify an owner while it is borrowed
   --> file.st:4:7
     |
@@ -831,224 +403,221 @@ file.st:4:7: error: cannot modify an owner while it is borrowed
     |
     = help: End the borrow before mutating the value, or use an exclusive
       EditView/&mut access when appropriate.
+```
 
 ---
 
-Self-hosting
+## **LLVM backend**
 
-Stable contains a Stable-written compiler frontend/backend track under:
+The production compiler lowers Stable to **LLVM IR**, then invokes the selected LLVM/Clang toolchain for native code generation.
 
-selfhost/
+Toolchain selection:
 
-The repository includes recursive bootstrap verification.
+```sh
+STABLE_CLANG=/path/to/clang stablec hello.st
+```
 
-The native LLVM self-hosting verifier can repeatedly compile the Stable-written compiler through Stable itself and compare the resulting compiler artifacts.
+or:
 
-The repository also retains the legacy HIR/C++ bootstrap route as compatibility infrastructure.
+```sh
+LLVM_CC=/path/to/clang stablec hello.st
+```
 
-See:
+If neither is set, the compiler uses `clang` from the environment.
 
-"docs/BOOTSTRAP.md"
+Stable emits modern **opaque-pointer LLVM IR** and targets the LLVM 15+ IR family.
+
+Run compatibility checks with:
+
+```sh
+tools/verify_llvm_compat.sh
+```
 
 ---
 
-Build
+## **Optimization**
+
+Compiler optimization levels:
+
+```text
+-O0  -O1  -O2  -O3
+```
+
+The default driver level is `-O2`.
+
+The compiler has safe constant folding, conditional simplification, unreachable-block removal, dead pure-value elimination, safe fixed-array bounds-check elimination, and conservative scalar load forwarding in the relevant IR path.
+
+The LLVM backend then performs target-level optimization.
+
+---
+
+## **Self-hosting**
+
+Stable contains a Stable-written compiler track and recursive bootstrap verification.
+
+The native self-hosting path can compile the Stable-written compiler through the Stable compiler itself and compare resulting stages.
+
+The bootstrap infrastructure verifies a **byte-identical stage-2/stage-3 fixed point** for the validated native path.
+
+---
+
+## **Memory safety**
+
+Stable's core memory invariants include:
+
+- **no use-after-move**
+- **no double destruction**
+- **no dangling borrow**
+- **no conflicting exclusive aliases**
+- **no mutation through shared access**
+- **no invalidating dynamic-array relocation while a conflicting borrow is live**
+- **no invalid arena/reference escape**
+- **bounds-safe indexing**
+- **deterministic destruction**
+
+See **`Memory_Model.md`** for the complete model.
+
+---
+
+## **Validation**
+
+Stable has been exercised through:
+
+- compiler regression tests
+- native self-hosting tests
+- recursive bootstrap checks
+- scalar computation benchmarks
+- basic memory benchmarks
+- heavy memory stress
+- AddressSanitizer
+- UndefinedBehaviorSanitizer
+- LeakSanitizer
+- LLVM compatibility tests
+
+Heavy-memory testing reached roughly **1.37 GiB peak RSS** in the largest completed red-zone workload without sanitizer findings in the tested workloads.
+
+These tests are evidence from exercised programs, not a mathematical proof of compiler infallibility.
+
+See **`Benchmarks.md`** for the methodology and results.
+
+---
+
+## **Build from source**
 
 Requirements:
 
-- CMake 3.20 or newer
-- C++17 compiler
-- Clang/LLVM 15 or newer
-- a Unix-like environment for the provided verification scripts
+- **CMake 3.20+**
+- **C++17 compiler**
+- **Clang/LLVM 15+**
 
-Build:
-
+```sh
 cmake -S . -B build -DSTABLE_BUILD_TESTS=ON
 cmake --build build -j
-
-Run tests:
-
 ctest --test-dir build --output-on-failure
+```
 
-Build Stable with legacy HIR compatibility enabled:
+Legacy HIR compatibility:
 
+```sh
 cmake -S . -B build \
     -DSTABLE_BUILD_TESTS=ON \
     -DSTABLE_ENABLE_LEGACY_HIR=ON
+```
 
 ---
 
-Command-line usage
+## **Command-line interface**
 
-Build an executable:
+```sh
+stablec program.st
+stablec program.st -o program
+stablec program.st --run
+stablec program.st --check
+stablec program.st --emit-llvm
+```
 
-stablec hello.st
+Backend selection:
 
-Choose an output:
+```sh
+stablec program.st --backend=auto
+stablec program.st --backend=llvm
+stablec program.st --backend=hir
+```
 
-stablec hello.st -o hello
-
-Run immediately:
-
-stablec hello.st --run
-
-Type-check only:
-
-stablec hello.st --check
-
-Emit LLVM:
-
-stablec hello.st --emit-llvm
-
-Emit LLVM to a file:
-
-stablec hello.st --emit-llvm -o hello.ll
-
-Select a backend:
-
-stablec hello.st --backend=auto
-stablec hello.st --backend=llvm
-
-The legacy HIR backend requires a build configured with:
-
-STABLE_ENABLE_LEGACY_HIR=ON
+`auto` selects the production native LLVM path. `hir` is the optional legacy/bootstrap path.
 
 ---
 
-Project layout
+## **Project layout**
 
-src/
-    lexer/            lexical analysis
-    parser/           AST and parsing
-    sema/             symbol and type checking
-    comptime/         compile-time evaluator
-    diagnostics/      diagnostic rendering
-    codegen/          native LLVM backend
-    ir/               legacy HIR/SSA backend
-
-selfhost/
-    lexer.st           Stable lexer
-    parser.st          Stable parser
-    compiler.st        Stable-written compiler
-
-examples/
-    language examples and regression programs
-
-docs/
-    language and architecture documentation
-
-tools/
-    bootstrap and compatibility verification scripts
+```text
+src/          Compiler implementation
+selfhost/     Stable-written compiler track
+examples/     Language and regression examples
+docs/         Detailed technical documentation
+tools/        Bootstrap and compatibility tooling
+```
 
 ---
 
-Testing
+## **Documentation**
 
-Stable is tested at several levels:
-
-- lexer/parser tests
-- typechecker tests
-- comptime tests
-- integration tests
-- diagnostics tests
-- optimizer tests
-- memory-model tests
-- native self-host tests
-- recursive bootstrap tests
-- LLVM compatibility tests
-- sanitizer tests
-- benchmark-driven regression tests
-
-The benchmark campaign also includes:
-
-- basic scalar computation
-- basic memory operations
-- heavy memory allocation
-- large dynamic arrays
-- ownership churn
-- arena growth
-- nested ownership
-- views and EditViews
-- repeated lifecycle tests
-
-The benchmark suites are intended to find bugs as well as measure speed.
+- **`Language.md`**: language reference
+- **`Memory_Model.md`**: complete ownership/borrowing/region model
+- **`Bootstrap.md`**: self-hosting and recursive bootstrap
+- **`Benchmarks.md`**: benchmark methodology and validation
+- **`ChangeLog.md`**: release history
+- **`ROADMAP.md`**: future features
+- **`CONTRIBUTING.md`**: contribution guide
+- **`SECURITY.md`**: security reporting policy
 
 ---
 
-Performance validation
+## **Release scope**
 
-Stable is designed for native performance.
+Stable 1.0.0 is a complete release of the **currently implemented language/compiler surface**, including native systems programming, browser WebAssembly, hosted backend/cloud primitives, native ML/AI compute, mobile targets, and game-development APIs.
 
-Benchmarking is performed against equivalent C++ programs using the same LLVM/Clang toolchain where possible.
-
-The project does not claim that Stable is universally faster than C++ or Rust based on one benchmark.
-
-Runtime speed, generated code, correctness, memory behavior, and compiler behavior all matter.
+Future expansion focuses on broader language/ecosystem features such as general-purpose generics, richer pattern matching, modules/packages, language-level async/await, advanced GPU libraries, PGO, and broader tooling.
 
 ---
 
-Current release boundaries
+## **License**
 
-Stable 1.0.0 is not intended to claim every future language feature.
+See **`LICENSE`**.
 
-Items such as:
 
-- full general-purpose generic-function monomorphization
-- exhaustive pattern matching
-- modules/package management
-- safe FFI
-- concurrency and channels
-- atomics
-- SIMD/vector abstractions
-- comptime functions/reflection
-- PGO
-- debugger/LSP tooling
-- cross-compilation and linker integration
+## Building on Linux and Windows
 
-remain future roadmap work unless explicitly listed as implemented in the current release documentation.
+Stable 1.0.0 is designed to build on both Linux and Windows using CMake 3.20+ and a C++17 compiler. The production backend uses an external LLVM/Clang toolchain.
 
----
+### Linux
 
-License
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+```
 
-Stable's source code should be published under the project's chosen open-source license.
+### Windows
 
-Add the corresponding "LICENSE" file at repository root before release.
+With Visual Studio or another C++17-capable toolchain:
 
----
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022"
+cmake --build build --config Release
+```
 
-Contributing
+Install a modern LLVM/Clang toolchain and ensure `clang` is on `PATH`, or configure `STABLE_CLANG_EXECUTABLE` at CMake configure time. Stable accepts LLVM/Clang 15 or newer because its generated IR uses opaque pointers.
 
-See:
+The compiler driver contains platform-specific process, quoting, executable-name, and temporary-file handling so the same Stable source tree can build and run on POSIX systems and Windows.
 
-"CONTRIBUTING.md"
+## Web Frontend
 
-Security
+Stable supports browser-oriented WebAssembly builds with `stablec --web`; see `docs/WEB.md`.
 
-See:
+## Mobile targets
 
-"SECURITY.md"
+Stable 1.0.0 includes native Android and iOS target support, mobile project generation, JNI/Objective-C bridge scaffolding, native UI shells, and a platform-neutral `Mobile` API for screen metrics, safe areas, storage paths, clipboard, URLs, haptics, permissions, and hardware capability queries. See `docs/Mobile.md`.
 
-Roadmap
+## Game development
 
-See:
-
-"ROADMAP.md"
-
----
-
-First program
-
-main() i32:
-    print("Hello, STABLE!")
-    return 0
-
-Build it:
-
-stablec hello.st
-
-Run it:
-
-./hello
-
-Welcome to Stable.
+Stable 1.0.0 includes a native SDL2-backed `Game` runtime for windows, events, input, 2D rendering, textures, audio and frame timing, plus a `Graphics` layer for OpenGL and dynamically loaded native GPU APIs. `stablec --game-project` generates a portable CMake game project. See `docs/GAME_DEVELOPMENT.md`.

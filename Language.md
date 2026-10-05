@@ -1,279 +1,350 @@
-Stable Language Reference
+# **Stable 1.0.0 Language Reference**
 
-This is the concise reference for the Stable 1.0.0 language surface currently implemented by the compiler.
-1. Program structure
-A Stable program is composed of top-level:
-function declarations
-struct declarations
-enum declarations
-compile-time declarations
-Blocks are indentation-based.
-Example:
+This document describes the currently implemented Stable language surface.
+
+## **1. Syntax**
+
+Stable uses **indentation-based blocks**.
+
+```stable
 main() i32:
     print("Hello, STABLE!")
     return 0
-2. Function syntax
-name(parameter: Type, parameter: Type) ReturnType:
-    ...
-Example:
-add(a: i32, b: i32) i32:
-    return a + b
-3. Variable bindings
-Inference:
-x = 42
-Explicit type:
-x: i64 = 42
-Constant:
-const x = 42
-Compile-time:
-comptime x = 42
-4. Primitive types
-void
-bool
-string
+```
 
-i8
-i16
-i32
-i64
-isize
+## **2. Primitive types**
 
-u8
-u16
-u32
-u64
-usize
+```text
+i8 i16 i32 i64 isize
+u8 u16 u32 u64 usize
+f32 f64
+bool string void
+```
 
-f32
-f64
-5. Compound types
-Fixed array
+## **3. Compound types**
+
+```text
 [N]T
-Dynamic array
 []T
-Optional
 T?
-Result
 Result[T, E]
-Shared reference
 &T
-Exclusive reference
 &mut T
-Shared range view
 View[T]
-Exclusive range view
 EditView[T]
 Arena
-Arena
-6. Numeric literals
-Examples:
+```
+
+## **4. Functions**
+
+```stable
+add(a: i32, b: i32) i32:
+    return a + b
+```
+
+Function declarations are resolved independently of textual ordering in the supported compiler path, allowing **forward references and mutual recursion**.
+
+## **5. Values**
+
+Inference:
+
+```stable
+x = 42
+```
+
+Explicit typing:
+
+```stable
+x: i64 = 42
+```
+
+Constants:
+
+```stable
+const x = 42
+```
+
+Compile-time values:
+
+```stable
+comptime N = 4
+```
+
+## **6. Literals**
+
+Supported forms include:
+
+```text
 42
 0x2A
 0b101010
 3.5
 -0.9
-The compiler propagates expected numeric context through unary + and -.
-7. Strings
-Example:
-message = "Hello, STABLE!"
-print(message)
-Current string operations include:
-string.len()
-stringLen(string)
-8. Arithmetic
-+
--
-*
-/
-%
-9. Bitwise operations
-&
-|
-^
-~
-<<
->>
-10. Logical operations
-&&
-||
-!
-11. Comparisons
-==
-!=
-<
->
-<=
->=
-12. Casts
-Explicit conversion:
+true
+false
+none
+"Stable"
+```
+
+Numeric context is preserved through unary `+` and `-`.
+
+## **7. Arithmetic**
+
+```text
++  -  *  /  %
+```
+
+## **8. Bitwise**
+
+```text
+&  |  ^  ~  <<  >>
+```
+
+## **9. Logical**
+
+```text
+&&  ||  !
+```
+
+## **10. Comparisons**
+
+```text
+==  !=  <  >  <=  >=
+```
+
+## **11. Casts**
+
+```stable
 x as i64
-x as i32
 x as f64
-Conversions are checked according to the current type system.
-13. Conditional control flow
-if condition:
+```
+
+## **12. Conditionals**
+
+```stable
+if x > 0:
     ...
-if condition:
-    ...
-else:
-    ...
-if condition:
-    ...
-else if other:
+else if x == 0:
     ...
 else:
     ...
-14. While loops
+```
+
+## **13. Loops**
+
+```stable
 while condition:
     ...
-15. For loops
-for item in collection:
+```
+
+```stable
+for item in xs:
     ...
-The current type checker accepts arrays and views as iteration sources.
-Loop-held borrows participate in normal ownership rules.
-16. Loop control
-break
-continue
-17. Return
-return value
-or:
-return
-for void functions.
-18. Structs
+```
+
+`break` and `continue` are supported.
+
+## **14. Structs**
+
+```stable
 Point[x: i32, y: i32]
-Construct:
-p = Point[x: 10, y: 20]
-Access:
-x = p.x
-Mutate:
-p.x = 42
-19. Enums
+
+main() i32:
+    p = Point[x: 20, y: 22]
+    return p.x + p.y
+```
+
+Struct fields participate in ownership and borrow checking.
+
+## **15. Enums**
+
+```stable
 enum ErrorCode:
     Empty
     Invalid = 7
-Use:
-ErrorCode.Empty
-20. Optionals
-x: i32? = none
-An ordinary value can be lifted contextually into its Optional type where supported.
-21. Results
-Result[i32, ErrorCode]
-Create:
-Ok(42)
-Err(ErrorCode.Empty)
-Guard:
-r is Ok(v) -> return v
-or:
-r is Err(e) -> return 1
-22. Fixed arrays
-xs: [4]i32 = [1, 2, 3, 4]
-Compile-time sizing:
-comptime N = 4
+```
 
+## **16. Optionals**
+
+```stable
+x: i32? = none
+```
+
+Optional payloads obey ordinary ownership rules.
+
+## **17. Results**
+
+```stable
+Result[i32, ErrorCode]
+```
+
+Constructors:
+
+```text
+Ok(value)
+Err(error)
+```
+
+Guards:
+
+```stable
+r is Ok(v) -> return v
+r is Err(e) -> return 1
+```
+
+## **18. Fixed arrays**
+
+```stable
+comptime N = 4
 xs: [N]i32 = [1, 2, 3, 4]
-Indexed access:
-x = xs[2]
-Indexed mutation:
-xs[2] = 99
-Fixed arrays do not support push().
-23. Dynamic arrays
+```
+
+Supported operations include construction, indexing, mutation, parameter passing, returns, struct fields, references, and bounds checking.
+
+## **19. Dynamic arrays**
+
+```stable
 xs = [1, 2, 3]
-Append:
 xs.push(4)
-Length:
-n = xs.len()
-Empty test:
-empty = xs.isEmpty()
-24. Slices
-Range slicing:
-part = xs[1:4]
-The resulting value may be used as a View[T] where required.
-25. References
-Shared:
-fn_name(x: &i32) ...
-Exclusive:
-fn_name(x: &mut i32) ...
-A mutable reference can be used to modify its pointee:
-inc(x: &mut i64) void:
-    x = x + 1
-26. Views
+print(xs.len())
+```
+
+Supported operations include:
+
+- **ownership transfer**
+- **indexing**
+- **indexed mutation**
+- **length and emptiness queries**
+- **growth through `push()`**
+- **slicing**
+- **shared views**
+- **exclusive editing views**
+- **passing and returning**
+- **deterministic destruction**
+
+## **20. References**
+
+### `&T`
+
+A **shared, read-only, non-owning** reference.
+
+### `&mut T`
+
+An **exclusive, mutable, non-owning** reference.
+
+```stable
+inc(v: &mut i64) void:
+    v = v + 1
+```
+
+## **21. Views**
+
+```stable
 view: View[i32] = xs[0:3]
-Read:
-x = view[1]
-Length:
-n = view.len()
-A View[T] is non-owning and read-only.
-27. EditViews
-An exclusive mutable view allows modification of its represented range.
-The compiler prevents conflicting accesses to the backing storage while the edit view remains active.
-28. Arenas
-Create:
+```
+
+A `View[T]` is **read-only** and **non-owning**.
+
+An `EditView[T]` is **mutable**, **exclusive**, and **non-owning**.
+
+## **22. Arenas**
+
+```stable
 arena = Arena.create(256)
-Allocate a value/aggregate in a region:
-nodes = [Node[data: [10]], Node[data: [20]]] in arena
-Arena-backed values remain associated with the region for lifetime and escape checking.
-29. Comptime
-Example:
-comptime N = 8
-Compile-time expressions currently include:
-integer expressions
-float expressions
-string expressions
-boolean expressions
-They may be used to specialize compile-time-known values such as fixed-array dimensions.
-30. Built-in output
+```
+
+Arena-backed values share the lifetime of their region and remain subject to **escape checking**.
+
+## **23. Comptime**
+
+Stable currently evaluates **integer, floating-point, boolean, and string** compile-time expressions.
+
+```stable
+comptime N = 2 + 2
+xs: [N]i32 = [10, 20, 30, 40]
+```
+
+The evaluator includes compile-time checks such as **overflow** and **division by zero** detection.
+
+## **24. Runtime built-ins**
+
+The current runtime/compiler-known surface includes file/environment operations, standard output operations, printing, string length, and arena creation.
+
+Examples:
+
+```stable
 print("hello")
 print(42)
 print(true)
 print(3.5)
-Raw output primitives are available for the bootstrap/runtime layer:
-writeStdout
-writeRaw
-writeIntRaw
-writeByteRaw
-printInt
-31. File/environment builtins
-data = readFile("input.txt")
-name = getEnv("NAME")
-length = stringLen("hello")
-The method form:
-length = "hello".len()
-is also supported.
-32. Bounds checks
-Index operations are checked by default.
-Invalid indexing traps rather than silently accessing unrelated memory.
-33. Ownership examples
-Move:
-main() i32:
-    xs = [1, 2, 3]
-    ys = xs
-    return ys[0]
-The old xs owner is no longer valid after the move.
-34. Borrow conflict
-Conceptually invalid:
-xs = [1, 2, 3]
-view = xs[:]
+```
 
-xs.push(4)
-when view remains live and the mutation could invalidate it.
-35. Const values
-Constants cannot be modified through normal assignment or mutation operations.
-36. Compile-time and runtime distinction
-A comptime value is resolved during compilation.
-A normal value exists during program execution.
-Stable can therefore specialize source constructs without requiring programmers to manually duplicate code paths.
-37. Current language boundaries
-The 1.0.0 implementation does not yet claim all future features.
-Not part of the current complete language surface:
-general-purpose user-defined generic functions
-exhaustive match syntax
-modules and package manager
-general safe FFI
-concurrency primitives
-atomics
-channels
-SIMD/vector abstractions
-full comptime reflection/function system
-full PGO framework
-integrated debugger/LSP
-These are tracked in ROADMAP.md.
+## **25. Bounds checking**
+
+Indexing is checked by default. The compiler may eliminate a check only after proving the access safe.
+
+## **26. Ownership behavior**
+
+Non-copy values move rather than silently duplicate ownership.
+
+A successful ownership transfer invalidates the previous owner for ownership-sensitive operations.
+
+## **27. Memory safety**
+
+Stable prevents or checks for:
+
+- **use-after-move**
+- **double destruction**
+- **dangling references/views**
+- **conflicting exclusive access**
+- **mutation through shared access**
+- **unsafe dynamic-array relocation while a borrow is live**
+- **invalid arena escapes**
+- **out-of-bounds indexing**
+
+See **`Memory_Model.md`** for the full semantics.
+
+## **28. LLVM**
+
+The production backend emits **opaque-pointer LLVM IR** and uses a selected Clang/LLVM installation.
+
+```sh
+STABLE_CLANG=/path/to/clang stablec program.st
+```
+
+or:
+
+```sh
+LLVM_CC=/path/to/clang stablec program.st
+```
+
+LLVM/Clang **15+** is the supported modern IR family.
+
+## **29. CLI**
+
+```sh
+stablec program.st
+stablec program.st -o app
+stablec program.st --run
+stablec program.st --check
+stablec program.st --emit-llvm
+```
+
+
+## Web frontend
+
+The production LLVM backend has a browser WebAssembly mode:
+
+```text
+stablec app.st --web -O3 -o app.wasm
+```
+
+`Web.*` primitives are browser host calls. `extern` declarations become WebAssembly imports, while exported Stable functions can be invoked from JavaScript. Browser callbacks use named Stable functions with statically checked signatures.
+
+
+## ML / AI
+
+Stable provides a native `Tensor` handle for f32/f64 rank-1..8 numerical workloads, explicit shape/stride queries, element access, reshape/transpose/slice, elementwise arithmetic, activations, softmax, reductions, dot products, matrix multiplication, and a CPU NCHW convolution kernel. `GradTape` provides explicit reverse-mode autodiff for the bundled operations. `Accel` reports CUDA, ROCm, Metal, and BLAS availability. Optimized BLAS/LAPACK/CUDA/HIP/oneDNN-style libraries are intentionally bound through the same explicit C ABI FFI rather than hidden runtime dependencies.
+## Runtime domain APIs
+
+Stable 1.0.0 includes hosted domain namespaces layered on the native compiler: `Game`/`Graphics` for native game windows, input, 2D rendering, textures, audio, frame timing and low-level graphics procedure access; `Tensor`/`GradTape` for native ML workloads; `Web` for browser Wasm integration; `Mobile` for Android/iOS platform services; and `Socket`/`Poller`/`Process` for hosted backend software. These APIs are explicit runtime/library boundaries and do not alter Stable's ownership model.
