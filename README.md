@@ -1,6 +1,7 @@
 # **Stable 1.0.0**
 
 > **A native systems programming language with compile-time ownership safety, deterministic memory management, and LLVM code generation.**
+> **Created and developed by Monank Gohil.**
 
 Stable is a general-purpose systems programming language built around a simple goal: make **native, predictable performance** compatible with a **strong static memory-safety model** that remains practical to learn.
 
@@ -19,6 +20,10 @@ The compiler is designed so the source-level memory rules are authoritative. Bac
 Full self-hosting is not yet claimed: the recursive Stable-written bootstrap covers a supported subset, while the complete production compiler and platform driver remain in C++. See [`docs/BOOTSTRAP_AUDIT.md`](docs/BOOTSTRAP_AUDIT.md).
 
 ---
+
+## **Project author**
+
+Stable was created and is developed by **Monank Gohil**. See [`AUTHORS.md`](AUTHORS.md).
 
 ## **Stable at a glance**
 

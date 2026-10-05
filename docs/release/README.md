@@ -1,5 +1,7 @@
 # **Stable 1.0.0 Release Packages**
 
+> **Stable was created and is developed by Monank Gohil.**
+
 Stable 1.0.0 provides prebuilt `stablec` compiler packages for **Linux x86_64** and **Windows x86_64**. The included installer downloads the official **LLVM/Clang 23.1.2** archive, verifies its SHA-256 checksum, and installs it side by side under Stable's own directory. It does not replace or modify a system LLVM installation.
 
 ## Recommended installation
