@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: stable-lang-installer
+Version: 1.0.0
+Summary: Installer for the Stable programming language compiler
+Author: Monank Gohil
+License: Apache-2.0
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# **Stable installer for pip**
+
+Stable was created and is developed by **Monank Gohil**.
+
+Install the latest GitHub release bootstrapper directly from this repository:
+
+```bash
+python -m pip install --upgrade git+https://github.com/Monank2011/STABLE.git#subdirectory=packaging/python
+stable-install
+```
+
+`stable-install` detects Linux or Windows x86_64, downloads the latest Stable compiler asset, and runs the checksum-verifying LLVM 23.1.2 side-by-side installer. Set `STABLE_PREFIX` to choose another installation directory.

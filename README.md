@@ -54,6 +54,8 @@ The core model does **not** require tracing garbage collection and does **not** 
 
 Each binary package includes the `stablec` compiler, runtime support files, examples, and an installer that downloads official LLVM/Clang **23.1.2** into a Stable-owned side-by-side directory. The installer verifies the download checksum and does not replace a system LLVM installation. SHA-256 checksums are published with the GitHub release. See [`docs/release/README.md`](docs/release/README.md).
 
+For convenience, see the [installation guide](docs/INSTALL.md) for a `pip` command that fetches the latest release and a `g++` source-build command.
+
 
 ---
 

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stable-lang-installer"
+version = "1.0.0"
+description = "Installer for the Stable programming language compiler"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{name = "Monank Gohil"}]
+license = {text = "Apache-2.0"}
+
+[project.scripts]
+stable-install = "stable_installer:main"
+
+[tool.setuptools]
+py-modules = ["stable_installer"]

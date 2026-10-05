@@ -53,3 +53,20 @@ Windows: 8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095
 - `lib/stable_runtime.c` — runtime support source
 - `examples/hello.st` — a minimal example
 - `README.txt` — platform-specific installation and usage notes
+
+## Convenience commands
+
+Install the latest release bootstrapper through pip:
+
+```bash
+python -m pip install --upgrade git+https://github.com/Monank2011/STABLE.git#subdirectory=packaging/python
+stable-install
+```
+
+On Linux, build the latest source with `g++`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Monank2011/STABLE/main/tools/install-from-source-g++.sh | bash
+```
+
+See [`docs/INSTALL.md`](../INSTALL.md) for the full installation guide.
