@@ -1,2 +1,0 @@
-[console_scripts]
-stable-install = stable_installer:main

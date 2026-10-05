@@ -22,3 +22,9 @@ bench-out/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Python packaging/test artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
