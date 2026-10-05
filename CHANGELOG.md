@@ -2,6 +2,14 @@
 
 ## **1.0.0 — Initial packaged release**
 
+### Toolchain installer update
+
+- Added Linux and Windows installers that download official LLVM/Clang **23.1.2**.
+- Pinned and verified the Linux and Windows archive SHA-256 checksums.
+- Installs LLVM side by side under Stable's own versioned directory.
+- Configures the Stable compiler wrapper through `STABLE_CLANG` without replacing system LLVM.
+
+
 - Published the complete Stable compiler and language source tree.
 - Added bold, release-focused README presentation and direct binary download links.
 - Added Linux x86_64 and Windows x86_64 compiler packages.

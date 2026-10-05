@@ -47,7 +47,7 @@ The core model does **not** require tracing garbage collection and does **not** 
 - **[Windows x86_64 compiler](https://github.com/Monank2011/STABLE/releases/download/v1.0.0/stablec-1.0.0-windows-x86_64.zip)**
 - **[Source code (this repository)](https://github.com/Monank2011/STABLE/tree/v1.0.0)**
 
-Each binary package includes the `stablec` compiler, runtime support files, examples, and installation notes. SHA-256 checksums are published with the GitHub release.
+Each binary package includes the `stablec` compiler, runtime support files, examples, and an installer that downloads official LLVM/Clang **23.1.2** into a Stable-owned side-by-side directory. The installer verifies the download checksum and does not replace a system LLVM installation. SHA-256 checksums are published with the GitHub release. See [`docs/release/README.md`](docs/release/README.md).
 
 
 ---
