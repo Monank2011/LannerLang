@@ -1,6 +1,6 @@
 main() i32:
     flags = Game.windowFlags(true, false, false, false)
-    window = Game.createWindow("Stable OpenGL", 96, 96, flags)
+    window = Game.createWindow("Lanner OpenGL", 96, 96, flags)
     if !Game.makeGLContext(window):
         Game.destroyWindow(window)
         return 1

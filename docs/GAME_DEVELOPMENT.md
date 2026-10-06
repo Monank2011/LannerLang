@@ -1,6 +1,6 @@
-# Stable Game Development
+# Lanner Game Development
 
-Stable 1.0.0 includes a native game-development layer designed around predictable native execution, explicit ownership, and low-level graphics access.
+Lanner 1.0.0 includes a native game-development layer designed around predictable native execution, explicit ownership, and low-level graphics access.
 
 ## Runtime layers
 
@@ -17,7 +17,7 @@ Stable 1.0.0 includes a native game-development layer designed around predictabl
 - queued PCM audio
 - monotonic frame timing and sleep
 
-The runtime loads SDL2 dynamically. This keeps the Stable compiler independent of SDL2 development headers while allowing a generated game project to ship its own runtime source.
+The runtime loads SDL2 dynamically. This keeps the Lanner compiler independent of SDL2 development headers while allowing a generated game project to ship its own runtime source.
 
 ### `Graphics`
 
@@ -28,14 +28,14 @@ The runtime loads SDL2 dynamically. This keeps the Stable compiler independent o
 - OpenGL buffer, VAO, shader, program and draw wrappers
 - raw pointer access for GPU memory transfer and object-generation APIs
 
-Vulkan, Metal, and Direct3D can be accessed by loading their native procedures through `Graphics.loadProc()` and Stable's existing unsafe FFI layer. Stable does not bake a gigantic vendor-specific graphics object model into the language.
+Vulkan, Metal, and Direct3D can be accessed by loading their native procedures through `Graphics.loadProc()` and Lanner's existing unsafe FFI layer. Lanner does not bake a gigantic vendor-specific graphics object model into the language.
 
 ## Example loop
 
-```stable
+```lanner
 main() i32:
     flags = Game.windowFlags(false, true, false, false)
-    window = Game.createWindow("Stable Game", 320, 240, flags)
+    window = Game.createWindow("Lanner Game", 320, 240, flags)
     if Game.width(window) != 320:
         Game.destroyWindow(window)
         return 1
@@ -65,14 +65,14 @@ See `examples/game_full.st` for the regression version, including SDL2 audio ini
 Generate a portable CMake game project with:
 
 ```sh
-stablec main.st --game-project MyGame --game-name MyGame
+lanner main.st --game-project MyGame --game-name MyGame
 ```
 
-The generated project contains the Stable source, a copy of the Stable runtime, an `assets/` directory, CMake build files, and build scripts. The Stable source is compiled to an object without the hosted runtime, then CMake links the generated runtime for the host platform.
+The generated project contains the Lanner source, a copy of the Lanner runtime, an `assets/` directory, CMake build files, and build scripts. The Lanner source is compiled to an object without the hosted runtime, then CMake links the generated runtime for the host platform.
 
 ## Performance model
 
-Game code remains ordinary native Stable code. There is no tracing garbage collector or hidden frame allocator. Arenas, arrays, views, raw pointers, atomics, threads, SIMD, and the explicit unsafe boundary remain available to engine code.
+Game code remains ordinary native Lanner code. There is no tracing garbage collector or hidden frame allocator. Arenas, arrays, views, raw pointers, atomics, threads, SIMD, and the explicit unsafe boundary remain available to engine code.
 
 Use a fixed-timestep accumulator for deterministic simulation and `Game.deltaSeconds()` for render-time interpolation. Platform and graphics resources are represented as explicit opaque handles and must be destroyed by the program.
 
@@ -81,7 +81,7 @@ Use a fixed-timestep accumulator for deterministic simulation and `Game.deltaSec
 The intended layering is:
 
 ```text
-Stable game code
+Lanner game code
     |
     +-- Game       window/input/2D/audio/time
     |
@@ -92,4 +92,4 @@ Stable game code
     +-- native OS + driver stack
 ```
 
-This leaves large engine frameworks, ECS designs, physics solvers, asset formats, animation systems, and vendor-specific rendering engines as normal Stable libraries or C/C++ bindings rather than compiler intrinsics.
+This leaves large engine frameworks, ECS designs, physics solvers, asset formats, animation systems, and vendor-specific rendering engines as normal Lanner libraries or C/C++ bindings rather than compiler intrinsics.

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace stable::hir {
+namespace lanner::hir {
 
 enum class ScalarKind { Void, Bool, Int, Float, String, Aggregate };
 
@@ -29,8 +29,8 @@ struct Type {
     std::uint64_t aggregateCount = 0;
     // Semantic memory state carried from the front end. This is metadata, not ABI.
     MemoryKind memory = MemoryKind::Owned;
-    stable::memory::StorageOrigin origin;
-    std::vector<stable::memory::StorageOrigin> nestedOrigins;
+    lanner::memory::StorageOrigin origin;
+    std::vector<lanner::memory::StorageOrigin> nestedOrigins;
 
     Type() = default;
     Type(ScalarKind k, unsigned b, bool s, std::string source, std::string llvm,
@@ -126,4 +126,4 @@ bool isSupportedScalarType(const TypeNode* type, const std::map<std::string, Enu
 
 std::string print(const Module& module);
 
-} // namespace stable::hir
+} // namespace lanner::hir

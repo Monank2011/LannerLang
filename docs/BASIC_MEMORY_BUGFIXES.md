@@ -6,12 +6,12 @@ The basic-memory benchmark exposed two production compiler issues that are fixed
 
 A plain assignment such as:
 
-```stable
+```lanner
 inc(v: &mut i64) void:
     v = 1
 ```
 
-was incorrectly treated as an attempt to assign a new reference value to the parameter slot. Stable now treats a mutable-reference identifier as an lvalue for its pointee, while keeping the reference binding itself unchanged.
+was incorrectly treated as an attempt to assign a new reference value to the parameter slot. Lanner now treats a mutable-reference identifier as an lvalue for its pointee, while keeping the reference binding itself unchanged.
 
 The fix is implemented consistently in:
 
@@ -32,7 +32,7 @@ The type checker already accepted `string.len()`, but the production LLVM backen
 - Typed self-host frontend: **PASS**
 - LLVM compatibility regression: **PASS**
 - Native readFile failure safety: **PASS**
-- Original Step 2 basic-memory correctness suite: **16/16 Stable/C++ matches** after the repairs.
-- Dedicated scalar mutable-reference reproduction: executable now returns **1**, matching the Stable source semantics `x = 0; inc(&mut x); return x as i32`.
+- Original Step 2 basic-memory correctness suite: **16/16 Lanner/C++ matches** after the repairs.
+- Dedicated scalar mutable-reference reproduction: executable now returns **1**, matching the Lanner source semantics `x = 0; inc(&mut x); return x as i32`.
 
 No heavy-memory benchmark was run in this repair checkpoint.

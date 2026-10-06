@@ -79,8 +79,8 @@ private:
     bool isAndroidTarget() const;
     bool isIOSTarget() const;
     bool isMobileTarget() const;
-    static stable::memory::StorageOrigin inferOrigin(const Symbol* owner, const std::string& ownerName);
-    std::optional<stable::memory::BorrowRecord> registerBorrow(Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName) const;
+    static lanner::memory::StorageOrigin inferOrigin(const Symbol* owner, const std::string& ownerName);
+    std::optional<lanner::memory::BorrowRecord> registerBorrow(Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName) const;
     void releaseBorrow(Symbol* borrower);
     void releaseBorrowsAtLastUse();
     void collectExprUses(const Expr* expr, std::size_t serial);

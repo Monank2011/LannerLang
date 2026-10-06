@@ -1,6 +1,6 @@
 # Step 1 Basic-Compute Benchmark Bug Fixes
 
-The Step 1 scalar benchmark surfaced three numeric-context/backend defects in the C++ production compiler used to bootstrap Stable:
+The Step 1 scalar benchmark surfaced three numeric-context/backend defects in the C++ production compiler used to bootstrap Lanner:
 
 1. **f32 LLVM literal emission**
    The LLVM backend emitted ordinary decimal text for `float` constants. LLVM 17's IR parser rejects those decimal constants for the `float` type. The backend now emits the exact LLVM hexadecimal floating representation. For f32 values, the source decimal is rounded to IEEE-754 f32 first and the resulting value is represented using the LLVM-compatible widened bit pattern.
@@ -32,4 +32,4 @@ Added:
 
 ## LLVM toolchain portability hardening
 
-The floating-point literal emitter is treated as an LLVM IR portability concern rather than an LLVM 17-specific workaround. All `f32` and `f64` literals use LLVM’s exact 16-digit hexadecimal IEEE-754 spelling, avoiding the assembler exact-decimal restriction that rejects values such as `0.9`. The driver discovers the selected `clang`/LLVM major version through `STABLE_CLANG` or `LLVM_CC` and enforces the modern opaque-pointer compatibility floor of LLVM 15.
+The floating-point literal emitter is treated as an LLVM IR portability concern rather than an LLVM 17-specific workaround. All `f32` and `f64` literals use LLVM’s exact 16-digit hexadecimal IEEE-754 spelling, avoiding the assembler exact-decimal restriction that rejects values such as `0.9`. The driver discovers the selected `clang`/LLVM major version through `LANNER_CLANG` or `LLVM_CC` and enforces the modern opaque-pointer compatibility floor of LLVM 15.

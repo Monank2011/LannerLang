@@ -30,8 +30,8 @@ bool isIntName(const std::string& n) {
 
 bool isFloatName(const std::string& n) { return n == "f32" || n == "f64"; }
 
-void rememberOrigin(std::vector<stable::memory::StorageOrigin>& origins,
-                    const stable::memory::StorageOrigin& origin) {
+void rememberOrigin(std::vector<lanner::memory::StorageOrigin>& origins,
+                    const lanner::memory::StorageOrigin& origin) {
     if (!origin.valid()) return;
     for (const auto& existing : origins) {
         if (existing.kind == origin.kind && existing.binding == origin.binding) return;
@@ -45,7 +45,7 @@ bool capturesBackingLifetime(const TypeNode* type) {
     // owner binding, not storage that is being borrowed by another value. They
     // must not make an otherwise movable struct or scalar non-returnable.
     if ((type->isReference || type->name == "View" || type->name == "EditView") && type->origin.valid()) return true;
-    if (type->isArray && type->origin.kind == stable::memory::StorageOriginKind::Arena) return true;
+    if (type->isArray && type->origin.kind == lanner::memory::StorageOriginKind::Arena) return true;
     return false;
 }
 
@@ -67,7 +67,7 @@ bool hasShortLivedNestedOrigin(const TypeNode* type) {
     return false;
 }
 
-const stable::memory::StorageOrigin* firstShortLivedOrigin(const TypeNode* type) {
+const lanner::memory::StorageOrigin* firstShortLivedOrigin(const TypeNode* type) {
     if (!type) return nullptr;
     if (capturesBackingLifetime(type) && type->origin.isShortLived()) return &type->origin;
     for (const auto& origin : type->nestedOrigins) {
@@ -82,13 +82,13 @@ const stable::memory::StorageOrigin* firstShortLivedOrigin(const TypeNode* type)
 std::string shortLivedOriginDescription(const TypeNode* type) {
     const auto* origin = firstShortLivedOrigin(type);
     if (!origin) return "short-lived storage";
-    if (origin->kind == stable::memory::StorageOriginKind::Arena) {
+    if (origin->kind == lanner::memory::StorageOriginKind::Arena) {
         return "arena '" + origin->binding + "'";
     }
-    if (origin->kind == stable::memory::StorageOriginKind::Local) {
+    if (origin->kind == lanner::memory::StorageOriginKind::Local) {
         return "local storage '" + origin->binding + "'";
     }
-    return stable::memory::originName(origin->kind);
+    return lanner::memory::originName(origin->kind);
 }
 
 int integerBits(const std::string& n) {
@@ -189,7 +189,7 @@ std::string TypeChecker::typeToString(const TypeNode* type) {
         s += "]";
     }
     if (type->isOptional) s += "?";
-    if (type->origin.kind == stable::memory::StorageOriginKind::Arena) s += " in " + type->origin.binding;
+    if (type->origin.kind == lanner::memory::StorageOriginKind::Arena) s += " in " + type->origin.binding;
     return s;
 }
 
@@ -294,7 +294,7 @@ void TypeChecker::rejectBorrowedOwnerProjection(const Expr* expr, const TypeNode
 
 void TypeChecker::rejectMoveWhileBorrowed(const Symbol* source, const Expr* expr, const char* context) const {
     if (!source) return;
-    if (!stable::memory::mayMove(source->memory)) {
+    if (!lanner::memory::mayMove(source->memory)) {
         error(expr, std::string(context) + " cannot move borrowed value '" + source->name + "'");
     }
 }
@@ -733,8 +733,8 @@ void TypeChecker::checkFunction(FunctionDecl& fn) {
             s.type = p.type.get();
             s.declaredLine = fn.line;
             s.isParameter = true;
-            s.type->origin = stable::memory::StorageOrigin{
-                stable::memory::StorageOriginKind::Parameter, p.name};
+            s.type->origin = lanner::memory::StorageOrigin{
+                lanner::memory::StorageOriginKind::Parameter, p.name};
             symbols.declare(p.name, s);
         }
 
@@ -797,17 +797,17 @@ std::string borrowRoot(const Expr* expr) {
 
 } // namespace
 
-stable::memory::StorageOrigin TypeChecker::inferOrigin(const Symbol* owner, const std::string& ownerName) {
+lanner::memory::StorageOrigin TypeChecker::inferOrigin(const Symbol* owner, const std::string& ownerName) {
     if (owner && owner->type && owner->type->origin.valid()) return owner->type->origin;
-    stable::memory::StorageOrigin origin;
+    lanner::memory::StorageOrigin origin;
     origin.kind = owner && owner->isParameter
-        ? stable::memory::StorageOriginKind::Parameter
-        : stable::memory::StorageOriginKind::Local;
+        ? lanner::memory::StorageOriginKind::Parameter
+        : lanner::memory::StorageOriginKind::Local;
     origin.binding = ownerName;
     return origin;
 }
 
-std::optional<stable::memory::BorrowRecord> TypeChecker::registerBorrow(
+std::optional<lanner::memory::BorrowRecord> TypeChecker::registerBorrow(
     Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName) const {
     if (!owner || ownerName.empty()) return std::nullopt;
     const bool exclusive = borrowedType &&
@@ -816,19 +816,19 @@ std::optional<stable::memory::BorrowRecord> TypeChecker::registerBorrow(
         throw std::runtime_error("cannot create a mutable borrow of const value '" + ownerName + "'");
     }
 
-    stable::memory::BorrowRecord record;
-    record.mode = exclusive ? stable::memory::BorrowMode::Exclusive
-                            : stable::memory::BorrowMode::Shared;
+    lanner::memory::BorrowRecord record;
+    record.mode = exclusive ? lanner::memory::BorrowMode::Exclusive
+                            : lanner::memory::BorrowMode::Shared;
     record.origin = inferOrigin(owner, ownerName);
     record.ownerBinding = ownerName;
     record.ownerId = owner->bindingId;
-    if (!stable::memory::mayBeginBorrow(owner->memory, record.mode)) {
+    if (!lanner::memory::mayBeginBorrow(owner->memory, record.mode)) {
         if (exclusive) {
             throw std::runtime_error("cannot create a mutable borrow of '" + ownerName + "' while it is already borrowed");
         }
         throw std::runtime_error("cannot create a shared borrow of '" + ownerName + "' while it has a mutable borrow");
     }
-    stable::memory::beginBorrow(owner->memory, record);
+    lanner::memory::beginBorrow(owner->memory, record);
     return record;
 }
 
@@ -837,7 +837,7 @@ void TypeChecker::releaseBorrow(Symbol* borrower) {
     const auto record = *borrower->memory.borrow;
     Symbol* owner = record.ownerId != 0 ? symbols.resolveBinding(record.ownerId)
                                         : symbols.resolve(record.ownerBinding);
-    if (owner) stable::memory::endBorrow(owner->memory, record);
+    if (owner) lanner::memory::endBorrow(owner->memory, record);
     borrower->memory.borrow.reset();
 }
 
@@ -1075,8 +1075,8 @@ std::unique_ptr<TypeNode> TypeChecker::checkExpr(const Expr* expr, const TypeNod
                 auto* owner = symbols.resolve(ownerName);
                 if (!owner || owner->memory.isMoved()) error(expr, "cannot borrow an unknown or moved value");
                 const bool mut = expr->op == "&mut";
-                const auto mode = mut ? stable::memory::BorrowMode::Exclusive : stable::memory::BorrowMode::Shared;
-                if (!stable::memory::mayBeginBorrow(owner->memory, mode)) {
+                const auto mode = mut ? lanner::memory::BorrowMode::Exclusive : lanner::memory::BorrowMode::Shared;
+                if (!lanner::memory::mayBeginBorrow(owner->memory, mode)) {
                     error(expr, mut ? "cannot create &mut while the value is already borrowed"
                                     : "cannot create a shared reference while the value has a mutable borrow");
                 }
@@ -1133,9 +1133,9 @@ std::unique_ptr<TypeNode> TypeChecker::checkExpr(const Expr* expr, const TypeNod
             // former as a parameter origin so the general short-lived-origin machinery
             // does not mistake it for a local region.
             const auto arenaOriginKind = arena->isParameter
-                ? stable::memory::StorageOriginKind::Parameter
-                : stable::memory::StorageOriginKind::Arena;
-            value->origin = stable::memory::StorageOrigin{arenaOriginKind, expr->arena->strValue};
+                ? lanner::memory::StorageOriginKind::Parameter
+                : lanner::memory::StorageOriginKind::Arena;
+            value->origin = lanner::memory::StorageOrigin{arenaOriginKind, expr->arena->strValue};
             mergeNestedOrigins(value.get(), expr->value->checkedType.get());
             if (expected && !compatible(value.get(), expected)) error(expr, "expected " + typeToString(expected) + ", got " + typeToString(value.get()));
             return finish(std::move(value));
@@ -1248,7 +1248,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkExpr(const Expr* expr, const TypeNod
             }
 
             std::unique_ptr<TypeNode> element;
-            stable::memory::StorageOrigin sourceOrigin = target->origin;
+            lanner::memory::StorageOrigin sourceOrigin = target->origin;
             if (target->isArray) {
                 element = cloneType(target.get());
                 element->isArray = false;
@@ -1846,7 +1846,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
                 const auto* a = expr->args[index].get();
                 if (a->kind != ExprKind::StringLit) return;
                 auto it = functions.find(a->strValue);
-                if (it == functions.end() || it->second->isExtern) error(expr, label + " names a Stable function that does not exist");
+                if (it == functions.end() || it->second->isExtern) error(expr, label + " names a Lanner function that does not exist");
                 const auto* fn = it->second;
                 if (fn->params.size() != wanted.size()) error(expr, label + " function has the wrong arity");
                 for (std::size_t i = 0; i < wanted.size(); ++i) {
@@ -1991,7 +1991,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
                 }
                 auto it = functions.find(expr->args[0]->strValue);
                 if (it == functions.end() || it->second->isExtern || !it->second->params.empty() || !isVoid(it->second->returnType.get())) {
-                    error(expr, "Thread.spawn() target must be a Stable function with signature () void");
+                    error(expr, "Thread.spawn() target must be a Lanner function with signature () void");
                 }
                 return makeType("Thread");
             }
@@ -2783,9 +2783,9 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
             // storage keeps its region origin; every ordinary owning value becomes
             // anchored to the destination binding after the move.
             if (sym.type && !sym.type->isReference && !isView(sym.type) &&
-                sym.type->origin.kind != stable::memory::StorageOriginKind::Arena) {
-                sym.type->origin = stable::memory::StorageOrigin{
-                    stable::memory::StorageOriginKind::Local, stmt->assignTarget};
+                sym.type->origin.kind != lanner::memory::StorageOriginKind::Arena) {
+                sym.type->origin = lanner::memory::StorageOrigin{
+                    lanner::memory::StorageOriginKind::Local, stmt->assignTarget};
             }
 
             if (existing) {
@@ -2830,7 +2830,7 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
                     throw std::runtime_error("cannot return value containing " + shortLivedOriginDescription(returned.get()) +
                                              " from function at line " + std::to_string(stmt->line));
                 }
-                if (returned->isArray && returned->origin.kind == stable::memory::StorageOriginKind::Arena) {
+                if (returned->isArray && returned->origin.kind == lanner::memory::StorageOriginKind::Arena) {
                     throw std::runtime_error("cannot return an arena-backed array from function at line " +
                                              std::to_string(stmt->line));
                 }
@@ -2932,8 +2932,8 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
                 Symbol loopSymbol;
                 loopSymbol.name = stmt->loopVar;
                 loopSymbol.type = typePool.back().get();
-                loopSymbol.type->origin = iterableBorrowOrigin.empty() ? stable::memory::StorageOrigin{} :
-                    (symbols.resolve(iterableBorrowOrigin) ? inferOrigin(symbols.resolve(iterableBorrowOrigin), iterableBorrowOrigin) : stable::memory::StorageOrigin{});
+                loopSymbol.type->origin = iterableBorrowOrigin.empty() ? lanner::memory::StorageOrigin{} :
+                    (symbols.resolve(iterableBorrowOrigin) ? inferOrigin(symbols.resolve(iterableBorrowOrigin), iterableBorrowOrigin) : lanner::memory::StorageOrigin{});
                 loopSymbol.declaredLine = stmt->line;
                 loopSymbol.isConst = true;
                 symbols.declare(stmt->loopVar, loopSymbol);

@@ -8,7 +8,7 @@
 #include <vector>
 #include <string_view>
 
-namespace stable::diagnostics {
+namespace lanner::diagnostics {
 namespace {
 
 std::string trim(std::string value) {
@@ -54,7 +54,7 @@ std::string genericHint(const std::string& message) {
     if (lower.find("expected an indented block") != std::string::npos)
         return "Indent the statements belonging to this block consistently.";
     if (lower.find("tabs are not allowed") != std::string::npos)
-        return "Replace the tab with spaces. Stable uses spaces for indentation.";
+        return "Replace the tab with spaces. Lanner uses spaces for indentation.";
     if (lower.find("inconsistent indentation") != std::string::npos)
         return "Match the indentation level of the surrounding block. Use spaces consistently.";
     if (lower.find("unknown type '") != std::string::npos)
@@ -194,4 +194,4 @@ std::string render(const ParsedError& error, const std::string& path, const std:
     return out.str();
 }
 
-} // namespace stable::diagnostics
+} // namespace lanner::diagnostics

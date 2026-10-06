@@ -88,7 +88,7 @@ int main() {
         check(threw, "popping the global scope throws");
     }
 
-    // Test 7: the unified memory ledger and stable binding identity persist
+    // Test 7: the unified memory ledger and lanner binding identity persist
     // through declare/resolve and can be used to distinguish shadowed bindings.
     {
         SymbolTable st;
@@ -97,7 +97,7 @@ int main() {
         st.declare("moves", s);
 
         Symbol* found = st.resolve("moves");
-        check(found != nullptr && found->bindingId != 0, "declared symbols receive stable binding identities");
+        check(found != nullptr && found->bindingId != 0, "declared symbols receive lanner binding identities");
 
         const auto id = found->bindingId;
         found->memory.markMoved();

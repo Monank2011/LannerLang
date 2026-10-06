@@ -1,4 +1,4 @@
-extern static mut stable_counter:i32
+extern static mut lanner_counter:i32
 
 main() i32:
-    return stable_counter+2
+    return lanner_counter+2

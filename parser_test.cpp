@@ -8,7 +8,7 @@ void printType(const TypeNode* t, int d) {
     if (!t) { indent(d); std::cout << "<null type>\n"; return; }
     indent(d);
     std::cout << "Type: " << (t->isArray ? "[]" : "") << t->name << (t->isOptional ? "?" : "");
-    if (t->origin.kind == stable::memory::StorageOriginKind::Arena) std::cout << " (arena: " << t->origin.binding << ")";
+    if (t->origin.kind == lanner::memory::StorageOriginKind::Arena) std::cout << " (arena: " << t->origin.binding << ")";
     std::cout << "\n";
     for (auto& g : t->generics) printType(g.get(), d + 1);
 }

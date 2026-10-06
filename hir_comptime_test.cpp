@@ -12,7 +12,7 @@
 int main() {
     const std::string source =
         "comptime BASE = 41\n"
-        "comptime NAME = \"stable\"\n"
+        "comptime NAME = \"lanner\"\n"
         "main() i32:\n"
         "    x: i32 = BASE + 1\n"
         "    return x\n";
@@ -24,18 +24,18 @@ int main() {
         TypeChecker checker(symbols);
         checker.checkProgram(program);
 
-        stable::hir::Lowerer lowerer;
+        lanner::hir::Lowerer lowerer;
         const auto module = lowerer.lowerProgram(program);
         if (module.functions.size() != 1) throw std::runtime_error("expected one HIR function");
         bool sawBase = false;
         for (const auto& block : module.functions[0].blocks) {
             for (const auto& inst : block.instructions) {
-                if (inst.op == stable::hir::Opcode::ConstInt && inst.intValue == 41) sawBase = true;
+                if (inst.op == lanner::hir::Opcode::ConstInt && inst.intValue == 41) sawBase = true;
             }
         }
         if (!sawBase) throw std::runtime_error("comptime BASE was not materialized as an HIR constant");
 
-        stable::hir::LLVMCodegen codegen;
+        lanner::hir::LLVMCodegen codegen;
         const auto llvm = codegen.generate(module);
         if (llvm.find("add i32") == std::string::npos) throw std::runtime_error("HIR LLVM output lost the runtime addition");
         if (llvm.find("41") == std::string::npos) throw std::runtime_error("HIR LLVM output lost the comptime constant");

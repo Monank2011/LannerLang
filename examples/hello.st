@@ -1,3 +1,3 @@
 main() i32:
-    print("Hello, STABLE!")
+    print("Hello, LANNER!")
     return 0

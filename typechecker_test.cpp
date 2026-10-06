@@ -10,7 +10,7 @@ std::string describeType(const TypeNode* t) {
     if (t->isArray) s += "[]";
     s += t->name;
     if (t->isOptional) s += "?";
-    if (t->origin.kind == stable::memory::StorageOriginKind::Arena) s += " (arena: " + t->origin.binding + ")";
+    if (t->origin.kind == lanner::memory::StorageOriginKind::Arena) s += " (arena: " + t->origin.binding + ")";
     return s;
 }
 

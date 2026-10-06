@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 
-namespace stable::hir {
+namespace lanner::hir {
 
 class LLVMCodegen {
 public:
@@ -18,4 +18,4 @@ private:
     void emitFunction(const Module& module, const Function& fn, std::string& out) const;
 };
 
-} // namespace stable::hir
+} // namespace lanner::hir

@@ -1,6 +1,6 @@
-# Stable Systems & Low-Level Support
+# Lanner Systems & Low-Level Support
 
-Stable 1.0.0 now exposes a complete native systems-oriented layer around the ownership-safe language core. The safety boundary is explicit: ordinary code remains borrow-checked, while raw hardware-oriented operations require `unsafe`.
+Lanner 1.0.0 now exposes a complete native systems-oriented layer around the ownership-safe language core. The safety boundary is explicit: ordinary code remains borrow-checked, while raw hardware-oriented operations require `unsafe`.
 
 ## Memory and pointers
 
@@ -23,9 +23,9 @@ Raw pointer values are copyable and deliberately outside the safe borrow ledger.
 
 ## Layout and storage control
 
-Stable structs use target ABI layout by default. Packed structures use `packed Name[...]`. Static storage supports compile-time initialization, explicit `align(N)`, custom ELF/COFF/Mach-O section names, mutability, and thread-local storage.
+Lanner structs use target ABI layout by default. Packed structures use `packed Name[...]`. Static storage supports compile-time initialization, explicit `align(N)`, custom ELF/COFF/Mach-O section names, mutability, and thread-local storage.
 
-```stable
+```lanner
 packed Packet[opcode:u8, flags:u8, value:u32]
 static align(64) section ".fastdata" table:[8]u64=[0,1,2,3,4,5,6,7]
 static threadLocal mut scratch:u64=0
@@ -33,17 +33,17 @@ static threadLocal mut scratch:u64=0
 
 C data symbols can be imported directly:
 
-```stable
+```lanner
 extern static mut errno:i32
 ```
 
-Functions and external symbols are emitted with their Stable names, so explicit linker/ABI integration does not require a name-mangling layer. Scalar, pointer, string-pointer, and function-pointer forms map directly to the C ABI. By-value aggregate FFI is deliberately rejected unless represented through a pointer or an explicit C wrapper, avoiding silent ABI miscompiles across targets.
+Functions and external symbols are emitted with their Lanner names, so explicit linker/ABI integration does not require a name-mangling layer. Scalar, pointer, string-pointer, and function-pointer forms map directly to the C ABI. By-value aggregate FFI is deliberately rejected unless represented through a pointer or an explicit C wrapper, avoiding silent ABI miscompiles across targets.
 
 ## Unsafe functions and function pointers
 
 Unsafe functions are tracked in function-pointer types:
 
-```stable
+```lanner
 unsafe fn touch(p:*mut i32) i32:
     return *p
 
@@ -58,7 +58,7 @@ An unsafe function pointer cannot be called from safe code. This keeps the low-l
 
 ## Inline assembly
 
-Inline assembly is explicit and requires `unsafe`. Stable supports void assembly plus integer/pointer-valued forms: `asm`, `asmI32`, `asmI64`, and `asmPtr`. Templates and LLVM constraint strings are passed directly to LLVM, including clobber lists and side-effect semantics.
+Inline assembly is explicit and requires `unsafe`. Lanner supports void assembly plus integer/pointer-valued forms: `asm`, `asmI32`, `asmI64`, and `asmPtr`. Templates and LLVM constraint strings are passed directly to LLVM, including clobber lists and side-effect semantics.
 
 This is sufficient for architecture-specific instructions, syscall glue, barriers, bootstrap code, and MMIO-adjacent helpers.
 
@@ -82,11 +82,11 @@ The compiler can emit LLVM IR, assembly, or object files for a selected target t
 --no-runtime
 ```
 
-`--freestanding` removes the Stable hosted runtime and hosted startup/default libraries, and links with the selected entry symbol. This enables bootloader, kernel, firmware, and other no-runtime targets while leaving allocator/device/platform services to explicit FFI or inline assembly.
+`--freestanding` removes the Lanner hosted runtime and hosted startup/default libraries, and links with the selected entry symbol. This enables bootloader, kernel, firmware, and other no-runtime targets while leaving allocator/device/platform services to explicit FFI or inline assembly.
 
 For example, an x86-64 freestanding entry can be built without a `main` function:
 
-```stable
+```lanner
 unsafe _start() i32:
     syscall:i64=60
     status:i64=42

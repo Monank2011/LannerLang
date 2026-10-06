@@ -1,6 +1,6 @@
-# **Stable 1.0.0 Benchmarks**
+# **Lanner 1.0.0 Benchmarks**
 
-Stable treats benchmarking as both a **performance measurement** and a **bug-finding instrument**.
+Lanner treats benchmarking as both a **performance measurement** and a **bug-finding instrument**.
 
 The objective is not to declare a universal winner. The objective is to determine whether generated native code is competitive and whether severe workloads expose correctness or memory-management defects.
 
@@ -84,7 +84,7 @@ Heavy workloads were exercised with:
 - **UndefinedBehaviorSanitizer**
 - **LeakSanitizer**
 
-The completed Stable and C++ stress workloads produced **no sanitizer findings** in that campaign.
+The completed Lanner and C++ stress workloads produced **no sanitizer findings** in that campaign.
 
 That is evidence from the executed workloads, not a mathematical proof that no future compiler bug can exist.
 
@@ -92,13 +92,13 @@ That is evidence from the executed workloads, not a mathematical proof that no f
 
 ## **Performance interpretation**
 
-The benchmark history shows Stable and optimized C++ in the same general native-performance class on the tested scalar and memory workloads.
+The benchmark history shows Lanner and optimized C++ in the same general native-performance class on the tested scalar and memory workloads.
 
-Stable also produced several cases where its ownership/view lowering and allocation patterns were faster than the equivalent C++ workload.
+Lanner also produced several cases where its ownership/view lowering and allocation patterns were faster than the equivalent C++ workload.
 
 Other workloads favored C++.
 
-The project therefore avoids claiming that Stable is universally faster than C++.
+The project therefore avoids claiming that Lanner is universally faster than C++.
 
 The desired release property is:
 

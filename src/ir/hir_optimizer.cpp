@@ -11,7 +11,7 @@
 #include <variant>
 #include <vector>
 
-namespace stable::hir {
+namespace lanner::hir {
 namespace {
 
 using Constant = std::variant<std::uint64_t, bool, double>;
@@ -471,7 +471,7 @@ void eliminateProvablySafeBoundsChecks(BasicBlock& bb) {
         } else if (inst.op == Opcode::StoreLocal || inst.op == Opcode::LoadLocal ||
                    inst.op == Opcode::Call || inst.op == Opcode::StoreIndirect ||
                    inst.op == Opcode::DynamicArrayPush) {
-            // A value's identity remains stable for HIR SSA names, but the
+            // A value's identity remains lanner for HIR SSA names, but the
             // instruction can change what a later bounds proof would mean.
             // Constant facts are kept only for literal-producing values, so no
             // additional invalidation is needed here.
@@ -523,4 +523,4 @@ void optimize(Module& module, OptimizationLevel level) {
     }
 }
 
-} // namespace stable::hir
+} // namespace lanner::hir

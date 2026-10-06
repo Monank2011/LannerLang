@@ -1,13 +1,13 @@
-# **Stable 1.0.0 Handbook**
+# **LannerLang 1.0.0 Handbook**
 > **The practical language guide**
 
-Stable was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
+Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
 
-A medium-detail introduction to the Stable programming language and its V1 capabilities.
+A medium-detail introduction to the LannerLang programming language and its V1 capabilities.
 
-## **1. WHAT IS STABLE?**
+## **1. WHAT IS LANNER?**
 
-Stable is a general-purpose native programming language designed for:
+Lanner is a general-purpose native programming language designed for:
 
 - predictable native performance
 - compile-time ownership and borrow safety
@@ -17,26 +17,26 @@ Stable is a general-purpose native programming language designed for:
 - LLVM-based optimization
 - indentation-based, readable syntax
 
-Stable does not require a tracing garbage collector for ordinary programs and does not silently add reference counting to normal values.
+Lanner does not require a tracing garbage collector for ordinary programs and does not silently add reference counting to normal values.
 
-Stable is useful for systems software, servers, numerical/AI programs, web applications compiled to WebAssembly, mobile native cores, games, command-line tools, and high-performance programs such as chess engines and NNUE inference.
+Lanner is useful for systems software, servers, numerical/AI programs, web applications compiled to WebAssembly, mobile native cores, games, command-line tools, and high-performance programs such as chess engines and NNUE inference.
 
 Important Version 1 boundary:
-The published compiler itself is still primarily implemented in C++. Stable has a real recursive self-hosting bootstrap for a supported compiler subset, but full compiler self-hosting is planned for a later version.
+The published compiler itself is still primarily implemented in C++. Lanner has a real recursive self-hosting bootstrap for a supported compiler subset, but full compiler self-hosting is planned for a later version.
 
-## **2. YOUR FIRST STABLE PROGRAM**
+## **2. YOUR FIRST LANNER PROGRAM**
 
-Stable uses indentation-based blocks. A block follows a colon and is indented.
+Lanner uses indentation-based blocks. A block follows a colon and is indented.
 
 main() i32:
-    print("Hello, Stable!")
+    print("Hello, Lanner!")
     return 0
 
 Save as hello.st.
 
 Build:
 
-    stablec hello.st -o hello
+    lanner hello.st -o hello
 
 Run:
 
@@ -44,15 +44,15 @@ Run:
 
 You can also run a temporary executable with:
 
-    stablec hello.st --run
+    lanner hello.st --run
 
 Check types without producing a normal executable:
 
-    stablec hello.st --check
+    lanner hello.st --check
 
 Print LLVM IR:
 
-    stablec hello.st --emit-llvm
+    lanner hello.st --emit-llvm
 
 ## **3. BASIC SYNTAX**
 
@@ -61,7 +61,7 @@ Print LLVM IR:
 Type inference:
 
 x = 42
-name = "Stable"
+name = "Lanner"
 ready = true
 
 Explicit types:
@@ -264,7 +264,7 @@ Dynamic arrays support:
 - slicing and views
 - deterministic cleanup
 
-Dynamic storage is subject to invalidation rules. Stable will reject a potentially relocating mutation while a conflicting borrow/view is live.
+Dynamic storage is subject to invalidation rules. Lanner will reject a potentially relocating mutation while a conflicting borrow/view is live.
 
 ### **6.3 String helpers**
 
@@ -284,7 +284,7 @@ String and buffer indexing uses the documented bounds-checked path.
 
 ## **7. MEMORY MODEL: THE MAIN IDEA**
 
-Stable's central rule is:
+Lanner's central rule is:
 
     An owning value has one responsible owner.
     References and views borrow storage and do not own it.
@@ -333,7 +333,7 @@ inc(v: &mut i64) void:
 
 ### **7.5 Inferred borrow lifetimes**
 
-Stable does not require explicit lifetime parameters in ordinary code. The compiler determines how long a borrow is needed and rejects escapes that would outlive the source storage.
+Lanner does not require explicit lifetime parameters in ordinary code. The compiler determines how long a borrow is needed and rejects escapes that would outlive the source storage.
 
 ### **7.6 Views**
 
@@ -365,11 +365,11 @@ Arena-backed references and views cannot escape their region illegally.
 
 ## **8. SAFE AND UNSAFE SYSTEM PROGRAMMING**
 
-Most Stable code remains inside the safe ownership system. Low-level escape-hatch operations require explicit unsafe code.
+Most Lanner code remains inside the safe ownership system. Low-level escape-hatch operations require explicit unsafe code.
 
 ### **8.1 Raw pointers**
 
-Stable supports:
+Lanner supports:
 
 *T
 *mut T
@@ -412,13 +412,13 @@ sizeOf(value-or-type)
 alignOf(value-or-type)
 offsetOf(...)
 
-Stable also supports packed structures and explicit alignment/section/TLS storage controls.
+Lanner also supports packed structures and explicit alignment/section/TLS storage controls.
 
 Example:
 
 packed Packet[opcode:u8, flags:u8, value:u32]
 
-static align(64) section ".stable.rodata" Words:[4]u64=[1,2,4,8]
+static align(64) section ".lanner.rodata" Words:[4]u64=[1,2,4,8]
 
 ### **8.4 Unsafe functions**
 
@@ -430,7 +430,7 @@ Unsafe functions remain marked unsafe when stored in function-pointer types.
 
 ### **8.5 Inline assembly**
 
-Stable supports explicit LLVM-backed assembly forms including:
+Lanner supports explicit LLVM-backed assembly forms including:
 
 asm
 asmI32
@@ -453,7 +453,7 @@ Important CLI options:
 --freestanding
 --no-runtime
 
-Stable can emit objects or assembly for a selected target without requiring a hosted Stable runtime. Final firmware/kernel linking still depends on the platform toolchain, sysroot, linker, startup code, and hardware ABI.
+Lanner can emit objects or assembly for a selected target without requiring a hosted Lanner runtime. Final firmware/kernel linking still depends on the platform toolchain, sysroot, linker, startup code, and hardware ABI.
 
 ## **9. CPU FEATURES, SIMD, THREADS, AND ATOMICS**
 
@@ -482,7 +482,7 @@ BMI2 operations should be guarded by Cpu.hasBmi2() when code must run on CPUs wi
 
 ### **9.3 Fixed-width vector types**
 
-Stable exposes v128, v256, and v512 value types and load/store/zero helpers such as:
+Lanner exposes v128, v256, and v512 value types and load/store/zero helpers such as:
 
 Cpu.loadV128(...)
 Cpu.loadV256(...)
@@ -522,7 +522,7 @@ count = Nodes.load()
 Nodes.store(0)
 Nodes.compareExchange(expected, desired)
 
-Atomic load/store/fetch/CAS calls accept optional memory-order strings such as relaxed, acquire, release, acq_rel, and seq_cst where valid for the operation. Stable also provides atomic and compiler fences.
+Atomic load/store/fetch/CAS calls accept optional memory-order strings such as relaxed, acquire, release, acq_rel, and seq_cst where valid for the operation. Lanner also provides atomic and compiler fences.
 
 ## **10. STATIC/GLOBAL STORAGE**
 
@@ -537,7 +537,7 @@ V1 also supports explicit alignment, custom native sections, mutability, and thr
 
 ## **11. C FFI**
 
-Stable can call native C ABI functions explicitly.
+Lanner can call native C ABI functions explicitly.
 
 extern abs(x: i32) i32
 
@@ -546,8 +546,8 @@ main() i32:
 
 Link additional libraries or objects with:
 
-stablec ffi.st --link path/to/object.o -o ffi
-stablec ffi.st --link -lm -o ffi
+lanner ffi.st --link path/to/object.o -o ffi
+lanner ffi.st --link -lm -o ffi
 
 The V1 FFI supports C-compatible scalar, pointer, string-pointer, function-pointer forms, and external globals. Complex by-value C aggregates are intentionally restricted; use an explicit pointer-based ABI or C wrapper when the native ABI needs platform-specific aggregate coercions.
 
@@ -555,7 +555,7 @@ Function pointers and callbacks can be used through the explicit unsafe/ABI mode
 
 ## **12. COMPTIME**
 
-Stable supports compile-time integer, floating-point, boolean, and string evaluation.
+Lanner supports compile-time integer, floating-point, boolean, and string evaluation.
 
 Example:
 
@@ -575,7 +575,7 @@ Use comptime for:
 
 ## **13. STANDARD HOSTED RUNTIME**
 
-The hosted runtime is implemented in C and provides the small native ABI layer used by Stable applications. It does not imply that Stable's values are garbage collected or reference counted.
+The hosted runtime is implemented in C and provides the small native ABI layer used by Lanner applications. It does not imply that Lanner's values are garbage collected or reference counted.
 
 Basic I/O helpers include print-style functions and raw stdout output.
 
@@ -589,7 +589,7 @@ writeRaw("ready\n")
 
 ## **14. UCI / CHESS-ENGINE RUNTIME**
 
-Stable has a focused native engine surface, but chess is only one use case.
+Lanner has a focused native engine surface, but chess is only one use case.
 
 Stdin:
 
@@ -699,7 +699,7 @@ Http.status
 
 The V1 client handles bounded HTTP/1.1 operations including Content-Length, connection-close responses, and chunked response decoding.
 
-TLS is deliberately not hidden in the core runtime. Bind a native TLS implementation through FFI or build a Stable library around one.
+TLS is deliberately not hidden in the core runtime. Bind a native TLS implementation through FFI or build a Lanner library around one.
 
 ### **15.6 JSON**
 
@@ -729,11 +729,11 @@ Buffer.free()
 
 ## **16. DEVOPS AND SCRIPTING**
 
-Stable can be used for command-line tools and compiled scripts.
+Lanner can be used for command-line tools and compiled scripts.
 
 Script execution:
 
-stablec tool.st --script -- arg1 arg2
+lanner tool.st --script -- arg1 arg2
 
 The arguments after -- become the script's process arguments.
 
@@ -782,7 +782,7 @@ Path.normalize
 Path.isAbsolute
 Path.absolute
 
-The V1 Path API is intentionally small. Path helper results may use temporary/native scratch storage; copy results into owned Stable storage when they need to survive subsequent helper calls.
+The V1 Path API is intentionally small. Path helper results may use temporary/native scratch storage; copy results into owned Lanner storage when they need to survive subsequent helper calls.
 
 ### **16.5 Regex**
 
@@ -805,7 +805,7 @@ Use Process APIs when you need explicit process lifecycle management rather than
 
 Build a browser-oriented WebAssembly module with:
 
-stablec app.st --web -O3 -o app.wasm
+lanner app.st --web -O3 -o app.wasm
 
 The compiler produces:
 
@@ -846,7 +846,7 @@ Web.removeEventListener
 Web.fetchText
 Web.freeBuffer
 
-Stable checks callback signatures when callback names are string literals where the compiler has that information.
+Lanner checks callback signatures when callback names are string literals where the compiler has that information.
 
 ### **17.3 Important Web boundary**
 
@@ -857,7 +857,7 @@ V1 has browser event-loop APIs and asynchronous Fetch callbacks. Full language-l
 
 ## **18. MOBILE**
 
-Stable can generate native ARM application cores for Android and iOS and place the UI/platform boundary in the native mobile ecosystem.
+Lanner can generate native ARM application cores for Android and iOS and place the UI/platform boundary in the native mobile ecosystem.
 
 ### **18.1 Android targets**
 
@@ -868,11 +868,11 @@ x86
 
 Example:
 
-stablec app.st --target=aarch64-linux-android24 --emit-object -o app.o
+lanner app.st --target=aarch64-linux-android24 --emit-object -o app.o
 
 Project generation:
 
-stablec app.st --android-project MyAndroidApp --android-abi arm64-v8a --deployment 24 --mobile-name StableMobile --bundle-id com.example.stablemobile
+lanner app.st --android-project MyAndroidApp --android-abi arm64-v8a --deployment 24 --mobile-name LannerMobile --bundle-id com.example.lannermobile
 
 ### **18.2 iOS targets**
 
@@ -881,7 +881,7 @@ aarm64 Simulator
 
 Project generation:
 
-stablec app.st --ios-project MyIOSApp --deployment 16.0 --mobile-name StableMobile --bundle-id com.example.stablemobile
+lanner app.st --ios-project MyIOSApp --deployment 16.0 --mobile-name LannerMobile --bundle-id com.example.lannermobile
 
 Use --ios-simulator for the arm64 Simulator.
 
@@ -912,13 +912,13 @@ Mobile.bluetoothAvailable
 
 Architecture:
 
-Stable native core
+Lanner native core
     |
     +-- Android: native/JNI bridge -> Android UI/platform APIs
     |
     +-- iOS: C/Objective-C bridge -> SwiftUI/Apple frameworks
 
-V1 does not attempt to replace the Android or Apple UI ecosystems. Stable is the native high-performance core and explicit interop layer.
+V1 does not attempt to replace the Android or Apple UI ecosystems. Lanner is the native high-performance core and explicit interop layer.
 
 ## **19. GAME DEVELOPMENT**
 
@@ -1024,13 +1024,13 @@ Graphics.glDeleteBuffers
 Graphics.glDeleteVertexArrays
 Graphics.glGetError
 
-The low-level Graphics boundary can dynamically load native graphics procedures. This lets Stable access larger APIs such as Vulkan, Metal, and Direct3D through explicit native interop without baking every vendor API into the language.
+The low-level Graphics boundary can dynamically load native graphics procedures. This lets Lanner access larger APIs such as Vulkan, Metal, and Direct3D through explicit native interop without baking every vendor API into the language.
 
 ### **19.3 Game project generation**
 
-stablec main.st --game-project MyGame --game-name MyGame
+lanner main.st --game-project MyGame --game-name MyGame
 
-The generated project includes a CMake build, the Stable source, runtime source, and an assets directory.
+The generated project includes a CMake build, the Lanner source, runtime source, and an assets directory.
 
 ### **19.4 Performance model**
 
@@ -1038,7 +1038,7 @@ There is no tracing GC or hidden frame allocator. Use arrays, arenas, references
 
 ## **20. ML / AI**
 
-Stable's ML layer is explicit and native. It does not require Python to execute a pure Stable program.
+Lanner's ML layer is explicit and native. It does not require Python to execute a pure Lanner program.
 
 ### **20.1 Tensor capabilities**
 
@@ -1091,7 +1091,7 @@ The tape has an explicit lifetime. Tensors used by the tape must remain alive un
 
 ### **20.3 Optimized native libraries**
 
-Use Stable FFI and --link to connect to native numerical libraries such as BLAS/LAPACK and platform/vendor math libraries.
+Use Lanner FFI and --link to connect to native numerical libraries such as BLAS/LAPACK and platform/vendor math libraries.
 
 Accelerator discovery helpers include:
 
@@ -1101,11 +1101,11 @@ Accel.rocmAvailable
 Accel.metalAvailable
 Accel.backend
 
-Python can remain an optional host ecosystem. Stable can bind native Python C APIs or extensions when a project actually needs Python interop, but Python is not required to run a pure Stable binary.
+Python can remain an optional host ecosystem. Lanner can bind native Python C APIs or extensions when a project actually needs Python interop, but Python is not required to run a pure Lanner binary.
 
 ## **21. LOW-LEVEL BINARY AND ABI WORK**
 
-Stable is suitable for code that needs exact data representations.
+Lanner is suitable for code that needs exact data representations.
 
 Use:
 
@@ -1138,14 +1138,14 @@ This is useful for:
 
 Basic:
 
-stablec file.st
-stablec file.st -o program
-stablec file.st --check
-stablec file.st --run
-stablec file.st --script
-stablec file.st --emit-llvm
-stablec file.st --emit-object
-stablec file.st --emit-asm
+lanner file.st
+lanner file.st -o program
+lanner file.st --check
+lanner file.st --run
+lanner file.st --script
+lanner file.st --emit-llvm
+lanner file.st --emit-object
+lanner file.st --emit-asm
 
 Targets and toolchain:
 
@@ -1181,17 +1181,17 @@ Debug/inspection compatibility options also include HIR emission modes and the b
 
 LLVM toolchain selection can use environment variables such as:
 
-STABLE_CLANG=/path/to/clang stablec file.st
+LANNER_CLANG=/path/to/clang lanner file.st
 
 or:
 
-LLVM_CC=/path/to/clang stablec file.st
+LLVM_CC=/path/to/clang lanner file.st
 
 The modern opaque-pointer LLVM IR path is supported with LLVM/Clang 15+ as documented by the project.
 
 ## **23. ERROR HANDLING AND SAFETY**
 
-Stable's preferred model is to make invalid ownership states compiler errors and normal absence/failure values explicit with optionals and Result values.
+Lanner's preferred model is to make invalid ownership states compiler errors and normal absence/failure values explicit with optionals and Result values.
 
 Safety checks include protection against:
 
@@ -1206,7 +1206,7 @@ Safety checks include protection against:
 
 When low-level code intentionally leaves the safe model, mark the operation unsafe. The goal is not to ban unsafe programming; the goal is to make unsafe regions visible.
 
-## **24. WHAT STABLE IS GOOD AT IN V1**
+## **24. WHAT LANNER IS GOOD AT IN V1**
 
 Systems:
 Native code, manual memory, raw pointers, FFI, SIMD, assembly, freestanding objects, cross-target code.
@@ -1232,7 +1232,7 @@ Args, environment, filesystem, paths, regex, process/shell APIs, compiled script
 Chess/NNUE:
 Bitboards, static tables, CPU intrinsics, UCI runtime, multithreading, timing, binary model loading, and a verified representative 45,192 -> 16 -> 32 -> 1 NNUE inference path are present in V1.
 
-Chess is a demanding test workload, not Stable's only purpose.
+Chess is a demanding test workload, not Lanner's only purpose.
 
 ## **25. WHAT IS NOT COMPLETE IN V1**
 
@@ -1256,7 +1256,7 @@ These are ecosystem or advanced compiler expansion areas, not reasons that ordin
 
 ## **26. LEARNING PATH**
 
-A good order for learning Stable is:
+A good order for learning Lanner is:
 
 ## **1. Hello World and CLI options.**
 ## **2. Scalars, variables, operators, if/while/for.**
@@ -1342,9 +1342,9 @@ V1 chess/NNUE audit:
     docs/CHESS_NNUE_AUDIT.md
     docs/V1_RELEASE_AUDIT.md
 
-## **29. THE STABLE MINDSET**
+## **29. THE LANNER MINDSET**
 
-Think about Stable in three layers:
+Think about Lanner in three layers:
 
 SAFE CORE
 Values, ownership, references, views, arrays, structs, enums, Result/Optionals, control flow, comptime.
@@ -1359,6 +1359,6 @@ Use the safe core by default, make expensive or dangerous operations explicit, a
 
 ## **30. VERSION 1 IN ONE SENTENCE**
 
-Stable 1.0 is a general-purpose, LLVM-native, ownership-safe language with a strong low-level escape hatch and a broad V1 runtime/toolchain surface; the next major milestone is replacing the remaining C++ compiler implementation with a fully bootstrapped Stable compiler.
+Lanner 1.0 is a general-purpose, LLVM-native, ownership-safe language with a strong low-level escape hatch and a broad V1 runtime/toolchain surface; the next major milestone is replacing the remaining C++ compiler implementation with a fully bootstrapped Lanner compiler.
 
-Welcome to Stable.
+Welcome to Lanner.

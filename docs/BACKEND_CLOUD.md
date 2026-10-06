@@ -1,6 +1,6 @@
 # Backend and Cloud Runtime
 
-Stable provides a native backend runtime intended for long-running servers, network services, concurrent workers, and command-line service processes.
+Lanner provides a native backend runtime intended for long-running servers, network services, concurrent workers, and command-line service processes.
 
 ## Networking
 
@@ -10,7 +10,7 @@ Stable provides a native backend runtime intended for long-running servers, netw
 
 ## Synchronization
 
-Stable provides `Mutex`, `RwLock`, `Condvar`, and `Semaphore`, plus the existing `Thread` and `Atomic[T]` primitives.
+Lanner provides `Mutex`, `RwLock`, `Condvar`, and `Semaphore`, plus the existing `Thread` and `Atomic[T]` primitives.
 
 ## Processes
 
@@ -18,7 +18,7 @@ Stable provides `Mutex`, `RwLock`, `Condvar`, and `Semaphore`, plus the existing
 
 ## HTTP
 
-`Http.get()` and `Http.post()` implement bounded HTTP/1.1 client requests with connection-close handling, `Content-Length`, and chunked response decoding. `Http.post()` uses JSON as its content type. HTTPS is intentionally not hidden inside the runtime: TLS should be supplied through an explicit native TLS library via Stable FFI.
+`Http.get()` and `Http.post()` implement bounded HTTP/1.1 client requests with connection-close handling, `Content-Length`, and chunked response decoding. `Http.post()` uses JSON as its content type. HTTPS is intentionally not hidden inside the runtime: TLS should be supplied through an explicit native TLS library via Lanner FFI.
 
 ## JSON and buffers
 
@@ -30,4 +30,4 @@ The backend runtime is rejected for browser WebAssembly targets. Network, proces
 
 ## Design boundary
 
-The backend layer is a native runtime foundation rather than a giant framework. Higher-level TLS, database, gRPC, and cloud-provider clients remain normal Stable libraries or explicit FFI bindings, keeping the language ABI and runtime small and predictable.
+The backend layer is a native runtime foundation rather than a giant framework. Higher-level TLS, database, gRPC, and cloud-provider clients remain normal Lanner libraries or explicit FFI bindings, keeping the language ABI and runtime small and predictable.

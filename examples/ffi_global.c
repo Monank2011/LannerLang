@@ -1,1 +1,1 @@
-int stable_counter = 40;
+int lanner_counter = 40;

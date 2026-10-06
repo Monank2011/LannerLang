@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace stable::hir {
+namespace lanner::hir {
 
 std::string LLVMCodegen::llvmType(const Type& type) const {
     switch (type.kind) {
@@ -114,7 +114,7 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
     int internalCounter = 0;
     const auto emitBlockInstructions = [&](const BasicBlock& block, std::string& text) {
         std::function<bool(const Type&)> ownsResources = [&](const Type& t) -> bool {
-            if (t.llvmName == "%StableArena" || t.llvmName == "%StableDynArray") return true;
+            if (t.llvmName == "%LannerArena" || t.llvmName == "%LannerDynArray") return true;
             if (t.sourceName == "View" || t.sourceName == "EditView" || t.llvmName == "ptr" || t.kind != ScalarKind::Aggregate) return false;
             for (const auto& member : t.members) if (ownsResources(member)) return true;
             return t.sourceName == "Result" || (!t.sourceName.empty() && t.sourceName.back() == '?') || t.sourceName == "array";
@@ -128,12 +128,12 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
         destroyAt = [&](const Type& t, const std::string& addr, const std::string& currentLabel) -> std::string {
             if (!ownsResources(t)) return currentLabel;
 
-            if (t.llvmName == "%StableArena") {
-                text += "  call void @__stable_arena_destroy(ptr " + addr + ")\n";
+            if (t.llvmName == "%LannerArena") {
+                text += "  call void @__lanner_arena_destroy(ptr " + addr + ")\n";
                 return currentLabel;
             }
 
-            if (t.llvmName == "%StableDynArray") {
+            if (t.llvmName == "%LannerDynArray") {
                 if (t.members.empty()) throw std::runtime_error("dynamic array HIR type has no element type");
                 const Type& elem = t.members[0];
                 const std::string done = "hir.drop.done." + std::to_string(internalCounter++);
@@ -141,10 +141,10 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                 const std::string data = "%drop_data_" + std::to_string(internalCounter++);
                 const std::string len = "%drop_len_" + std::to_string(internalCounter++);
                 const std::string arena = "%drop_arena_" + std::to_string(internalCounter++);
-                text += "  " + arr + " = load %StableDynArray, ptr " + addr + "\n";
-                text += "  " + data + " = extractvalue %StableDynArray " + arr + ", 0\n";
-                text += "  " + len + " = extractvalue %StableDynArray " + arr + ", 1\n";
-                text += "  " + arena + " = extractvalue %StableDynArray " + arr + ", 3\n";
+                text += "  " + arr + " = load %LannerDynArray, ptr " + addr + "\n";
+                text += "  " + data + " = extractvalue %LannerDynArray " + arr + ", 0\n";
+                text += "  " + len + " = extractvalue %LannerDynArray " + arr + ", 1\n";
+                text += "  " + arena + " = extractvalue %LannerDynArray " + arr + ", 3\n";
 
                 std::string continuation;
                 const bool elemOwns = ownsResources(elem);
@@ -286,7 +286,7 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                     break;
                 case Opcode::ConstString: {
                     if (inst.type.kind != ScalarKind::String) throw std::runtime_error("string HIR constant has non-string type");
-                    const std::string global = "@.stable.str." + fn.name + "." + (inst.result.empty() ? "anon" : inst.result.substr(1));
+                    const std::string global = "@.lanner.str." + fn.name + "." + (inst.result.empty() ? "anon" : inst.result.substr(1));
                     text += "  " + inst.result + " = getelementptr inbounds [" + std::to_string(inst.stringValue.size() + 1) + " x i8], ptr " + global + ", i64 0, i64 0\n";
                     break;
                 }
@@ -338,18 +338,18 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                     struct Signature { std::string ret; std::vector<std::string> params; };
                     std::optional<Signature> runtime;
                     if (inst.callee == "llvm.trap") runtime = Signature{"void", {}};
-                    else if (inst.callee == "__stable_read_file") runtime = Signature{"%StableDynArray", {"ptr"}};
-                    else if (inst.callee == "__stable_write_stdout") runtime = Signature{"void", {"ptr"}};
-                    else if (inst.callee == "__stable_write_raw") runtime = Signature{"void", {"ptr"}};
-                    else if (inst.callee == "__stable_write_i64_raw") runtime = Signature{"void", {"i64"}};
-                    else if (inst.callee == "__stable_write_byte_raw") runtime = Signature{"void", {"i64"}};
-                    else if (inst.callee == "__stable_print_i64") runtime = Signature{"void", {"i64"}};
-                    else if (inst.callee == "__stable_print_u64") runtime = Signature{"void", {"i64"}};
-                    else if (inst.callee == "__stable_print_f64") runtime = Signature{"void", {"double"}};
-                    else if (inst.callee == "__stable_print_bool") runtime = Signature{"void", {"i1"}};
-                    else if (inst.callee == "__stable_print_string") runtime = Signature{"void", {"ptr"}};
-                    else if (inst.callee == "__stable_string_len") runtime = Signature{"i64", {"ptr"}};
-                    else if (inst.callee == "__stable_getenv") runtime = Signature{"ptr", {"ptr"}};
+                    else if (inst.callee == "__lanner_read_file") runtime = Signature{"%LannerDynArray", {"ptr"}};
+                    else if (inst.callee == "__lanner_write_stdout") runtime = Signature{"void", {"ptr"}};
+                    else if (inst.callee == "__lanner_write_raw") runtime = Signature{"void", {"ptr"}};
+                    else if (inst.callee == "__lanner_write_i64_raw") runtime = Signature{"void", {"i64"}};
+                    else if (inst.callee == "__lanner_write_byte_raw") runtime = Signature{"void", {"i64"}};
+                    else if (inst.callee == "__lanner_print_i64") runtime = Signature{"void", {"i64"}};
+                    else if (inst.callee == "__lanner_print_u64") runtime = Signature{"void", {"i64"}};
+                    else if (inst.callee == "__lanner_print_f64") runtime = Signature{"void", {"double"}};
+                    else if (inst.callee == "__lanner_print_bool") runtime = Signature{"void", {"i1"}};
+                    else if (inst.callee == "__lanner_print_string") runtime = Signature{"void", {"ptr"}};
+                    else if (inst.callee == "__lanner_string_len") runtime = Signature{"i64", {"ptr"}};
+                    else if (inst.callee == "__lanner_getenv") runtime = Signature{"ptr", {"ptr"}};
 
                     std::vector<std::string> paramTypes;
                     std::string returnType = type;
@@ -389,12 +389,12 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                         text += "  " + normalized + " = " + op + " i" + std::to_string(inst.rhsType.bits) + " " + inst.rhs + " to i64\n";
                         index = normalized;
                     }
-                    if (source == "%StableDynArray") {
+                    if (source == "%LannerDynArray") {
                         if (inst.sourceType.members.empty()) throw std::runtime_error("dynamic array HIR type has no element type");
                         const std::string array = inst.result + ".array";
                         const std::string data = inst.result + ".data";
-                        text += "  " + array + " = load %StableDynArray, ptr " + inst.lhs + "\n";
-                        text += "  " + data + " = extractvalue %StableDynArray " + array + ", 0\n";
+                        text += "  " + array + " = load %LannerDynArray, ptr " + inst.lhs + "\n";
+                        text += "  " + data + " = extractvalue %LannerDynArray " + array + ", 0\n";
                         text += "  " + inst.result + " = getelementptr inbounds " + llvmType(inst.sourceType.members[0]) + ", ptr " + data + ", i64 " + index + "\n";
                     } else if (inst.sourceType.sourceName == "View" || inst.sourceType.sourceName == "EditView") {
                         if (inst.sourceType.members.empty()) throw std::runtime_error("view HIR type has no element type");
@@ -439,11 +439,11 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                         index = normalized;
                     }
                     std::string limit;
-                    if (inst.sourceType.llvmName == "%StableDynArray") {
+                    if (inst.sourceType.llvmName == "%LannerDynArray") {
                         const std::string arr = "%bounds_arr_" + std::to_string(internalCounter++);
                         limit = "%bounds_len_" + std::to_string(internalCounter++);
-                        text += "  " + arr + " = load %StableDynArray, ptr " + inst.lhs + "\n";
-                        text += "  " + limit + " = extractvalue %StableDynArray " + arr + ", 1\n";
+                        text += "  " + arr + " = load %LannerDynArray, ptr " + inst.lhs + "\n";
+                        text += "  " + limit + " = extractvalue %LannerDynArray " + arr + ", 1\n";
                     } else if (inst.sourceType.sourceName == "View" || inst.sourceType.sourceName == "EditView") {
                         const std::string view = "%bounds_view_" + std::to_string(internalCounter++);
                         limit = "%bounds_len_" + std::to_string(internalCounter++);
@@ -472,13 +472,13 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                     if (inst.rhsType.kind == ScalarKind::Void) throw std::runtime_error("dynamic array push has void element type");
                     const std::string arrTmp = inst.result + ".push.array";
                     const std::string valueTmp = inst.result + ".push.value";
-                    text += "  " + arrTmp + " = alloca %StableDynArray, align 8\n";
-                    text += "  store %StableDynArray " + inst.lhs + ", ptr " + arrTmp + "\n";
+                    text += "  " + arrTmp + " = alloca %LannerDynArray, align 8\n";
+                    text += "  store %LannerDynArray " + inst.lhs + ", ptr " + arrTmp + "\n";
                     text += "  " + valueTmp + " = alloca " + llvmType(inst.rhsType) + ", align 8\n";
                     text += "  store " + llvmType(inst.rhsType) + " " + inst.rhs + ", ptr " + valueTmp + "\n";
                     const std::string elemSize = "ptrtoint (ptr getelementptr (" + llvmType(inst.rhsType) + ", ptr null, i64 1) to i64)";
-                    text += "  call void @__stable_dyn_array_push(ptr " + arrTmp + ", ptr " + valueTmp + ", i64 " + elemSize + ")\n";
-                    text += "  " + inst.result + " = load %StableDynArray, ptr " + arrTmp + "\n";
+                    text += "  call void @__lanner_dyn_array_push(ptr " + arrTmp + ", ptr " + valueTmp + ", i64 " + elemSize + ")\n";
+                    text += "  " + inst.result + " = load %LannerDynArray, ptr " + arrTmp + "\n";
                     break;
                 }
                 case Opcode::ArenaCreate: {
@@ -492,10 +492,10 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                     const std::string a0 = inst.result + ".arena.0";
                     const std::string a1 = inst.result + ".arena.1";
                     const std::string a2 = inst.result + ".arena.2";
-                    text += "  " + a0 + " = insertvalue %StableArena zeroinitializer, i64 " + size + ", 3\n";
-                    text += "  " + a1 + " = insertvalue %StableArena " + a0 + ", ptr null, 0\n";
-                    text += "  " + a2 + " = insertvalue %StableArena " + a1 + ", ptr null, 1\n";
-                    text += "  " + inst.result + " = insertvalue %StableArena " + a2 + ", i64 0, 2\n";
+                    text += "  " + a0 + " = insertvalue %LannerArena zeroinitializer, i64 " + size + ", 3\n";
+                    text += "  " + a1 + " = insertvalue %LannerArena " + a0 + ", ptr null, 0\n";
+                    text += "  " + a2 + " = insertvalue %LannerArena " + a1 + ", ptr null, 1\n";
+                    text += "  " + inst.result + " = insertvalue %LannerArena " + a2 + ", i64 0, 2\n";
                     break;
                 }
                 case Opcode::DestroyLocal: {
@@ -529,10 +529,10 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
 }
 
 std::string LLVMCodegen::generate(const Module& module) const {
-    std::string out = "; ModuleID = 'stable-hir'\n\n";
-    out += "%StableArena = type { ptr, ptr, i64, i64 }\n";
-    out += "%StableDynArray = type { ptr, i64, i64, ptr }\n";
-    out += "%StableArenaNode = type { ptr, i8 }\n\n";
+    std::string out = "; ModuleID = 'lanner-hir'\n\n";
+    out += "%LannerArena = type { ptr, ptr, i64, i64 }\n";
+    out += "%LannerDynArray = type { ptr, i64, i64, ptr }\n";
+    out += "%LannerArenaNode = type { ptr, i8 }\n\n";
     out += "declare void @llvm.trap()\n";
     out += "declare ptr @malloc(i64)\n";
     out += "declare ptr @realloc(ptr, i64)\n";
@@ -549,21 +549,21 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "declare i64 @strlen(ptr)\n";
     out += "declare ptr @getenv(ptr)\n";
     out += "declare i32 @printf(ptr, ...)\n\n";
-    out += "@.stable.rb = private unnamed_addr constant [3 x i8] c\"rb\\00\"\n";
-    out += "@.stable.print_i64 = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n";
-    out += "@.stable.print_u64 = private unnamed_addr constant [5 x i8] c\"%lu\\0A\\00\"\n";
-    out += "@.stable.print_f64 = private unnamed_addr constant [4 x i8] c\"%g\\0A\\00\"\n";
-    out += "@.stable.print_true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n";
-    out += "@.stable.print_false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n";
-    out += "@.stable.print_bool = private unnamed_addr constant [3 x i8] c\"%s\\00\"\n\n";
-    out += "@.stable.print_i64_raw = private unnamed_addr constant [4 x i8] c\"%ld\\00\"\n";
+    out += "@.lanner.rb = private unnamed_addr constant [3 x i8] c\"rb\\00\"\n";
+    out += "@.lanner.print_i64 = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n";
+    out += "@.lanner.print_u64 = private unnamed_addr constant [5 x i8] c\"%lu\\0A\\00\"\n";
+    out += "@.lanner.print_f64 = private unnamed_addr constant [4 x i8] c\"%g\\0A\\00\"\n";
+    out += "@.lanner.print_true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n";
+    out += "@.lanner.print_false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n";
+    out += "@.lanner.print_bool = private unnamed_addr constant [3 x i8] c\"%s\\00\"\n\n";
+    out += "@.lanner.print_i64_raw = private unnamed_addr constant [4 x i8] c\"%ld\\00\"\n";
     out += "@stdout = external global ptr\n";
-    out += "define internal ptr @__stable_arena_alloc(ptr %arena, i64 %bytes) {\n";
+    out += "define internal ptr @__lanner_arena_alloc(ptr %arena, i64 %bytes) {\n";
     out += "entry:\n";
-    out += "  %rem.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 2\n";
-    out += "  %cur.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 1\n";
-    out += "  %head.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 0\n";
-    out += "  %chunk.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 3\n";
+    out += "  %rem.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 2\n";
+    out += "  %cur.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 1\n";
+    out += "  %head.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 0\n";
+    out += "  %chunk.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 3\n";
     out += "  %remaining = load i64, ptr %rem.addr\n";
     out += "  %current = load ptr, ptr %cur.addr\n";
     out += "  %align.sum = add i64 %bytes, 7\n";
@@ -602,7 +602,7 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  %head = load ptr, ptr %head.addr\n";
     out += "  store ptr %head, ptr %mem\n";
     out += "  store ptr %mem, ptr %head.addr\n";
-    out += "  %payload = getelementptr inbounds %StableArenaNode, ptr %mem, i32 0, i32 1\n";
+    out += "  %payload = getelementptr inbounds %LannerArenaNode, ptr %mem, i32 0, i32 1\n";
     out += "  store ptr %payload, ptr %cur.addr\n";
     out += "  store i64 %capacity, ptr %rem.addr\n";
     out += "  store i64 %capacity, ptr %chunk.addr\n";
@@ -620,7 +620,7 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  unreachable\n";
     out += "}\n\n";
 
-    out += "define internal void @__stable_arena_destroy(ptr %arena) {\n";
+    out += "define internal void @__lanner_arena_destroy(ptr %arena) {\n";
     out += "entry:\n";
     out += "  %first = load ptr, ptr %arena\n";
     out += "  br label %loop\n";
@@ -635,21 +635,21 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "step:\n";
     out += "  br label %loop\n";
     out += "done:\n";
-    out += "  %head.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 0\n";
-    out += "  %cur.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 1\n";
-    out += "  %rem.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 2\n";
+    out += "  %head.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 0\n";
+    out += "  %cur.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 1\n";
+    out += "  %rem.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 2\n";
     out += "  store ptr null, ptr %head.addr\n";
     out += "  store ptr null, ptr %cur.addr\n";
     out += "  store i64 0, ptr %rem.addr\n";
     out += "  ret void\n";
     out += "}\n\n";
 
-    out += "define internal void @__stable_dyn_array_push(ptr %array, ptr %value, i64 %elem.size) {\n";
+    out += "define internal void @__lanner_dyn_array_push(ptr %array, ptr %value, i64 %elem.size) {\n";
     out += "entry:\n";
-    out += "  %data.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 0\n";
-    out += "  %len.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 1\n";
-    out += "  %cap.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 2\n";
-    out += "  %arena.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 3\n";
+    out += "  %data.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 0\n";
+    out += "  %len.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 1\n";
+    out += "  %cap.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 2\n";
+    out += "  %arena.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 3\n";
     out += "  %data = load ptr, ptr %data.addr\n";
     out += "  %len = load i64, ptr %len.addr\n";
     out += "  %cap = load i64, ptr %cap.addr\n";
@@ -677,7 +677,7 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  %has.arena = icmp ne ptr %arena, null\n";
     out += "  br i1 %has.arena, label %arena.alloc, label %heap.alloc\n";
     out += "arena.alloc:\n";
-    out += "  %arena.data = call ptr @__stable_arena_alloc(ptr %arena, i64 %bytes)\n";
+    out += "  %arena.data = call ptr @__lanner_arena_alloc(ptr %arena, i64 %bytes)\n";
     out += "  br label %alloc.merge\n";
     out += "heap.alloc:\n";
     out += "  %heap.data = call ptr @realloc(ptr %data, i64 %bytes)\n";
@@ -723,9 +723,9 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  unreachable\n";
     out += "}\n\n";
 
-    out += "define internal %StableDynArray @__stable_read_file(ptr %path) {\n";
+    out += "define internal %LannerDynArray @__lanner_read_file(ptr %path) {\n";
     out += "entry:\n";
-    out += "  %file = call ptr @fopen(ptr %path, ptr @.stable.rb)\n";
+    out += "  %file = call ptr @fopen(ptr %path, ptr @.lanner.rb)\n";
     out += "  %missing = icmp eq ptr %file, null\n";
     out += "  br i1 %missing, label %fail.no.close, label %seek.end\n";
     out += "seek.end:\n";
@@ -756,11 +756,11 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  %end = getelementptr inbounds i8, ptr %data, i64 %file.size\n";
     out += "  store i8 0, ptr %end\n";
     out += "  call i32 @fclose(ptr %file)\n";
-    out += "  %a0 = insertvalue %StableDynArray zeroinitializer, ptr %data, 0\n";
-    out += "  %a1 = insertvalue %StableDynArray %a0, i64 %file.size, 1\n";
-    out += "  %a2 = insertvalue %StableDynArray %a1, i64 %file.size, 2\n";
-    out += "  %a3 = insertvalue %StableDynArray %a2, ptr null, 3\n";
-    out += "  ret %StableDynArray %a3\n";
+    out += "  %a0 = insertvalue %LannerDynArray zeroinitializer, ptr %data, 0\n";
+    out += "  %a1 = insertvalue %LannerDynArray %a0, i64 %file.size, 1\n";
+    out += "  %a2 = insertvalue %LannerDynArray %a1, i64 %file.size, 2\n";
+    out += "  %a3 = insertvalue %LannerDynArray %a2, ptr null, 3\n";
+    out += "  ret %LannerDynArray %a3\n";
     out += "free.fail:\n";
     out += "  call void @free(ptr %data)\n";
     out += "  br label %close.fail\n";
@@ -774,62 +774,62 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  unreachable\n";
     out += "}\n\n";
 
-    out += "@.stable.empty = private unnamed_addr constant [1 x i8] c\"\\00\"\n\n";
-    out += "define internal ptr @__stable_getenv(ptr %name) {\n";
+    out += "@.lanner.empty = private unnamed_addr constant [1 x i8] c\"\\00\"\n\n";
+    out += "define internal ptr @__lanner_getenv(ptr %name) {\n";
     out += "entry:\n";
     out += "  %value = call ptr @getenv(ptr %name)\n";
     out += "  %missing = icmp eq ptr %value, null\n";
     out += "  br i1 %missing, label %empty, label %found\n";
     out += "empty:\n";
-    out += "  ret ptr getelementptr inbounds ([1 x i8], ptr @.stable.empty, i64 0, i64 0)\n";
+    out += "  ret ptr getelementptr inbounds ([1 x i8], ptr @.lanner.empty, i64 0, i64 0)\n";
     out += "found:\n";
     out += "  ret ptr %value\n";
     out += "}\n\n";
 
-    out += "define internal void @__stable_print_i64(i64 %value) {\n";
+    out += "define internal void @__lanner_print_i64(i64 %value) {\n";
     out += "entry:\n";
-    out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_i64, i64 %value)\n";
+    out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_i64, i64 %value)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_print_u64(i64 %value) {\n";
+    out += "define internal void @__lanner_print_u64(i64 %value) {\n";
     out += "entry:\n";
-    out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_u64, i64 %value)\n";
+    out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_u64, i64 %value)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_print_f64(double %value) {\n";
+    out += "define internal void @__lanner_print_f64(double %value) {\n";
     out += "entry:\n";
-    out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_f64, double %value)\n";
+    out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_f64, double %value)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_print_bool(i1 %value) {\n";
+    out += "define internal void @__lanner_print_bool(i1 %value) {\n";
     out += "entry:\n";
-    out += "  %ptr = select i1 %value, ptr getelementptr inbounds ([5 x i8], ptr @.stable.print_true, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.stable.print_false, i64 0, i64 0)\n";
+    out += "  %ptr = select i1 %value, ptr getelementptr inbounds ([5 x i8], ptr @.lanner.print_true, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.lanner.print_false, i64 0, i64 0)\n";
     out += "  call i32 @puts(ptr %ptr)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_print_string(ptr %value) {\n";
+    out += "define internal void @__lanner_print_string(ptr %value) {\n";
     out += "entry:\n";
     out += "  call i32 @puts(ptr %value)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_write_stdout(ptr %value) {\n";
+    out += "define internal void @__lanner_write_stdout(ptr %value) {\n";
     out += "entry:\n";
     out += "  call i32 @puts(ptr %value)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_write_raw(ptr %value) {\n";
+    out += "define internal void @__lanner_write_raw(ptr %value) {\n";
     out += "entry:\n";
     out += "  %len = call i64 @strlen(ptr %value)\n";
     out += "  %out = load ptr, ptr @stdout\n";
     out += "  call i64 @fwrite(ptr %value, i64 1, i64 %len, ptr %out)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_write_i64_raw(i64 %value) {\n";
+    out += "define internal void @__lanner_write_i64_raw(i64 %value) {\n";
     out += "entry:\n";
-    out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_i64_raw, i64 %value)\n";
+    out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_i64_raw, i64 %value)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal void @__stable_write_byte_raw(i64 %value) {\n";
+    out += "define internal void @__lanner_write_byte_raw(i64 %value) {\n";
     out += "entry:\n";
     out += "  %byte = trunc i64 %value to i8\n";
     out += "  %buf = alloca i8, align 1\n";
@@ -838,7 +838,7 @@ std::string LLVMCodegen::generate(const Module& module) const {
     out += "  call i64 @fwrite(ptr %buf, i64 1, i64 1, ptr %out)\n";
     out += "  ret void\n";
     out += "}\n\n";
-    out += "define internal i64 @__stable_string_len(ptr %value) {\n";
+    out += "define internal i64 @__lanner_string_len(ptr %value) {\n";
     out += "entry:\n";
     out += "  %len = call i64 @strlen(ptr %value)\n";
     out += "  ret i64 %len\n";
@@ -859,7 +859,7 @@ std::string LLVMCodegen::generate(const Module& module) const {
                     else { encoded += "\\"; encoded += hex(c); }
                 }
                 encoded += "\\00";
-                const std::string global = "@.stable.str." + fn.name + "." + (inst.result.empty() ? "anon" : inst.result.substr(1));
+                const std::string global = "@.lanner.str." + fn.name + "." + (inst.result.empty() ? "anon" : inst.result.substr(1));
                 out += global + " = private unnamed_addr constant [" + std::to_string(inst.stringValue.size() + 1) + " x i8] c\"" + encoded + "\"\n";
             }
         }
@@ -876,4 +876,4 @@ std::string LLVMCodegen::generate(const Module& module) const {
     return out;
 }
 
-} // namespace stable::hir
+} // namespace lanner::hir

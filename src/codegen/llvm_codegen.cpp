@@ -46,7 +46,7 @@ bool isBuiltinExternDeclaration(const std::string& name) {
     return name == "malloc" || name == "realloc" || name == "free" ||
            name == "fopen" || name == "fseek" || name == "ftell" || name == "fread" ||
            name == "fclose" || name == "puts" || name == "fwrite" || name == "strlen" ||
-           name == "getenv" || name == "printf" || name.rfind("__stable_", 0) == 0 ||
+           name == "getenv" || name == "printf" || name.rfind("__lanner_", 0) == 0 ||
            name.rfind("llvm.", 0) == 0;
 }
 
@@ -104,12 +104,12 @@ std::string LLVMCodeGenerator::llvmType(const TypeNode* type) const {
             element->fixedArraySize.reset();
             return "[" + std::to_string(*type->fixedArraySize) + " x " + llvmType(element.get()) + "]";
         }
-        return "%StableDynArray";
+        return "%LannerDynArray";
     }
 
     if (type->name == "void") return "void";
     if (type->name == "bool") return "i1";
-    if (type->name == "Arena") return "%StableArena";
+    if (type->name == "Arena") return "%LannerArena";
     if (type->name == "Thread" || type->name == "Socket" || type->name == "Poller" ||
         type->name == "Mutex" || type->name == "RwLock" || type->name == "Condvar" ||
         type->name == "Semaphore" || type->name == "Process" || type->name == "Buffer" || type->name == "Tensor" || type->name == "GradTape" || type->name == "Regex" || type->name == "GameWindow" || type->name == "GameRenderer" || type->name == "GameTexture" || type->name == "GameAudio") return "ptr";
@@ -166,7 +166,7 @@ std::string LLVMCodeGenerator::exprLLVMType(const Expr* expr) const {
                 expr->callee->target->kind == ExprKind::Identifier) {
                 const auto ns = expr->callee->target->strValue;
                 const auto member = expr->callee->field;
-                if (ns == "Arena" && member == "create") return "%StableArena";
+                if (ns == "Arena" && member == "create") return "%LannerArena";
                 if (ns == "Game") {
                     if (member=="createWindow" || member=="createRenderer" || member=="createTexture" || member=="audioOpen") return "ptr";
                     if (member=="destroyWindow" || member=="requestClose" || member=="setTitle" || member=="present" || member=="destroyRenderer" || member=="presentRenderer" || member=="setDrawColor" || member=="clear" || member=="drawLine" || member=="fillRect" || member=="updateTexture" || member=="destroyTexture" || member=="audioPause" || member=="audioClose" || member=="sleepNanos") return member=="setDrawColor" || member=="clear" || member=="drawLine" || member=="fillRect" || member=="updateTexture" ? "i1" : "void";
@@ -349,7 +349,7 @@ std::string LLVMCodeGenerator::exprLLVMType(const Expr* expr) const {
             }
             if (expr->callee->kind != ExprKind::Identifier) unsupported("only direct function calls and built-in methods are lowered", expr->line);
             const auto& builtin = expr->callee->strValue;
-            if (builtin == "readFile") return "%StableDynArray";
+            if (builtin == "readFile") return "%LannerDynArray";
             if (builtin == "writeStdout" || builtin == "writeRaw" || builtin == "writeIntRaw" ||
                 builtin == "writeByteRaw" || builtin == "print" || builtin == "printInt") return "void";
             if (builtin == "stringLen") return "i64";
@@ -564,7 +564,7 @@ std::string LLVMCodeGenerator::arenaAddressFor(const std::string& arenaName, int
 void LLVMCodeGenerator::cleanupBinding(const std::string&, LocalBinding& local) {
     if (local.moved || local.cleaned || !local.type || local.type->isReference) return;
 
-    // Destruction is recursive because STABLE aggregates can own arrays, Results,
+    // Destruction is recursive because LANNER aggregates can own arrays, Results,
     // optionals, fixed arrays, and other structs. Every path ends at the same
     // textual continuation block, so subsequent cleanup remains well-formed LLVM.
     std::function<void(const TypeNode*, const std::string&)> cleanupAt;
@@ -627,13 +627,13 @@ void LLVMCodeGenerator::cleanupBinding(const std::string&, LocalBinding& local) 
 
         if (type->isArray && !type->fixedArraySize) {
             const auto array = newTemp("cleanup.array");
-            body.push_back("  " + array + " = load %StableDynArray, ptr " + address);
+            body.push_back("  " + array + " = load %LannerDynArray, ptr " + address);
             const auto data = newTemp("cleanup.data");
             const auto len = newTemp("cleanup.len");
             const auto arena = newTemp("cleanup.arena");
-            body.push_back("  " + data + " = extractvalue %StableDynArray " + array + ", 0");
-            body.push_back("  " + len + " = extractvalue %StableDynArray " + array + ", 1");
-            body.push_back("  " + arena + " = extractvalue %StableDynArray " + array + ", 3");
+            body.push_back("  " + data + " = extractvalue %LannerDynArray " + array + ", 0");
+            body.push_back("  " + len + " = extractvalue %LannerDynArray " + array + ", 1");
+            body.push_back("  " + arena + " = extractvalue %LannerDynArray " + array + ", 3");
 
             auto elementType = cloneType(type);
             elementType->isArray = false;
@@ -707,7 +707,7 @@ void LLVMCodeGenerator::cleanupBinding(const std::string&, LocalBinding& local) 
         }
 
         if (type->name == "Arena") {
-            body.push_back("  call void @__stable_arena_destroy(ptr " + address + ")");
+            body.push_back("  call void @__lanner_arena_destroy(ptr " + address + ")");
         }
     };
 
@@ -773,10 +773,10 @@ std::string LLVMCodeGenerator::emitArenaCreate(const Expr* expr) {
     const auto a0 = newTemp("arena.a0");
     const auto a1 = newTemp("arena.a1");
     const auto a2 = newTemp("arena.a2");
-    body.push_back("  " + a0 + " = insertvalue %StableArena zeroinitializer, i64 " + normalized + ", 3");
-    body.push_back("  " + a1 + " = insertvalue %StableArena " + a0 + ", ptr null, 0");
-    body.push_back("  " + a2 + " = insertvalue %StableArena " + a1 + ", ptr null, 1");
-    body.push_back("  " + init + " = insertvalue %StableArena " + a2 + ", i64 0, 2");
+    body.push_back("  " + a0 + " = insertvalue %LannerArena zeroinitializer, i64 " + normalized + ", 3");
+    body.push_back("  " + a1 + " = insertvalue %LannerArena " + a0 + ", ptr null, 0");
+    body.push_back("  " + a2 + " = insertvalue %LannerArena " + a1 + ", ptr null, 1");
+    body.push_back("  " + init + " = insertvalue %LannerArena " + a2 + ", i64 0, 2");
     return init;
 }
 
@@ -803,15 +803,15 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     const auto elemType = llvmType(elem.get());
     const auto valueIR = emitExpr(value);
     const auto array = newTemp("array.load");
-    body.push_back("  " + array + " = load %StableDynArray, ptr " + targetAddr);
+    body.push_back("  " + array + " = load %LannerDynArray, ptr " + targetAddr);
     const auto data = newTemp("array.data");
     const auto len = newTemp("array.len");
     const auto cap = newTemp("array.cap");
     const auto arena = newTemp("array.arena");
-    body.push_back("  " + data + " = extractvalue %StableDynArray " + array + ", 0");
-    body.push_back("  " + len + " = extractvalue %StableDynArray " + array + ", 1");
-    body.push_back("  " + cap + " = extractvalue %StableDynArray " + array + ", 2");
-    body.push_back("  " + arena + " = extractvalue %StableDynArray " + array + ", 3");
+    body.push_back("  " + data + " = extractvalue %LannerDynArray " + array + ", 0");
+    body.push_back("  " + len + " = extractvalue %LannerDynArray " + array + ", 1");
+    body.push_back("  " + cap + " = extractvalue %LannerDynArray " + array + ", 2");
+    body.push_back("  " + arena + " = extractvalue %LannerDynArray " + array + ", 3");
 
     const auto full = newTemp("array.full");
     body.push_back("  " + full + " = icmp uge i64 " + len + ", " + cap);
@@ -868,7 +868,7 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     body.push_back("  br i1 " + hasArena + ", label %" + arenaPath + ", label %" + heapPath);
     body.push_back(arenaPath + ":");
     const auto arenaData = newTemp("array.arena.data");
-    body.push_back("  " + arenaData + " = call ptr @__stable_arena_alloc(ptr " + arena + ", i64 " + bytes + ")");
+    body.push_back("  " + arenaData + " = call ptr @__lanner_arena_alloc(ptr " + arena + ", i64 " + bytes + ")");
     body.push_back("  br label %" + allocMerge);
     body.push_back(heapPath + ":");
     const auto heapData = newTemp("array.heap.data");
@@ -928,28 +928,28 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     const auto grown1 = newTemp("array.g1");
     const auto grown2 = newTemp("array.g2");
     const auto grown3 = newTemp("array.g3");
-    body.push_back("  " + grown0 + " = insertvalue %StableDynArray " + array + ", ptr " + newData + ", 0");
-    body.push_back("  " + grown1 + " = insertvalue %StableDynArray " + grown0 + ", i64 " + len + ", 1");
-    body.push_back("  " + grown2 + " = insertvalue %StableDynArray " + grown1 + ", i64 " + newCap + ", 2");
-    body.push_back("  " + grown3 + " = insertvalue %StableDynArray " + grown2 + ", ptr " + arena + ", 3");
-    body.push_back("  store %StableDynArray " + grown3 + ", ptr " + targetAddr);
+    body.push_back("  " + grown0 + " = insertvalue %LannerDynArray " + array + ", ptr " + newData + ", 0");
+    body.push_back("  " + grown1 + " = insertvalue %LannerDynArray " + grown0 + ", i64 " + len + ", 1");
+    body.push_back("  " + grown2 + " = insertvalue %LannerDynArray " + grown1 + ", i64 " + newCap + ", 2");
+    body.push_back("  " + grown3 + " = insertvalue %LannerDynArray " + grown2 + ", ptr " + arena + ", 3");
+    body.push_back("  store %LannerDynArray " + grown3 + ", ptr " + targetAddr);
     body.push_back("  br label %" + write);
 
     body.push_back(write + ":");
     const auto currentArray = newTemp("array.current");
     const auto currentData = newTemp("array.current.data");
     const auto currentLen = newTemp("array.current.len");
-    body.push_back("  " + currentArray + " = load %StableDynArray, ptr " + targetAddr);
-    body.push_back("  " + currentData + " = extractvalue %StableDynArray " + currentArray + ", 0");
-    body.push_back("  " + currentLen + " = extractvalue %StableDynArray " + currentArray + ", 1");
+    body.push_back("  " + currentArray + " = load %LannerDynArray, ptr " + targetAddr);
+    body.push_back("  " + currentData + " = extractvalue %LannerDynArray " + currentArray + ", 0");
+    body.push_back("  " + currentLen + " = extractvalue %LannerDynArray " + currentArray + ", 1");
     const auto addr = newTemp("array.push.addr");
     body.push_back("  " + addr + " = getelementptr inbounds " + elemType + ", ptr " + currentData + ", i64 " + currentLen);
     body.push_back("  store " + elemType + " " + valueIR + ", ptr " + addr);
     const auto newLen = newTemp("array.newlen");
     body.push_back("  " + newLen + " = add i64 " + currentLen + ", 1");
     const auto finalArray = newTemp("array.final");
-    body.push_back("  " + finalArray + " = insertvalue %StableDynArray " + currentArray + ", i64 " + newLen + ", 1");
-    body.push_back("  store %StableDynArray " + finalArray + ", ptr " + targetAddr);
+    body.push_back("  " + finalArray + " = insertvalue %LannerDynArray " + currentArray + ", i64 " + newLen + ", 1");
+    body.push_back("  store %LannerDynArray " + finalArray + ", ptr " + targetAddr);
     return "";
 }
 
@@ -964,7 +964,7 @@ std::string LLVMCodeGenerator::emitDynamicArrayLiteral(const Expr* expr, const s
         const auto a0 = newTemp("empty.a0");
         const auto a1 = newTemp("empty.a1");
         const auto a2 = newTemp("empty.a2");
-        body.push_back("  " + a0 + " = insertvalue %StableDynArray zeroinitializer, ptr " + arenaAddress + ", 3");
+        body.push_back("  " + a0 + " = insertvalue %LannerDynArray zeroinitializer, ptr " + arenaAddress + ", 3");
         return a0;
     }
 
@@ -1000,7 +1000,7 @@ std::string LLVMCodeGenerator::emitDynamicArrayLiteral(const Expr* expr, const s
         body.push_back(okBlock + ":");
     } else {
         data = newTemp("literal.arena.data");
-        body.push_back("  " + data + " = call ptr @__stable_arena_alloc(ptr " + arenaAddress + ", i64 " + bytes + ")");
+        body.push_back("  " + data + " = call ptr @__lanner_arena_alloc(ptr " + arenaAddress + ", i64 " + bytes + ")");
     }
 
     for (std::size_t i = 0; i < expr->args.size(); ++i) {
@@ -1015,10 +1015,10 @@ std::string LLVMCodeGenerator::emitDynamicArrayLiteral(const Expr* expr, const s
     const auto a1 = newTemp("literal.a1");
     const auto a2 = newTemp("literal.a2");
     const auto a3 = newTemp("literal.a3");
-    body.push_back("  " + a0 + " = insertvalue %StableDynArray zeroinitializer, ptr " + data + ", 0");
-    body.push_back("  " + a1 + " = insertvalue %StableDynArray " + a0 + ", i64 " + std::to_string(count) + ", 1");
-    body.push_back("  " + a2 + " = insertvalue %StableDynArray " + a1 + ", i64 " + std::to_string(count) + ", 2");
-    body.push_back("  " + a3 + " = insertvalue %StableDynArray " + a2 + ", ptr " + arenaPtr + ", 3");
+    body.push_back("  " + a0 + " = insertvalue %LannerDynArray zeroinitializer, ptr " + data + ", 0");
+    body.push_back("  " + a1 + " = insertvalue %LannerDynArray " + a0 + ", i64 " + std::to_string(count) + ", 1");
+    body.push_back("  " + a2 + " = insertvalue %LannerDynArray " + a1 + ", i64 " + std::to_string(count) + ", 2");
+    body.push_back("  " + a3 + " = insertvalue %LannerDynArray " + a2 + ", ptr " + arenaPtr + ", 3");
     return a3;
 }
 
@@ -1153,14 +1153,14 @@ std::string LLVMCodeGenerator::emitLValueAddress(const Expr* expr) {
             if (sourceType->isReference) {
                 const auto arrayPtr = emitExpr(expr->target.get());
                 array = newTemp("array.ref.load");
-                body.push_back("  " + array + " = load %StableDynArray, ptr " + arrayPtr);
+                body.push_back("  " + array + " = load %LannerDynArray, ptr " + arrayPtr);
             } else {
                 array = emitExpr(expr->target.get());
             }
             const auto base = newTemp("array.base");
             const auto length = newTemp("array.length");
-            body.push_back("  " + base + " = extractvalue %StableDynArray " + array + ", 0");
-            body.push_back("  " + length + " = extractvalue %StableDynArray " + array + ", 1");
+            body.push_back("  " + base + " = extractvalue %LannerDynArray " + array + ", 0");
+            body.push_back("  " + length + " = extractvalue %LannerDynArray " + array + ", 1");
             emitDynamicBoundsCheck(indexI64, length);
             const auto elemType = dynamicArrayElementType(normalizedSource.get());
             const auto address = newTemp("array.elem.addr");
@@ -1193,7 +1193,7 @@ std::string LLVMCodeGenerator::emitLValueAddress(const Expr* expr) {
 }
 
 std::string LLVMCodeGenerator::llvmStringLiteral(const std::string& value) {
-    const std::string name = ".stable.str." + std::to_string(stringLiterals.size());
+    const std::string name = ".lanner.str." + std::to_string(stringLiterals.size());
     std::string encoded;
     encoded.reserve(value.size() * 3 + 3);
     for (unsigned char c : value) {
@@ -1221,11 +1221,11 @@ std::string LLVMCodeGenerator::emitPrintCall(const Expr* expr) {
     if (isWebTarget()) {
         const auto value = emitExpr(arg);
         if (type->name == "string" && !type->isArray && !type->isReference && !type->isOptional) {
-            body.push_back("  call void @__stable_web_log(ptr " + value + ")");
+            body.push_back("  call void @__lanner_web_log(ptr " + value + ")");
             return {};
         }
         if (type->name == "bool" && !type->isArray && !type->isReference && !type->isOptional) {
-            body.push_back("  call void @__stable_web_log_bool(i1 " + value + ")");
+            body.push_back("  call void @__lanner_web_log_bool(i1 " + value + ")");
             return {};
         }
         if ((type->name == "f32" || type->name == "f64") && !type->isArray && !type->isReference && !type->isOptional) {
@@ -1235,7 +1235,7 @@ std::string LLVMCodeGenerator::emitPrintCall(const Expr* expr) {
                 body.push_back("  " + widened + " = fpext float " + v + " to double");
                 v = widened;
             }
-            body.push_back("  call void @__stable_web_log_f64(double " + v + ")");
+            body.push_back("  call void @__lanner_web_log_f64(double " + v + ")");
             return {};
         }
         if (isIntegerLLVM(llvmType(type)) && !type->isArray && !type->isReference && !type->isOptional) {
@@ -1246,7 +1246,7 @@ std::string LLVMCodeGenerator::emitPrintCall(const Expr* expr) {
                 body.push_back("  " + widened + " = " + std::string(isUnsignedType(type) ? "zext " : "sext ") + vt + " " + v + " to i64");
                 v = widened;
             }
-            body.push_back("  call void @__stable_web_log_i64(i64 " + v + ")");
+            body.push_back("  call void @__lanner_web_log_i64(i64 " + v + ")");
             return {};
         }
         unsupported("print() argument type is not printable in WebAssembly", expr->line);
@@ -1259,7 +1259,7 @@ std::string LLVMCodeGenerator::emitPrintCall(const Expr* expr) {
     }
     if (type->name == "bool" && !type->isArray && !type->isReference && !type->isOptional) {
         const auto value = emitExpr(arg);
-        body.push_back("  call void @__stable_print_bool(i1 " + value + ")");
+        body.push_back("  call void @__lanner_print_bool(i1 " + value + ")");
         return {};
     }
     if ((type->name == "f32" || type->name == "f64") && !type->isArray && !type->isReference && !type->isOptional) {
@@ -1269,7 +1269,7 @@ std::string LLVMCodeGenerator::emitPrintCall(const Expr* expr) {
             body.push_back("  " + widened + " = fpext float " + value + " to double");
             value = widened;
         }
-        body.push_back("  call void @__stable_print_f64(double " + value + ")");
+        body.push_back("  call void @__lanner_print_f64(double " + value + ")");
         return {};
     }
     if (isIntegerLLVM(llvmType(type)) && !type->isArray && !type->isReference && !type->isOptional) {
@@ -1281,8 +1281,8 @@ std::string LLVMCodeGenerator::emitPrintCall(const Expr* expr) {
             body.push_back("  " + widened + " = " + op + " " + llvmValueType + " " + value + " to i64");
             value = widened;
         }
-        if (isUnsignedType(type)) body.push_back("  call void @__stable_print_u64(i64 " + value + ")");
-        else body.push_back("  call void @__stable_print_i64(i64 " + value + ")");
+        if (isUnsignedType(type)) body.push_back("  call void @__lanner_print_u64(i64 " + value + ")");
+        else body.push_back("  call void @__lanner_print_i64(i64 " + value + ")");
         return {};
     }
     unsupported("print() argument type is not printable", expr->line);
@@ -1317,79 +1317,79 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 if (t != "i64") { auto w = newTemp("game.u64"); body.push_back("  " + w + " = zext " + t + " " + v + " to i64"); v = w; }
                 return v;
             };
-            if (member == "createWindow") { auto r=newTemp("game.window"); body.push_back("  "+r+" = call ptr @__stable_game_window_create(ptr "+arg(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+u32At(3)+")"); return r; }
-            if (member == "destroyWindow") { body.push_back("  call void @__stable_game_window_destroy(ptr "+arg(0)+")"); return {}; }
-            if (member == "poll") { auto r=newTemp("game.poll"); body.push_back("  "+r+" = call i32 @__stable_game_poll(ptr "+arg(0)+")"); return r; }
-            if (member == "shouldClose") { auto r=newTemp("game.close"); body.push_back("  "+r+" = call i32 @__stable_game_should_close(ptr "+arg(0)+")"); auto b=newTemp("game.close.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "requestClose") { body.push_back("  call void @__stable_game_request_close(ptr "+arg(0)+")"); return {}; }
-            if (member == "setTitle") { body.push_back("  call void @__stable_game_set_title(ptr "+arg(0)+", ptr "+arg(1)+")"); return {}; }
-            if (member == "width" || member == "height") { auto r=newTemp("game.size"); body.push_back("  "+r+" = call i32 @__stable_game_window_"+member+"(ptr "+arg(0)+")"); return r; }
-            if (member == "setVSync") { auto r=newTemp("game.vsync"); body.push_back("  "+r+" = call i32 @__stable_game_set_vsync(ptr "+arg(0)+", i1 "+arg(1)+")"); auto b=newTemp("game.vsync.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "makeGLContext") { auto r=newTemp("game.gl"); body.push_back("  "+r+" = call i32 @__stable_game_make_gl_context(ptr "+arg(0)+")"); auto b=newTemp("game.gl.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "present") { body.push_back("  call void @__stable_game_present(ptr "+arg(0)+")"); return {}; }
-            if (member == "windowFlags") { auto r=newTemp("game.flags"); body.push_back("  "+r+" = call i32 @__stable_game_window_flags(i1 "+arg(0)+", i1 "+arg(1)+", i1 "+arg(2)+", i1 "+arg(3)+")"); return r; }
-            if (member == "rendererFlags") { auto r=newTemp("game.renderer.flags"); body.push_back("  "+r+" = call i32 @__stable_game_renderer_flags(i1 "+arg(0)+", i1 "+arg(1)+")"); return r; }
-            if (member == "createRenderer") { auto r=newTemp("game.renderer"); body.push_back("  "+r+" = call ptr @__stable_game_renderer_create(ptr "+arg(0)+", i32 "+u32At(1)+")"); return r; }
-            if (member == "destroyRenderer") { body.push_back("  call void @__stable_game_renderer_destroy(ptr "+arg(0)+")"); return {}; }
-            if (member == "setDrawColor") { auto r=newTemp("game.color"); body.push_back("  "+r+" = call i32 @__stable_game_renderer_set_color(ptr "+arg(0)+", i8 "+arg(1)+", i8 "+arg(2)+", i8 "+arg(3)+", i8 "+arg(4)+")"); auto b=newTemp("game.color.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "clear") { auto r=newTemp("game.clear"); body.push_back("  "+r+" = call i32 @__stable_game_renderer_clear(ptr "+arg(0)+")"); auto b=newTemp("game.clear.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "drawLine") { auto r=newTemp("game.line"); body.push_back("  "+r+" = call i32 @__stable_game_renderer_line(ptr "+arg(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); auto b=newTemp("game.line.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "fillRect") { auto r=newTemp("game.rect"); body.push_back("  "+r+" = call i32 @__stable_game_renderer_fill_rect(ptr "+arg(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); auto b=newTemp("game.rect.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "presentRenderer") { body.push_back("  call void @__stable_game_renderer_present(ptr "+arg(0)+")"); return {}; }
-            if (member == "createTexture") { auto r=newTemp("game.texture"); body.push_back("  "+r+" = call ptr @__stable_game_texture_create(ptr "+arg(0)+", i32 "+u32At(1)+", i32 "+u32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); return r; }
-            if (member == "updateTexture") { auto p = arg(1); auto pitch = i32At(2); auto r=newTemp("game.texture.update"); body.push_back("  "+r+" = call i32 @__stable_game_texture_update(ptr "+arg(0)+", ptr "+p+", i32 "+pitch+")"); auto b=newTemp("game.texture.update.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "copyTexture") { auto r=newTemp("game.texture.copy"); body.push_back("  "+r+" = call i32 @__stable_game_texture_copy(ptr "+arg(0)+", ptr "+arg(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); auto b=newTemp("game.texture.copy.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "destroyTexture") { body.push_back("  call void @__stable_game_texture_destroy(ptr "+arg(0)+")"); return {}; }
-            if (member == "eventType" || member == "eventCode" || member == "eventX" || member == "eventY") { const char* f=member=="eventType"?"type":member=="eventCode"?"code":member=="eventX"?"x":"y"; auto r=newTemp("game.event"); body.push_back("  "+r+" = call i32 @__stable_game_event_"+std::string(f)+"()"); return r; }
-            if (member == "eventText") { auto r=newTemp("game.event.text"); body.push_back("  "+r+" = call ptr @__stable_game_event_text()"); return r; }
-            if (member == "keyDown") { auto r=newTemp("game.key"); body.push_back("  "+r+" = call i32 @__stable_game_key_down(i32 "+i32At(0)+")"); auto b=newTemp("game.key.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "mouseButtonDown") { auto r=newTemp("game.mouse.button"); body.push_back("  "+r+" = call i32 @__stable_game_mouse_button_down(i32 "+i32At(0)+")"); auto b=newTemp("game.mouse.button.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "mouseX" || member == "mouseY") { const char* axis = member == "mouseX" ? "x" : "y"; auto r=newTemp("game.mouse"); body.push_back("  "+r+" = call i32 @__stable_game_mouse_"+std::string(axis)+"()"); return r; }
-            if (member == "controllerConnected") { auto r=newTemp("game.pad"); body.push_back("  "+r+" = call i32 @__stable_game_controller_connected(i32 "+i32At(0)+")"); auto b=newTemp("game.pad.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "controllerAxis") { auto r=newTemp("game.axis"); body.push_back("  "+r+" = call float @__stable_game_controller_axis(i32 "+i32At(0)+", i32 "+i32At(1)+")"); return r; }
-            if (member == "controllerButtonDown") { auto r=newTemp("game.pad.button"); body.push_back("  "+r+" = call i32 @__stable_game_controller_button(i32 "+i32At(0)+", i32 "+i32At(1)+")"); auto b=newTemp("game.pad.button.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "audioOpen") { auto r=newTemp("game.audio"); body.push_back("  "+r+" = call ptr @__stable_game_audio_open(i32 "+i32At(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+")"); return r; }
-            if (member == "audioWrite") { auto r64=newTemp("game.audio.write64"); body.push_back("  "+r64+" = call i64 @__stable_game_audio_write(ptr "+arg(0)+", ptr "+arg(1)+", i64 "+u64At(2)+")"); if(pointerBits==64)return r64; auto r=newTemp("game.audio.write"); body.push_back("  "+r+" = trunc i64 "+r64+" to i32"); return r; }
-            if (member == "audioQueued") { auto r64=newTemp("game.audio.queued64"); body.push_back("  "+r64+" = call i64 @__stable_game_audio_queued(ptr "+arg(0)+")"); if(pointerBits==64)return r64; auto r=newTemp("game.audio.queued"); body.push_back("  "+r+" = trunc i64 "+r64+" to i32"); return r; }
-            if (member == "audioPause") { body.push_back("  call void @__stable_game_audio_pause(ptr "+arg(0)+", i1 "+arg(1)+")"); return {}; }
-            if (member == "audioClose") { body.push_back("  call void @__stable_game_audio_close(ptr "+arg(0)+")"); return {}; }
-            if (member == "timeNanos") { auto r=newTemp("game.time"); body.push_back("  "+r+" = call i64 @__stable_game_time_nanos()"); return r; }
-            if (member == "deltaSeconds") { auto r=newTemp("game.delta"); body.push_back("  "+r+" = call double @__stable_game_delta_seconds()"); return r; }
-            if (member == "sleepNanos") { body.push_back("  call void @__stable_game_sleep_nanos(i64 "+arg(0)+")"); return {}; }
+            if (member == "createWindow") { auto r=newTemp("game.window"); body.push_back("  "+r+" = call ptr @__lanner_game_window_create(ptr "+arg(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+u32At(3)+")"); return r; }
+            if (member == "destroyWindow") { body.push_back("  call void @__lanner_game_window_destroy(ptr "+arg(0)+")"); return {}; }
+            if (member == "poll") { auto r=newTemp("game.poll"); body.push_back("  "+r+" = call i32 @__lanner_game_poll(ptr "+arg(0)+")"); return r; }
+            if (member == "shouldClose") { auto r=newTemp("game.close"); body.push_back("  "+r+" = call i32 @__lanner_game_should_close(ptr "+arg(0)+")"); auto b=newTemp("game.close.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "requestClose") { body.push_back("  call void @__lanner_game_request_close(ptr "+arg(0)+")"); return {}; }
+            if (member == "setTitle") { body.push_back("  call void @__lanner_game_set_title(ptr "+arg(0)+", ptr "+arg(1)+")"); return {}; }
+            if (member == "width" || member == "height") { auto r=newTemp("game.size"); body.push_back("  "+r+" = call i32 @__lanner_game_window_"+member+"(ptr "+arg(0)+")"); return r; }
+            if (member == "setVSync") { auto r=newTemp("game.vsync"); body.push_back("  "+r+" = call i32 @__lanner_game_set_vsync(ptr "+arg(0)+", i1 "+arg(1)+")"); auto b=newTemp("game.vsync.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "makeGLContext") { auto r=newTemp("game.gl"); body.push_back("  "+r+" = call i32 @__lanner_game_make_gl_context(ptr "+arg(0)+")"); auto b=newTemp("game.gl.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "present") { body.push_back("  call void @__lanner_game_present(ptr "+arg(0)+")"); return {}; }
+            if (member == "windowFlags") { auto r=newTemp("game.flags"); body.push_back("  "+r+" = call i32 @__lanner_game_window_flags(i1 "+arg(0)+", i1 "+arg(1)+", i1 "+arg(2)+", i1 "+arg(3)+")"); return r; }
+            if (member == "rendererFlags") { auto r=newTemp("game.renderer.flags"); body.push_back("  "+r+" = call i32 @__lanner_game_renderer_flags(i1 "+arg(0)+", i1 "+arg(1)+")"); return r; }
+            if (member == "createRenderer") { auto r=newTemp("game.renderer"); body.push_back("  "+r+" = call ptr @__lanner_game_renderer_create(ptr "+arg(0)+", i32 "+u32At(1)+")"); return r; }
+            if (member == "destroyRenderer") { body.push_back("  call void @__lanner_game_renderer_destroy(ptr "+arg(0)+")"); return {}; }
+            if (member == "setDrawColor") { auto r=newTemp("game.color"); body.push_back("  "+r+" = call i32 @__lanner_game_renderer_set_color(ptr "+arg(0)+", i8 "+arg(1)+", i8 "+arg(2)+", i8 "+arg(3)+", i8 "+arg(4)+")"); auto b=newTemp("game.color.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "clear") { auto r=newTemp("game.clear"); body.push_back("  "+r+" = call i32 @__lanner_game_renderer_clear(ptr "+arg(0)+")"); auto b=newTemp("game.clear.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "drawLine") { auto r=newTemp("game.line"); body.push_back("  "+r+" = call i32 @__lanner_game_renderer_line(ptr "+arg(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); auto b=newTemp("game.line.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "fillRect") { auto r=newTemp("game.rect"); body.push_back("  "+r+" = call i32 @__lanner_game_renderer_fill_rect(ptr "+arg(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); auto b=newTemp("game.rect.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "presentRenderer") { body.push_back("  call void @__lanner_game_renderer_present(ptr "+arg(0)+")"); return {}; }
+            if (member == "createTexture") { auto r=newTemp("game.texture"); body.push_back("  "+r+" = call ptr @__lanner_game_texture_create(ptr "+arg(0)+", i32 "+u32At(1)+", i32 "+u32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); return r; }
+            if (member == "updateTexture") { auto p = arg(1); auto pitch = i32At(2); auto r=newTemp("game.texture.update"); body.push_back("  "+r+" = call i32 @__lanner_game_texture_update(ptr "+arg(0)+", ptr "+p+", i32 "+pitch+")"); auto b=newTemp("game.texture.update.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "copyTexture") { auto r=newTemp("game.texture.copy"); body.push_back("  "+r+" = call i32 @__lanner_game_texture_copy(ptr "+arg(0)+", ptr "+arg(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+", i32 "+i32At(4)+")"); auto b=newTemp("game.texture.copy.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "destroyTexture") { body.push_back("  call void @__lanner_game_texture_destroy(ptr "+arg(0)+")"); return {}; }
+            if (member == "eventType" || member == "eventCode" || member == "eventX" || member == "eventY") { const char* f=member=="eventType"?"type":member=="eventCode"?"code":member=="eventX"?"x":"y"; auto r=newTemp("game.event"); body.push_back("  "+r+" = call i32 @__lanner_game_event_"+std::string(f)+"()"); return r; }
+            if (member == "eventText") { auto r=newTemp("game.event.text"); body.push_back("  "+r+" = call ptr @__lanner_game_event_text()"); return r; }
+            if (member == "keyDown") { auto r=newTemp("game.key"); body.push_back("  "+r+" = call i32 @__lanner_game_key_down(i32 "+i32At(0)+")"); auto b=newTemp("game.key.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "mouseButtonDown") { auto r=newTemp("game.mouse.button"); body.push_back("  "+r+" = call i32 @__lanner_game_mouse_button_down(i32 "+i32At(0)+")"); auto b=newTemp("game.mouse.button.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "mouseX" || member == "mouseY") { const char* axis = member == "mouseX" ? "x" : "y"; auto r=newTemp("game.mouse"); body.push_back("  "+r+" = call i32 @__lanner_game_mouse_"+std::string(axis)+"()"); return r; }
+            if (member == "controllerConnected") { auto r=newTemp("game.pad"); body.push_back("  "+r+" = call i32 @__lanner_game_controller_connected(i32 "+i32At(0)+")"); auto b=newTemp("game.pad.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "controllerAxis") { auto r=newTemp("game.axis"); body.push_back("  "+r+" = call float @__lanner_game_controller_axis(i32 "+i32At(0)+", i32 "+i32At(1)+")"); return r; }
+            if (member == "controllerButtonDown") { auto r=newTemp("game.pad.button"); body.push_back("  "+r+" = call i32 @__lanner_game_controller_button(i32 "+i32At(0)+", i32 "+i32At(1)+")"); auto b=newTemp("game.pad.button.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "audioOpen") { auto r=newTemp("game.audio"); body.push_back("  "+r+" = call ptr @__lanner_game_audio_open(i32 "+i32At(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+")"); return r; }
+            if (member == "audioWrite") { auto r64=newTemp("game.audio.write64"); body.push_back("  "+r64+" = call i64 @__lanner_game_audio_write(ptr "+arg(0)+", ptr "+arg(1)+", i64 "+u64At(2)+")"); if(pointerBits==64)return r64; auto r=newTemp("game.audio.write"); body.push_back("  "+r+" = trunc i64 "+r64+" to i32"); return r; }
+            if (member == "audioQueued") { auto r64=newTemp("game.audio.queued64"); body.push_back("  "+r64+" = call i64 @__lanner_game_audio_queued(ptr "+arg(0)+")"); if(pointerBits==64)return r64; auto r=newTemp("game.audio.queued"); body.push_back("  "+r+" = trunc i64 "+r64+" to i32"); return r; }
+            if (member == "audioPause") { body.push_back("  call void @__lanner_game_audio_pause(ptr "+arg(0)+", i1 "+arg(1)+")"); return {}; }
+            if (member == "audioClose") { body.push_back("  call void @__lanner_game_audio_close(ptr "+arg(0)+")"); return {}; }
+            if (member == "timeNanos") { auto r=newTemp("game.time"); body.push_back("  "+r+" = call i64 @__lanner_game_time_nanos()"); return r; }
+            if (member == "deltaSeconds") { auto r=newTemp("game.delta"); body.push_back("  "+r+" = call double @__lanner_game_delta_seconds()"); return r; }
+            if (member == "sleepNanos") { body.push_back("  call void @__lanner_game_sleep_nanos(i64 "+arg(0)+")"); return {}; }
         }
         if (ns == "Graphics") {
             auto arg = [&](std::size_t i) { return emitExpr(expr->args[i].get()); };
             auto i32At = [&](std::size_t i) { auto v=arg(i); auto t=exprLLVMType(expr->args[i].get()); if(t!="i32"){auto w=newTemp("gfx.i32");const bool sgn=expr->args[i]->checkedType&&isSignedType(expr->args[i]->checkedType.get());body.push_back("  "+w+" = "+(sgn?"sext ":"zext ")+t+" "+v+" to i32");v=w;}return v; };
             auto u32At = [&](std::size_t i) { auto v=arg(i); auto t=exprLLVMType(expr->args[i].get()); if(t!="i32"){auto w=newTemp("gfx.u32");body.push_back("  "+w+" = zext "+t+" "+v+" to i32");v=w;}return v; };
             auto i64At = [&](std::size_t i) { auto v=arg(i); auto t=exprLLVMType(expr->args[i].get()); if(t!="i64"){auto w=newTemp("gfx.i64");body.push_back("  "+w+" = zext "+t+" "+v+" to i64");v=w;}return v; };
-            if(member=="available"){auto r=newTemp("gfx.available");body.push_back("  "+r+" = call i32 @__stable_gfx_available(ptr "+arg(0)+")");auto b=newTemp("gfx.available.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="backend"){auto r=newTemp("gfx.backend");body.push_back("  "+r+" = call ptr @__stable_gfx_backend()");return r;}
-            if(member=="loadProc"){auto r=newTemp("gfx.proc");body.push_back("  "+r+" = call ptr @__stable_gfx_load_proc(ptr "+arg(0)+", ptr "+arg(1)+")");return r;}
-            if(member=="glClearColor"){body.push_back("  call void @__stable_gl_clear_color(float "+arg(0)+", float "+arg(1)+", float "+arg(2)+", float "+arg(3)+")");return {};}
-            if(member=="glClear"){body.push_back("  call void @__stable_gl_clear(i32 "+u32At(0)+")");return {};}
-            if(member=="glViewport"){body.push_back("  call void @__stable_gl_viewport(i32 "+i32At(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+")");return {};}
-            if(member=="glEnable"||member=="glDisable"){body.push_back("  call void @__stable_gl_"+std::string(member=="glEnable"?"enable":"disable")+"(i32 "+u32At(0)+")");return {};}
-            if(member=="glGenBuffers"||member=="glGenVertexArrays"){body.push_back("  call void @__stable_gl_"+std::string(member=="glGenBuffers"?"gen_buffers":"gen_vertex_arrays")+"(i32 "+i32At(0)+", ptr "+arg(1)+")");return {};}
-            if(member=="glBindBuffer"){body.push_back("  call void @__stable_gl_bind_buffer(i32 "+u32At(0)+", i32 "+u32At(1)+")");return {};}
-            if(member=="glBufferData"){body.push_back("  call void @__stable_gl_buffer_data(i32 "+u32At(0)+", i64 "+i64At(1)+", ptr "+arg(2)+", i32 "+u32At(3)+")");return {};}
-            if(member=="glCreateShader"){auto r=newTemp("gfx.shader");body.push_back("  "+r+" = call i32 @__stable_gl_create_shader(i32 "+u32At(0)+")");return r;}
-            if(member=="glShaderSource"){body.push_back("  call void @__stable_gl_shader_source(i32 "+u32At(0)+", ptr "+arg(1)+")");return {};}
-            if(member=="glCompileShader"){body.push_back("  call void @__stable_gl_compile_shader(i32 "+u32At(0)+")");return {};}
-            if(member=="glShaderStatus"){auto r=newTemp("gfx.shader.ok");body.push_back("  "+r+" = call i32 @__stable_gl_shader_status(i32 "+u32At(0)+")");auto b=newTemp("gfx.shader.ok.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="glShaderLog"){auto r=newTemp("gfx.shader.log");body.push_back("  "+r+" = call ptr @__stable_gl_shader_log(i32 "+u32At(0)+")");return r;}
-            if(member=="glCreateProgram"){auto r=newTemp("gfx.program");body.push_back("  "+r+" = call i32 @__stable_gl_create_program()");return r;}
-            if(member=="glAttachShader"){body.push_back("  call void @__stable_gl_attach_shader(i32 "+u32At(0)+", i32 "+u32At(1)+")");return {};}
-            if(member=="glLinkProgram"){body.push_back("  call void @__stable_gl_link_program(i32 "+u32At(0)+")");return {};}
-            if(member=="glProgramStatus"){auto r=newTemp("gfx.program.ok");body.push_back("  "+r+" = call i32 @__stable_gl_program_status(i32 "+u32At(0)+")");auto b=newTemp("gfx.program.ok.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="glProgramLog"){auto r=newTemp("gfx.program.log");body.push_back("  "+r+" = call ptr @__stable_gl_program_log(i32 "+u32At(0)+")");return r;}
-            if(member=="glUseProgram"){body.push_back("  call void @__stable_gl_use_program(i32 "+u32At(0)+")");return {};}
-            if(member=="glDrawArrays"){body.push_back("  call void @__stable_gl_draw_arrays(i32 "+u32At(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+")");return {};}
-            if(member=="glBindVertexArray"){body.push_back("  call void @__stable_gl_bind_vertex_array(i32 "+u32At(0)+")");return {};}
-            if(member=="glEnableVertexAttribArray"){body.push_back("  call void @__stable_gl_enable_vertex_attrib(i32 "+u32At(0)+")");return {};}
-            if(member=="glVertexAttribPointer"){body.push_back("  call void @__stable_gl_vertex_attrib_pointer(i32 "+i32At(0)+", i32 "+i32At(1)+", i32 "+u32At(2)+", i1 "+arg(3)+", i32 "+i32At(4)+", i64 "+i64At(5)+")");return {};}
-            if(member=="glGetError"){auto r=newTemp("gfx.error");body.push_back("  "+r+" = call i32 @__stable_gl_get_error()");return r;}
-            if(member=="glDeleteShader"||member=="glDeleteProgram"){body.push_back("  call void @__stable_gl_"+std::string(member=="glDeleteShader"?"delete_shader":"delete_program")+"(i32 "+u32At(0)+")");return {};}
-            if(member=="glDeleteBuffers"||member=="glDeleteVertexArrays"){body.push_back("  call void @__stable_gl_"+std::string(member=="glDeleteBuffers"?"delete_buffers":"delete_vertex_arrays")+"(i32 "+i32At(0)+", ptr "+arg(1)+")");return {};}
+            if(member=="available"){auto r=newTemp("gfx.available");body.push_back("  "+r+" = call i32 @__lanner_gfx_available(ptr "+arg(0)+")");auto b=newTemp("gfx.available.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="backend"){auto r=newTemp("gfx.backend");body.push_back("  "+r+" = call ptr @__lanner_gfx_backend()");return r;}
+            if(member=="loadProc"){auto r=newTemp("gfx.proc");body.push_back("  "+r+" = call ptr @__lanner_gfx_load_proc(ptr "+arg(0)+", ptr "+arg(1)+")");return r;}
+            if(member=="glClearColor"){body.push_back("  call void @__lanner_gl_clear_color(float "+arg(0)+", float "+arg(1)+", float "+arg(2)+", float "+arg(3)+")");return {};}
+            if(member=="glClear"){body.push_back("  call void @__lanner_gl_clear(i32 "+u32At(0)+")");return {};}
+            if(member=="glViewport"){body.push_back("  call void @__lanner_gl_viewport(i32 "+i32At(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+", i32 "+i32At(3)+")");return {};}
+            if(member=="glEnable"||member=="glDisable"){body.push_back("  call void @__lanner_gl_"+std::string(member=="glEnable"?"enable":"disable")+"(i32 "+u32At(0)+")");return {};}
+            if(member=="glGenBuffers"||member=="glGenVertexArrays"){body.push_back("  call void @__lanner_gl_"+std::string(member=="glGenBuffers"?"gen_buffers":"gen_vertex_arrays")+"(i32 "+i32At(0)+", ptr "+arg(1)+")");return {};}
+            if(member=="glBindBuffer"){body.push_back("  call void @__lanner_gl_bind_buffer(i32 "+u32At(0)+", i32 "+u32At(1)+")");return {};}
+            if(member=="glBufferData"){body.push_back("  call void @__lanner_gl_buffer_data(i32 "+u32At(0)+", i64 "+i64At(1)+", ptr "+arg(2)+", i32 "+u32At(3)+")");return {};}
+            if(member=="glCreateShader"){auto r=newTemp("gfx.shader");body.push_back("  "+r+" = call i32 @__lanner_gl_create_shader(i32 "+u32At(0)+")");return r;}
+            if(member=="glShaderSource"){body.push_back("  call void @__lanner_gl_shader_source(i32 "+u32At(0)+", ptr "+arg(1)+")");return {};}
+            if(member=="glCompileShader"){body.push_back("  call void @__lanner_gl_compile_shader(i32 "+u32At(0)+")");return {};}
+            if(member=="glShaderStatus"){auto r=newTemp("gfx.shader.ok");body.push_back("  "+r+" = call i32 @__lanner_gl_shader_status(i32 "+u32At(0)+")");auto b=newTemp("gfx.shader.ok.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="glShaderLog"){auto r=newTemp("gfx.shader.log");body.push_back("  "+r+" = call ptr @__lanner_gl_shader_log(i32 "+u32At(0)+")");return r;}
+            if(member=="glCreateProgram"){auto r=newTemp("gfx.program");body.push_back("  "+r+" = call i32 @__lanner_gl_create_program()");return r;}
+            if(member=="glAttachShader"){body.push_back("  call void @__lanner_gl_attach_shader(i32 "+u32At(0)+", i32 "+u32At(1)+")");return {};}
+            if(member=="glLinkProgram"){body.push_back("  call void @__lanner_gl_link_program(i32 "+u32At(0)+")");return {};}
+            if(member=="glProgramStatus"){auto r=newTemp("gfx.program.ok");body.push_back("  "+r+" = call i32 @__lanner_gl_program_status(i32 "+u32At(0)+")");auto b=newTemp("gfx.program.ok.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="glProgramLog"){auto r=newTemp("gfx.program.log");body.push_back("  "+r+" = call ptr @__lanner_gl_program_log(i32 "+u32At(0)+")");return r;}
+            if(member=="glUseProgram"){body.push_back("  call void @__lanner_gl_use_program(i32 "+u32At(0)+")");return {};}
+            if(member=="glDrawArrays"){body.push_back("  call void @__lanner_gl_draw_arrays(i32 "+u32At(0)+", i32 "+i32At(1)+", i32 "+i32At(2)+")");return {};}
+            if(member=="glBindVertexArray"){body.push_back("  call void @__lanner_gl_bind_vertex_array(i32 "+u32At(0)+")");return {};}
+            if(member=="glEnableVertexAttribArray"){body.push_back("  call void @__lanner_gl_enable_vertex_attrib(i32 "+u32At(0)+")");return {};}
+            if(member=="glVertexAttribPointer"){body.push_back("  call void @__lanner_gl_vertex_attrib_pointer(i32 "+i32At(0)+", i32 "+i32At(1)+", i32 "+u32At(2)+", i1 "+arg(3)+", i32 "+i32At(4)+", i64 "+i64At(5)+")");return {};}
+            if(member=="glGetError"){auto r=newTemp("gfx.error");body.push_back("  "+r+" = call i32 @__lanner_gl_get_error()");return r;}
+            if(member=="glDeleteShader"||member=="glDeleteProgram"){body.push_back("  call void @__lanner_gl_"+std::string(member=="glDeleteShader"?"delete_shader":"delete_program")+"(i32 "+u32At(0)+")");return {};}
+            if(member=="glDeleteBuffers"||member=="glDeleteVertexArrays"){body.push_back("  call void @__lanner_gl_"+std::string(member=="glDeleteBuffers"?"delete_buffers":"delete_vertex_arrays")+"(i32 "+i32At(0)+", ptr "+arg(1)+")");return {};}
         }
         if (expr->callee->target && expr->callee->target->checkedType && expr->callee->target->checkedType->name == "Tensor") {
             auto base = [&]() { return emitExpr(expr->callee->target.get()); };
@@ -1404,27 +1404,27 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 if (t == "float") { auto w=newTemp("tensor.f64"); body.push_back("  "+w+" = fpext float "+v+" to double"); v=w; }
                 return v;
             };
-            if (member == "clone" || member == "contiguous") { auto r=newTemp("tensor.clone"); body.push_back("  "+r+" = call ptr @"+std::string(member=="clone"?"__stable_tensor_clone":"__stable_tensor_contiguous")+"(ptr "+base()+")"); return r; }
-            if (member == "free") { body.push_back("  call void @__stable_tensor_free(ptr "+base()+")"); return {}; }
-            if (member == "rank" || member == "len") { auto r=newTemp("tensor.query"); body.push_back("  "+r+" = call i64 @"+std::string(member=="rank"?"__stable_tensor_rank":"__stable_tensor_len")+"(ptr "+base()+")"); return r; }
-            if (member == "dim" || member == "stride") { auto r=newTemp("tensor.query"); body.push_back("  "+r+" = call i64 @"+std::string(member=="dim"?"__stable_tensor_dim":"__stable_tensor_stride")+"(ptr "+base()+", i64 "+asU64(0)+")"); return r; }
-            if (member == "dtype") { auto r=newTemp("tensor.dtype"); body.push_back("  "+r+" = call i32 @__stable_tensor_dtype(ptr "+base()+")"); return r; }
-            if (member == "isContiguous") { auto r=newTemp("tensor.contig"); body.push_back("  "+r+" = call i32 @__stable_tensor_is_contiguous(ptr "+base()+")"); auto b=newTemp("tensor.contig.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "dataF32" || member == "dataF64") { auto r=newTemp("tensor.data"); body.push_back("  "+r+" = call ptr @"+std::string(member=="dataF32"?"__stable_tensor_data_f32":"__stable_tensor_data_f64")+"(ptr "+base()+")"); return r; }
-            if (member == "get1" || member == "get2" || member == "get3") { const int n=member.back()-'0'; std::string a="ptr "+base(); for(int i=0;i<n;++i)a+=", i64 "+asU64(i); auto r=newTemp("tensor.get"); body.push_back("  "+r+" = call double @__stable_tensor_get"+std::to_string(n)+"("+a+")"); return r; }
-            if (member == "set1" || member == "set2" || member == "set3") { const int n=member.back()-'0'; std::string a="ptr "+base(); for(int i=0;i<n;++i)a+=", i64 "+asU64(i); a+=", double "+asF64(n); body.push_back("  call void @__stable_tensor_set"+std::to_string(n)+"("+a+")"); return {}; }
-            if (member == "add" || member == "sub" || member == "mul" || member == "div" || member == "matmul") { const char* f=member=="add"?"__stable_tensor_add":member=="sub"?"__stable_tensor_sub":member=="mul"?"__stable_tensor_mul":member=="div"?"__stable_tensor_div":"__stable_tensor_matmul"; auto r=newTemp("tensor.op"); body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base()+", ptr "+arg(0)+")"); return r; }
-            if (member == "scale") { auto r=newTemp("tensor.scale"); body.push_back("  "+r+" = call ptr @__stable_tensor_scale(ptr "+base()+", double "+asF64(0)+")"); return r; }
-            if (member == "relu" || member == "sigmoid" || member == "tanh") { const char* f=member=="relu"?"__stable_tensor_relu":member=="sigmoid"?"__stable_tensor_sigmoid":"__stable_tensor_tanh"; auto r=newTemp("tensor.act"); body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base()+")"); return r; }
-            if (member == "softmax") { auto r=newTemp("tensor.softmax"); body.push_back("  "+r+" = call ptr @__stable_tensor_softmax(ptr "+base()+", i64 "+asU64(0)+")"); return r; }
-            if (member == "sum" || member == "mean" || member == "l2Norm") { const char* f=member=="sum"?"__stable_tensor_sum":member=="mean"?"__stable_tensor_mean":"__stable_tensor_l2norm"; auto r=newTemp("tensor.reduce"); body.push_back("  "+r+" = call double @"+f+"(ptr "+base()+")"); return r; }
-            if (member == "dot") { auto r=newTemp("tensor.dot"); body.push_back("  "+r+" = call double @__stable_tensor_dot(ptr "+base()+", ptr "+arg(0)+")"); return r; }
-            if (member == "argmax") { auto r=newTemp("tensor.argmax"); body.push_back("  "+r+" = call i64 @__stable_tensor_argmax(ptr "+base()+", i64 "+asU64(0)+")"); return r; }
-            if (member == "reshape2" || member == "reshape3" || member == "reshape4") { const int n=member.back()-'0'; std::string a="ptr "+base(); for(int i=0;i<n;++i)a+=", i64 "+asU64(i); auto r=newTemp("tensor.reshape"); body.push_back("  "+r+" = call ptr @__stable_tensor_reshape"+std::to_string(n)+"("+a+")"); return r; }
-            if (member == "transpose2") { auto r=newTemp("tensor.transpose"); body.push_back("  "+r+" = call ptr @__stable_tensor_transpose2(ptr "+base()+")"); return r; }
-            if (member == "slice") { auto r=newTemp("tensor.slice"); body.push_back("  "+r+" = call ptr @__stable_tensor_slice(ptr "+base()+", i64 "+asU64(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+", i64 "+asU64(3)+")"); return r; }
-            if (member == "fill") { body.push_back("  call void @__stable_tensor_fill(ptr "+base()+", double "+asF64(0)+")"); return {}; }
-            if (member == "conv2d") { auto r=newTemp("tensor.conv2d"); body.push_back("  "+r+" = call ptr @__stable_tensor_conv2d(ptr "+base()+", ptr "+arg(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+")"); return r; }
+            if (member == "clone" || member == "contiguous") { auto r=newTemp("tensor.clone"); body.push_back("  "+r+" = call ptr @"+std::string(member=="clone"?"__lanner_tensor_clone":"__lanner_tensor_contiguous")+"(ptr "+base()+")"); return r; }
+            if (member == "free") { body.push_back("  call void @__lanner_tensor_free(ptr "+base()+")"); return {}; }
+            if (member == "rank" || member == "len") { auto r=newTemp("tensor.query"); body.push_back("  "+r+" = call i64 @"+std::string(member=="rank"?"__lanner_tensor_rank":"__lanner_tensor_len")+"(ptr "+base()+")"); return r; }
+            if (member == "dim" || member == "stride") { auto r=newTemp("tensor.query"); body.push_back("  "+r+" = call i64 @"+std::string(member=="dim"?"__lanner_tensor_dim":"__lanner_tensor_stride")+"(ptr "+base()+", i64 "+asU64(0)+")"); return r; }
+            if (member == "dtype") { auto r=newTemp("tensor.dtype"); body.push_back("  "+r+" = call i32 @__lanner_tensor_dtype(ptr "+base()+")"); return r; }
+            if (member == "isContiguous") { auto r=newTemp("tensor.contig"); body.push_back("  "+r+" = call i32 @__lanner_tensor_is_contiguous(ptr "+base()+")"); auto b=newTemp("tensor.contig.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "dataF32" || member == "dataF64") { auto r=newTemp("tensor.data"); body.push_back("  "+r+" = call ptr @"+std::string(member=="dataF32"?"__lanner_tensor_data_f32":"__lanner_tensor_data_f64")+"(ptr "+base()+")"); return r; }
+            if (member == "get1" || member == "get2" || member == "get3") { const int n=member.back()-'0'; std::string a="ptr "+base(); for(int i=0;i<n;++i)a+=", i64 "+asU64(i); auto r=newTemp("tensor.get"); body.push_back("  "+r+" = call double @__lanner_tensor_get"+std::to_string(n)+"("+a+")"); return r; }
+            if (member == "set1" || member == "set2" || member == "set3") { const int n=member.back()-'0'; std::string a="ptr "+base(); for(int i=0;i<n;++i)a+=", i64 "+asU64(i); a+=", double "+asF64(n); body.push_back("  call void @__lanner_tensor_set"+std::to_string(n)+"("+a+")"); return {}; }
+            if (member == "add" || member == "sub" || member == "mul" || member == "div" || member == "matmul") { const char* f=member=="add"?"__lanner_tensor_add":member=="sub"?"__lanner_tensor_sub":member=="mul"?"__lanner_tensor_mul":member=="div"?"__lanner_tensor_div":"__lanner_tensor_matmul"; auto r=newTemp("tensor.op"); body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base()+", ptr "+arg(0)+")"); return r; }
+            if (member == "scale") { auto r=newTemp("tensor.scale"); body.push_back("  "+r+" = call ptr @__lanner_tensor_scale(ptr "+base()+", double "+asF64(0)+")"); return r; }
+            if (member == "relu" || member == "sigmoid" || member == "tanh") { const char* f=member=="relu"?"__lanner_tensor_relu":member=="sigmoid"?"__lanner_tensor_sigmoid":"__lanner_tensor_tanh"; auto r=newTemp("tensor.act"); body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base()+")"); return r; }
+            if (member == "softmax") { auto r=newTemp("tensor.softmax"); body.push_back("  "+r+" = call ptr @__lanner_tensor_softmax(ptr "+base()+", i64 "+asU64(0)+")"); return r; }
+            if (member == "sum" || member == "mean" || member == "l2Norm") { const char* f=member=="sum"?"__lanner_tensor_sum":member=="mean"?"__lanner_tensor_mean":"__lanner_tensor_l2norm"; auto r=newTemp("tensor.reduce"); body.push_back("  "+r+" = call double @"+f+"(ptr "+base()+")"); return r; }
+            if (member == "dot") { auto r=newTemp("tensor.dot"); body.push_back("  "+r+" = call double @__lanner_tensor_dot(ptr "+base()+", ptr "+arg(0)+")"); return r; }
+            if (member == "argmax") { auto r=newTemp("tensor.argmax"); body.push_back("  "+r+" = call i64 @__lanner_tensor_argmax(ptr "+base()+", i64 "+asU64(0)+")"); return r; }
+            if (member == "reshape2" || member == "reshape3" || member == "reshape4") { const int n=member.back()-'0'; std::string a="ptr "+base(); for(int i=0;i<n;++i)a+=", i64 "+asU64(i); auto r=newTemp("tensor.reshape"); body.push_back("  "+r+" = call ptr @__lanner_tensor_reshape"+std::to_string(n)+"("+a+")"); return r; }
+            if (member == "transpose2") { auto r=newTemp("tensor.transpose"); body.push_back("  "+r+" = call ptr @__lanner_tensor_transpose2(ptr "+base()+")"); return r; }
+            if (member == "slice") { auto r=newTemp("tensor.slice"); body.push_back("  "+r+" = call ptr @__lanner_tensor_slice(ptr "+base()+", i64 "+asU64(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+", i64 "+asU64(3)+")"); return r; }
+            if (member == "fill") { body.push_back("  call void @__lanner_tensor_fill(ptr "+base()+", double "+asF64(0)+")"); return {}; }
+            if (member == "conv2d") { auto r=newTemp("tensor.conv2d"); body.push_back("  "+r+" = call ptr @__lanner_tensor_conv2d(ptr "+base()+", ptr "+arg(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+")"); return r; }
         }
         if (ns == "Tensor") {
             auto asU64 = [&](std::size_t i) {
@@ -1450,9 +1450,9 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
             auto arg = [&](std::size_t i) { return emitExpr(expr->args[i].get()); };
             if (member == "zerosF32" || member == "onesF32" || member == "zerosF64" || member == "onesF64") {
                 auto n = asU64(0);
-                const char* f = member == "zerosF32" ? "__stable_tensor_zeros_f32" :
-                                member == "onesF32" ? "__stable_tensor_ones_f32" :
-                                member == "zerosF64" ? "__stable_tensor_zeros_f64" : "__stable_tensor_ones_f64";
+                const char* f = member == "zerosF32" ? "__lanner_tensor_zeros_f32" :
+                                member == "onesF32" ? "__lanner_tensor_ones_f32" :
+                                member == "zerosF64" ? "__lanner_tensor_zeros_f64" : "__lanner_tensor_ones_f64";
                 auto r = newTemp("tensor.new");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(i64 " + n + ")");
                 return r;
@@ -1466,62 +1466,62 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                     args += "i64 " + asU64(static_cast<std::size_t>(i));
                 }
                 const bool ones = member[0] == 'o';
-                const char* f = rank == 1 ? (ones ? "__stable_tensor_ones1" : "__stable_tensor_zeros1") :
-                                rank == 2 ? (ones ? "__stable_tensor_ones2" : "__stable_tensor_zeros2") :
-                                rank == 3 ? (ones ? "__stable_tensor_ones3" : "__stable_tensor_zeros3") :
-                                            (ones ? "__stable_tensor_ones4" : "__stable_tensor_zeros4");
+                const char* f = rank == 1 ? (ones ? "__lanner_tensor_ones1" : "__lanner_tensor_zeros1") :
+                                rank == 2 ? (ones ? "__lanner_tensor_ones2" : "__lanner_tensor_zeros2") :
+                                rank == 3 ? (ones ? "__lanner_tensor_ones3" : "__lanner_tensor_zeros3") :
+                                            (ones ? "__lanner_tensor_ones4" : "__lanner_tensor_zeros4");
                 auto r = newTemp("tensor.new");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(" + args + ")");
                 return r;
             }
             if (member == "from1F32" || member == "from1F64") {
                 auto p0 = arg(0), n = asU64(1);
-                const char* f = member == "from1F32" ? "__stable_tensor_from1_f32" : "__stable_tensor_from1_f64";
+                const char* f = member == "from1F32" ? "__lanner_tensor_from1_f32" : "__lanner_tensor_from1_f64";
                 auto r = newTemp("tensor.from");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + p0 + ", i64 " + n + ")");
                 return r;
             }
             if (member == "from2F32" || member == "from2F64") {
                 auto p0 = arg(0), rows = asU64(1), cols = asU64(2);
-                const char* f = member == "from2F32" ? "__stable_tensor_from2_f32" : "__stable_tensor_from2_f64";
+                const char* f = member == "from2F32" ? "__lanner_tensor_from2_f32" : "__lanner_tensor_from2_f64";
                 auto r = newTemp("tensor.from");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + p0 + ", i64 " + rows + ", i64 " + cols + ")");
                 return r;
             }
             if (member == "clone" || member == "contiguous") {
                 auto a = arg(0);
-                const char* f = member == "clone" ? "__stable_tensor_clone" : "__stable_tensor_contiguous";
+                const char* f = member == "clone" ? "__lanner_tensor_clone" : "__lanner_tensor_contiguous";
                 auto r = newTemp("tensor.clone");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + a + ")");
                 return r;
             }
-            if (member == "free") { body.push_back("  call void @__stable_tensor_free(ptr " + arg(0) + ")"); return {}; }
+            if (member == "free") { body.push_back("  call void @__lanner_tensor_free(ptr " + arg(0) + ")"); return {}; }
             if (member == "rank" || member == "len") {
-                const char* f = member == "rank" ? "__stable_tensor_rank" : "__stable_tensor_len";
+                const char* f = member == "rank" ? "__lanner_tensor_rank" : "__lanner_tensor_len";
                 auto r = newTemp("tensor.query");
                 body.push_back("  " + r + " = call i64 @" + std::string(f) + "(ptr " + arg(0) + ")");
                 return r;
             }
             if (member == "dim" || member == "stride") {
-                const char* f = member == "dim" ? "__stable_tensor_dim" : "__stable_tensor_stride";
+                const char* f = member == "dim" ? "__lanner_tensor_dim" : "__lanner_tensor_stride";
                 auto r = newTemp("tensor.query");
                 body.push_back("  " + r + " = call i64 @" + std::string(f) + "(ptr " + arg(0) + ", i64 " + asU64(1) + ")");
                 return r;
             }
             if (member == "dtype") {
                 auto r = newTemp("tensor.dtype");
-                body.push_back("  " + r + " = call i32 @__stable_tensor_dtype(ptr " + arg(0) + ")");
+                body.push_back("  " + r + " = call i32 @__lanner_tensor_dtype(ptr " + arg(0) + ")");
                 return r;
             }
             if (member == "isContiguous") {
                 auto r = newTemp("tensor.contig");
-                body.push_back("  " + r + " = call i32 @__stable_tensor_is_contiguous(ptr " + arg(0) + ")");
+                body.push_back("  " + r + " = call i32 @__lanner_tensor_is_contiguous(ptr " + arg(0) + ")");
                 auto b = newTemp("tensor.contig.bool");
                 body.push_back("  " + b + " = trunc i32 " + r + " to i1");
                 return b;
             }
             if (member == "dataF32" || member == "dataF64") {
-                const char* f = member == "dataF32" ? "__stable_tensor_data_f32" : "__stable_tensor_data_f64";
+                const char* f = member == "dataF32" ? "__lanner_tensor_data_f32" : "__lanner_tensor_data_f64";
                 auto r = newTemp("tensor.data");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + arg(0) + ")");
                 return r;
@@ -1531,7 +1531,7 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 std::string args = "ptr " + arg(0);
                 for (int i = 0; i < rank; ++i) args += ", i64 " + asU64(static_cast<std::size_t>(1 + i));
                 auto r = newTemp("tensor.get");
-                body.push_back("  " + r + " = call double @__stable_tensor_get" + std::to_string(rank) + "(" + args + ")");
+                body.push_back("  " + r + " = call double @__lanner_tensor_get" + std::to_string(rank) + "(" + args + ")");
                 return r;
             }
             if (member == "set1" || member == "set2" || member == "set3") {
@@ -1539,48 +1539,48 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 std::string args = "ptr " + arg(0);
                 for (int i = 0; i < rank; ++i) args += ", i64 " + asU64(static_cast<std::size_t>(1 + i));
                 args += ", double " + asF64(static_cast<std::size_t>(1 + rank));
-                body.push_back("  call void @__stable_tensor_set" + std::to_string(rank) + "(" + args + ")");
+                body.push_back("  call void @__lanner_tensor_set" + std::to_string(rank) + "(" + args + ")");
                 return {};
             }
             if (member == "add" || member == "sub" || member == "mul" || member == "div" || member == "matmul") {
-                const char* f = member == "add" ? "__stable_tensor_add" :
-                                member == "sub" ? "__stable_tensor_sub" :
-                                member == "mul" ? "__stable_tensor_mul" :
-                                member == "div" ? "__stable_tensor_div" : "__stable_tensor_matmul";
+                const char* f = member == "add" ? "__lanner_tensor_add" :
+                                member == "sub" ? "__lanner_tensor_sub" :
+                                member == "mul" ? "__lanner_tensor_mul" :
+                                member == "div" ? "__lanner_tensor_div" : "__lanner_tensor_matmul";
                 auto r = newTemp("tensor.op");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + arg(0) + ", ptr " + arg(1) + ")");
                 return r;
             }
             if (member == "scale") {
                 auto r = newTemp("tensor.scale");
-                body.push_back("  " + r + " = call ptr @__stable_tensor_scale(ptr " + arg(0) + ", double " + asF64(1) + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_tensor_scale(ptr " + arg(0) + ", double " + asF64(1) + ")");
                 return r;
             }
             if (member == "relu" || member == "sigmoid" || member == "tanh") {
-                const char* f = member == "relu" ? "__stable_tensor_relu" : member == "sigmoid" ? "__stable_tensor_sigmoid" : "__stable_tensor_tanh";
+                const char* f = member == "relu" ? "__lanner_tensor_relu" : member == "sigmoid" ? "__lanner_tensor_sigmoid" : "__lanner_tensor_tanh";
                 auto r = newTemp("tensor.act");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + arg(0) + ")");
                 return r;
             }
             if (member == "softmax") {
                 auto r = newTemp("tensor.softmax");
-                body.push_back("  " + r + " = call ptr @__stable_tensor_softmax(ptr " + arg(0) + ", i64 " + asU64(1) + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_tensor_softmax(ptr " + arg(0) + ", i64 " + asU64(1) + ")");
                 return r;
             }
             if (member == "sum" || member == "mean" || member == "l2Norm" || member == "dot") {
                 if (member == "dot") {
                     auto r = newTemp("tensor.dot");
-                    body.push_back("  " + r + " = call double @__stable_tensor_dot(ptr " + arg(0) + ", ptr " + arg(1) + ")");
+                    body.push_back("  " + r + " = call double @__lanner_tensor_dot(ptr " + arg(0) + ", ptr " + arg(1) + ")");
                     return r;
                 }
-                const char* f = member == "sum" ? "__stable_tensor_sum" : member == "mean" ? "__stable_tensor_mean" : "__stable_tensor_l2norm";
+                const char* f = member == "sum" ? "__lanner_tensor_sum" : member == "mean" ? "__lanner_tensor_mean" : "__lanner_tensor_l2norm";
                 auto r = newTemp("tensor.reduce");
                 body.push_back("  " + r + " = call double @" + std::string(f) + "(ptr " + arg(0) + ")");
                 return r;
             }
             if (member == "argmax") {
                 auto r = newTemp("tensor.argmax");
-                body.push_back("  " + r + " = call i64 @__stable_tensor_argmax(ptr " + arg(0) + ", i64 " + asU64(1) + ")");
+                body.push_back("  " + r + " = call i64 @__lanner_tensor_argmax(ptr " + arg(0) + ", i64 " + asU64(1) + ")");
                 return r;
             }
             if (member == "reshape2" || member == "reshape3" || member == "reshape4") {
@@ -1588,37 +1588,37 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 std::string args = "ptr " + arg(0);
                 for (int i = 0; i < rank; ++i) args += ", i64 " + asU64(static_cast<std::size_t>(1 + i));
                 auto r = newTemp("tensor.reshape");
-                body.push_back("  " + r + " = call ptr @__stable_tensor_reshape" + std::to_string(rank) + "(" + args + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_tensor_reshape" + std::to_string(rank) + "(" + args + ")");
                 return r;
             }
             if (member == "transpose2") {
                 auto r = newTemp("tensor.transpose");
-                body.push_back("  " + r + " = call ptr @__stable_tensor_transpose2(ptr " + arg(0) + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_tensor_transpose2(ptr " + arg(0) + ")");
                 return r;
             }
             if (member == "slice") {
                 auto r = newTemp("tensor.slice");
-                body.push_back("  " + r + " = call ptr @__stable_tensor_slice(ptr " + arg(0) + ", i64 " + asU64(1) + ", i64 " + asU64(2) + ", i64 " + asU64(3) + ", i64 " + asU64(4) + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_tensor_slice(ptr " + arg(0) + ", i64 " + asU64(1) + ", i64 " + asU64(2) + ", i64 " + asU64(3) + ", i64 " + asU64(4) + ")");
                 return r;
             }
-            if (member == "fill") { body.push_back("  call void @__stable_tensor_fill(ptr " + arg(0) + ", double " + asF64(1) + ")"); return {}; }
+            if (member == "fill") { body.push_back("  call void @__lanner_tensor_fill(ptr " + arg(0) + ", double " + asF64(1) + ")"); return {}; }
             if (member == "conv2d") {
                 auto r = newTemp("tensor.conv2d");
-                body.push_back("  " + r + " = call ptr @__stable_tensor_conv2d(ptr " + arg(0) + ", ptr " + arg(1) + ", i64 " + asU64(2) + ", i64 " + asU64(3) + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_tensor_conv2d(ptr " + arg(0) + ", ptr " + arg(1) + ", i64 " + asU64(2) + ", i64 " + asU64(3) + ")");
                 return r;
             }
         }
         if (ns == "Grad") {
-            if (member == "create") { auto r=newTemp("grad.create"); body.push_back("  " + r + " = call ptr @__stable_grad_create()"); return r; }
-            if (member == "watch") { body.push_back("  call void @__stable_grad_watch(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")"); return {}; }
+            if (member == "create") { auto r=newTemp("grad.create"); body.push_back("  " + r + " = call ptr @__lanner_grad_create()"); return r; }
+            if (member == "watch") { body.push_back("  call void @__lanner_grad_watch(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")"); return {}; }
             if (member == "add" || member == "mul" || member == "matmul") {
-                const char* f = member == "add" ? "__stable_grad_add" : member == "mul" ? "__stable_grad_mul" : "__stable_grad_matmul";
+                const char* f = member == "add" ? "__lanner_grad_add" : member == "mul" ? "__lanner_grad_mul" : "__lanner_grad_matmul";
                 auto r = newTemp("grad.op");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ", ptr " + emitExpr(expr->args[2].get()) + ")");
                 return r;
             }
             if (member == "relu" || member == "tanh" || member == "sum") {
-                const char* f = member == "relu" ? "__stable_grad_relu" : member == "tanh" ? "__stable_grad_tanh" : "__stable_grad_sum";
+                const char* f = member == "relu" ? "__lanner_grad_relu" : member == "tanh" ? "__lanner_grad_tanh" : "__lanner_grad_sum";
                 auto r = newTemp("grad.op");
                 body.push_back("  " + r + " = call ptr @" + std::string(f) + "(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")");
                 return r;
@@ -1627,60 +1627,60 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 auto s0 = emitExpr(expr->args[2].get());
                 if (exprLLVMType(expr->args[2].get()) == "float") { auto w=newTemp("grad.f64"); body.push_back("  " + w + " = fpext float " + s0 + " to double"); s0=w; }
                 auto r = newTemp("grad.scale");
-                body.push_back("  " + r + " = call ptr @__stable_grad_scale(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ", double " + s0 + ")");
+                body.push_back("  " + r + " = call ptr @__lanner_grad_scale(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ", double " + s0 + ")");
                 return r;
             }
-            if (member == "backward") { body.push_back("  call void @__stable_grad_backward(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")"); return {}; }
-            if (member == "grad") { auto r=newTemp("grad.get"); body.push_back("  " + r + " = call ptr @__stable_grad_get(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")"); return r; }
-            if (member == "free") { body.push_back("  call void @__stable_grad_free(ptr " + emitExpr(expr->args[0].get()) + ")"); return {}; }
+            if (member == "backward") { body.push_back("  call void @__lanner_grad_backward(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")"); return {}; }
+            if (member == "grad") { auto r=newTemp("grad.get"); body.push_back("  " + r + " = call ptr @__lanner_grad_get(ptr " + emitExpr(expr->args[0].get()) + ", ptr " + emitExpr(expr->args[1].get()) + ")"); return r; }
+            if (member == "free") { body.push_back("  call void @__lanner_grad_free(ptr " + emitExpr(expr->args[0].get()) + ")"); return {}; }
         }
         if (ns == "Mobile") {
-            if (member == "log") { body.push_back("  call void @__stable_mobile_log(ptr " + emitExpr(expr->args[0].get()) + ")"); return {}; }
-            if (member == "platform") { auto r=newTemp("mobile.platform"); body.push_back("  "+r+" = call ptr @__stable_mobile_platform()"); return r; }
-            if (member == "osVersion") { auto r=newTemp("mobile.os_version"); body.push_back("  "+r+" = call ptr @__stable_mobile_os_version()"); return r; }
-            if (member == "isSimulator") { auto r=newTemp("mobile.simulator"); body.push_back("  "+r+" = call i32 @__stable_mobile_is_simulator()"); auto b=newTemp("mobile.simulator.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "log") { body.push_back("  call void @__lanner_mobile_log(ptr " + emitExpr(expr->args[0].get()) + ")"); return {}; }
+            if (member == "platform") { auto r=newTemp("mobile.platform"); body.push_back("  "+r+" = call ptr @__lanner_mobile_platform()"); return r; }
+            if (member == "osVersion") { auto r=newTemp("mobile.os_version"); body.push_back("  "+r+" = call ptr @__lanner_mobile_os_version()"); return r; }
+            if (member == "isSimulator") { auto r=newTemp("mobile.simulator"); body.push_back("  "+r+" = call i32 @__lanner_mobile_is_simulator()"); auto b=newTemp("mobile.simulator.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
             if (member == "screenWidth" || member == "screenHeight" || member == "safeAreaTop" || member == "safeAreaBottom" || member == "safeAreaLeft" || member == "safeAreaRight") {
-                const char* f = member == "screenWidth" ? "__stable_mobile_screen_width" : member == "screenHeight" ? "__stable_mobile_screen_height" : member == "safeAreaTop" ? "__stable_mobile_safe_top" : member == "safeAreaBottom" ? "__stable_mobile_safe_bottom" : member == "safeAreaLeft" ? "__stable_mobile_safe_left" : "__stable_mobile_safe_right";
+                const char* f = member == "screenWidth" ? "__lanner_mobile_screen_width" : member == "screenHeight" ? "__lanner_mobile_screen_height" : member == "safeAreaTop" ? "__lanner_mobile_safe_top" : member == "safeAreaBottom" ? "__lanner_mobile_safe_bottom" : member == "safeAreaLeft" ? "__lanner_mobile_safe_left" : "__lanner_mobile_safe_right";
                 auto r=newTemp("mobile.metric"); body.push_back("  "+r+" = call i32 @"+std::string(f)+"()"); return r;
             }
-            if (member == "deviceScale") { auto r=newTemp("mobile.scale"); body.push_back("  "+r+" = call double @__stable_mobile_device_scale()"); return r; }
+            if (member == "deviceScale") { auto r=newTemp("mobile.scale"); body.push_back("  "+r+" = call double @__lanner_mobile_device_scale()"); return r; }
             if (member == "openUrl" || member == "clipboardSet") {
-                const char* f = member == "openUrl" ? "__stable_mobile_open_url" : "__stable_mobile_clipboard_set";
+                const char* f = member == "openUrl" ? "__lanner_mobile_open_url" : "__lanner_mobile_clipboard_set";
                 auto r=newTemp("mobile.bool"); body.push_back("  "+r+" = call i32 @"+std::string(f)+"(ptr "+emitExpr(expr->args[0].get())+")"); auto b=newTemp("mobile.result"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b;
             }
-            if (member == "clipboardGet") { auto r=newTemp("mobile.clipboard"); body.push_back("  "+r+" = call ptr @__stable_mobile_clipboard_get()"); return r; }
-            if (member == "vibrate") { auto a=emitExpr(expr->args[0].get()); auto t=exprLLVMType(expr->args[0].get()); if(t!="i32"){auto w=newTemp("mobile.vibrate.ms"); body.push_back("  "+w+" = zext "+t+" "+a+" to i32"); a=w;} auto r=newTemp("mobile.vibrate"); body.push_back("  "+r+" = call i32 @__stable_mobile_vibrate(i32 "+a+")"); auto b=newTemp("mobile.vibrate.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "requestPermission") { auto a=emitExpr(expr->args[0].get()); auto r=newTemp("mobile.permission"); body.push_back("  "+r+" = call i32 @__stable_mobile_request_permission(ptr "+a+")"); return r; }
+            if (member == "clipboardGet") { auto r=newTemp("mobile.clipboard"); body.push_back("  "+r+" = call ptr @__lanner_mobile_clipboard_get()"); return r; }
+            if (member == "vibrate") { auto a=emitExpr(expr->args[0].get()); auto t=exprLLVMType(expr->args[0].get()); if(t!="i32"){auto w=newTemp("mobile.vibrate.ms"); body.push_back("  "+w+" = zext "+t+" "+a+" to i32"); a=w;} auto r=newTemp("mobile.vibrate"); body.push_back("  "+r+" = call i32 @__lanner_mobile_vibrate(i32 "+a+")"); auto b=newTemp("mobile.vibrate.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "requestPermission") { auto a=emitExpr(expr->args[0].get()); auto r=newTemp("mobile.permission"); body.push_back("  "+r+" = call i32 @__lanner_mobile_request_permission(ptr "+a+")"); return r; }
             if (member == "cameraAvailable" || member == "locationAvailable" || member == "bluetoothAvailable") {
-                const char* f = member == "cameraAvailable" ? "__stable_mobile_camera_available" : member == "locationAvailable" ? "__stable_mobile_location_available" : "__stable_mobile_bluetooth_available";
+                const char* f = member == "cameraAvailable" ? "__lanner_mobile_camera_available" : member == "locationAvailable" ? "__lanner_mobile_location_available" : "__lanner_mobile_bluetooth_available";
                 auto r=newTemp("mobile.feature"); body.push_back("  "+r+" = call i32 @"+std::string(f)+"()"); auto b=newTemp("mobile.feature.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b;
             }
             if (member == "appDataPath" || member == "documentsPath" || member == "cachePath") {
-                const char* f = member == "appDataPath" ? "__stable_mobile_app_data_path" : member == "documentsPath" ? "__stable_mobile_documents_path" : "__stable_mobile_cache_path";
+                const char* f = member == "appDataPath" ? "__lanner_mobile_app_data_path" : member == "documentsPath" ? "__lanner_mobile_documents_path" : "__lanner_mobile_cache_path";
                 auto r=newTemp("mobile.path"); body.push_back("  "+r+" = call ptr @"+std::string(f)+"()"); return r;
             }
         }
         if (ns == "Accel") {
             const char* f = nullptr;
-            if (member == "cudaAvailable") f = "__stable_accel_cuda_available";
-            else if (member == "rocmAvailable") f = "__stable_accel_rocm_available";
-            else if (member == "metalAvailable") f = "__stable_accel_metal_available";
-            else if (member == "blasAvailable") f = "__stable_accel_blas_available";
+            if (member == "cudaAvailable") f = "__lanner_accel_cuda_available";
+            else if (member == "rocmAvailable") f = "__lanner_accel_rocm_available";
+            else if (member == "metalAvailable") f = "__lanner_accel_metal_available";
+            else if (member == "blasAvailable") f = "__lanner_accel_blas_available";
             if (f) {
                 auto r = newTemp("accel.feature"); body.push_back("  " + r + " = call i32 @" + f + "()");
                 auto b = newTemp("accel.feature.bool"); body.push_back("  " + b + " = trunc i32 " + r + " to i1"); return b;
             }
-            if (member == "backend") { auto r=newTemp("accel.backend"); body.push_back("  " + r + " = call ptr @__stable_accel_backend()"); return r; }
+            if (member == "backend") { auto r=newTemp("accel.backend"); body.push_back("  " + r + " = call ptr @__lanner_accel_backend()"); return r; }
         }
         if (expr->callee->kind == ExprKind::FieldAccess && expr->callee->target && expr->callee->target->checkedType && expr->callee->target->checkedType->name == "Buffer") {
             const auto bufferMember = expr->callee->field;
             auto b=emitExpr(expr->callee->target.get());
-            if(bufferMember=="len"){auto r=newTemp("buffer.len");body.push_back("  "+r+" = call i64 @__stable_buffer_len(ptr "+b+")"); if(pointerBits==64)return r; auto n=newTemp("buffer.len.narrow");body.push_back("  "+n+" = trunc i64 "+r+" to i32");return n;}
-            if(bufferMember=="data"){auto r=newTemp("buffer.data");body.push_back("  "+r+" = call ptr @__stable_buffer_data(ptr "+b+")");return r;}
-            if(bufferMember=="cstr"){auto r=newTemp("buffer.cstr");body.push_back("  "+r+" = call ptr @__stable_buffer_cstr(ptr "+b+")");return r;}
-            if(bufferMember=="free"){body.push_back("  call void @__stable_buffer_free(ptr "+b+")");return {};}
-            if(bufferMember=="appendString"){auto t=emitExpr(expr->args[0].get());auto r=newTemp("buffer.append");body.push_back("  "+r+" = call i32 @__stable_buffer_append_string(ptr "+b+", ptr "+t+")");auto bb=newTemp("buffer.append.bool");body.push_back("  "+bb+" = trunc i32 "+r+" to i1");return bb;}
-            if(bufferMember=="appendBuffer"){auto o=emitExpr(expr->args[0].get());auto r=newTemp("buffer.append");body.push_back("  "+r+" = call i32 @__stable_buffer_append_buffer(ptr "+b+", ptr "+o+")");auto bb=newTemp("buffer.append.bool");body.push_back("  "+bb+" = trunc i32 "+r+" to i1");return bb;}
+            if(bufferMember=="len"){auto r=newTemp("buffer.len");body.push_back("  "+r+" = call i64 @__lanner_buffer_len(ptr "+b+")"); if(pointerBits==64)return r; auto n=newTemp("buffer.len.narrow");body.push_back("  "+n+" = trunc i64 "+r+" to i32");return n;}
+            if(bufferMember=="data"){auto r=newTemp("buffer.data");body.push_back("  "+r+" = call ptr @__lanner_buffer_data(ptr "+b+")");return r;}
+            if(bufferMember=="cstr"){auto r=newTemp("buffer.cstr");body.push_back("  "+r+" = call ptr @__lanner_buffer_cstr(ptr "+b+")");return r;}
+            if(bufferMember=="free"){body.push_back("  call void @__lanner_buffer_free(ptr "+b+")");return {};}
+            if(bufferMember=="appendString"){auto t=emitExpr(expr->args[0].get());auto r=newTemp("buffer.append");body.push_back("  "+r+" = call i32 @__lanner_buffer_append_string(ptr "+b+", ptr "+t+")");auto bb=newTemp("buffer.append.bool");body.push_back("  "+bb+" = trunc i32 "+r+" to i1");return bb;}
+            if(bufferMember=="appendBuffer"){auto o=emitExpr(expr->args[0].get());auto r=newTemp("buffer.append");body.push_back("  "+r+" = call i32 @__lanner_buffer_append_buffer(ptr "+b+", ptr "+o+")");auto bb=newTemp("buffer.append.bool");body.push_back("  "+bb+" = trunc i32 "+r+" to i1");return bb;}
         }
         if (ns == "Web") {
             auto callString = [&](const std::string& fn, std::size_t index) {
@@ -1688,119 +1688,119 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 body.push_back("  call void @" + fn + "(ptr " + a + ")");
                 return std::string{};
             };
-            if (member == "log") return callString("__stable_web_log", 0);
-            if (member == "warn") return callString("__stable_web_warn", 0);
-            if (member == "error") return callString("__stable_web_error", 0);
+            if (member == "log") return callString("__lanner_web_log", 0);
+            if (member == "warn") return callString("__lanner_web_warn", 0);
+            if (member == "error") return callString("__lanner_web_error", 0);
             if (member == "nowMs" || member == "random") {
                 const auto r = newTemp("web." + member);
-                body.push_back("  " + r + " = call double @__stable_web_" + (member == "nowMs" ? "now_ms" : "random") + "()");
+                body.push_back("  " + r + " = call double @__lanner_web_" + (member == "nowMs" ? "now_ms" : "random") + "()");
                 return r;
             }
             if (member == "setText" || member == "setHtml") {
                 const auto a = emitExpr(expr->args[0].get());
                 const auto b = emitExpr(expr->args[1].get());
                 const auto r = newTemp("web.dom");
-                body.push_back("  " + r + " = call i32 @__stable_web_" + (member == "setText" ? "set_text" : "set_html") + "(ptr " + a + ", ptr " + b + ")");
+                body.push_back("  " + r + " = call i32 @__lanner_web_" + (member == "setText" ? "set_text" : "set_html") + "(ptr " + a + ", ptr " + b + ")");
                 return r;
             }
             if (member == "setAttribute") {
                 const auto a = emitExpr(expr->args[0].get()); const auto b = emitExpr(expr->args[1].get()); const auto c = emitExpr(expr->args[2].get());
-                const auto r = newTemp("web.attr"); body.push_back("  " + r + " = call i32 @__stable_web_set_attr(ptr " + a + ", ptr " + b + ", ptr " + c + ")"); return r;
+                const auto r = newTemp("web.attr"); body.push_back("  " + r + " = call i32 @__lanner_web_set_attr(ptr " + a + ", ptr " + b + ", ptr " + c + ")"); return r;
             }
             if (member == "addClass" || member == "removeClass") {
                 const auto a = emitExpr(expr->args[0].get()); const auto b = emitExpr(expr->args[1].get());
-                const auto r = newTemp("web.class"); body.push_back("  " + r + " = call i32 @__stable_web_" + (member == "addClass" ? "add_class" : "remove_class") + "(ptr " + a + ", ptr " + b + ")"); return r;
+                const auto r = newTemp("web.class"); body.push_back("  " + r + " = call i32 @__lanner_web_" + (member == "addClass" ? "add_class" : "remove_class") + "(ptr " + a + ", ptr " + b + ")"); return r;
             }
             if (member == "remove" || member == "queryCount" || member == "focus") {
                 const auto a = emitExpr(expr->args[0].get()); const auto r = newTemp("web.query");
-                body.push_back("  " + r + " = call i32 @__stable_web_" + (member == "remove" ? "remove" : member == "queryCount" ? "query_count" : "focus") + "(ptr " + a + ")"); return r;
+                body.push_back("  " + r + " = call i32 @__lanner_web_" + (member == "remove" ? "remove" : member == "queryCount" ? "query_count" : "focus") + "(ptr " + a + ")"); return r;
             }
             if (member == "setTimeout") {
                 const auto cb = emitExpr(expr->args[0].get()); const auto ms = emitExpr(expr->args[1].get()); const auto r = newTemp("web.timeout");
-                body.push_back("  " + r + " = call i32 @__stable_web_set_timeout(ptr " + cb + ", i32 " + ms + ")"); return r;
+                body.push_back("  " + r + " = call i32 @__lanner_web_set_timeout(ptr " + cb + ", i32 " + ms + ")"); return r;
             }
             if (member == "clearTimeout" || member == "cancelAnimationFrame" || member == "removeEventListener") {
                 const auto id = emitExpr(expr->args[0].get());
-                if (member == "clearTimeout") body.push_back("  call void @__stable_web_clear_timeout(i32 " + id + ")");
-                else if (member == "cancelAnimationFrame") body.push_back("  call void @__stable_web_cancel_animation_frame(i32 " + id + ")");
-                else body.push_back("  call void @__stable_web_remove_event_listener(i32 " + id + ")");
+                if (member == "clearTimeout") body.push_back("  call void @__lanner_web_clear_timeout(i32 " + id + ")");
+                else if (member == "cancelAnimationFrame") body.push_back("  call void @__lanner_web_cancel_animation_frame(i32 " + id + ")");
+                else body.push_back("  call void @__lanner_web_remove_event_listener(i32 " + id + ")");
                 return {};
             }
             if (member == "requestAnimationFrame" || member == "queueMicrotask") {
                 const auto cb = emitExpr(expr->args[0].get()); const auto r = newTemp("web.async");
-                body.push_back("  " + r + " = call i32 @__stable_web_" + (member == "requestAnimationFrame" ? "request_animation_frame" : "queue_microtask") + "(ptr " + cb + ")"); return r;
+                body.push_back("  " + r + " = call i32 @__lanner_web_" + (member == "requestAnimationFrame" ? "request_animation_frame" : "queue_microtask") + "(ptr " + cb + ")"); return r;
             }
             if (member == "addEventListener") {
                 const auto a=emitExpr(expr->args[0].get()); const auto b=emitExpr(expr->args[1].get()); const auto c=emitExpr(expr->args[2].get()); const auto r=newTemp("web.listener");
-                body.push_back("  " + r + " = call i32 @__stable_web_add_event_listener(ptr " + a + ", ptr " + b + ", ptr " + c + ")"); return r;
+                body.push_back("  " + r + " = call i32 @__lanner_web_add_event_listener(ptr " + a + ", ptr " + b + ", ptr " + c + ")"); return r;
             }
             if (member == "fetchText") {
                 const auto a=emitExpr(expr->args[0].get()); const auto b=emitExpr(expr->args[1].get()); const auto r=newTemp("web.fetch");
-                body.push_back("  " + r + " = call i32 @__stable_web_fetch_text(ptr " + a + ", ptr " + b + ")"); return r;
+                body.push_back("  " + r + " = call i32 @__lanner_web_fetch_text(ptr " + a + ", ptr " + b + ")"); return r;
             }
-            if (member == "freeBuffer") { const auto p=emitExpr(expr->args[0].get()); body.push_back("  call void @__stable_web_buffer_free(ptr " + p + ")"); return {}; }
+            if (member == "freeBuffer") { const auto p=emitExpr(expr->args[0].get()); body.push_back("  call void @__lanner_web_buffer_free(ptr " + p + ")"); return {}; }
         }
         if (ns == "Args") {
-            if (member=="count") { auto r=newTemp("args.count"); body.push_back("  "+r+" = call i64 @__stable_process_argc()"); return r; }
-            if (member=="at") { auto i=emitExpr(expr->args[0].get()); auto t=exprLLVMType(expr->args[0].get()); if(t!="i64"){auto w=newTemp("args.index");body.push_back("  "+w+" = zext "+t+" "+i+" to i64");i=w;} auto r=newTemp("args.at"); body.push_back("  "+r+" = call ptr @__stable_process_argv_at(i64 "+i+")"); return r; }
+            if (member=="count") { auto r=newTemp("args.count"); body.push_back("  "+r+" = call i64 @__lanner_process_argc()"); return r; }
+            if (member=="at") { auto i=emitExpr(expr->args[0].get()); auto t=exprLLVMType(expr->args[0].get()); if(t!="i64"){auto w=newTemp("args.index");body.push_back("  "+w+" = zext "+t+" "+i+" to i64");i=w;} auto r=newTemp("args.at"); body.push_back("  "+r+" = call ptr @__lanner_process_argv_at(i64 "+i+")"); return r; }
         }
         if (ns == "Env") {
-            if(member=="get"){auto n=emitExpr(expr->args[0].get());auto r=newTemp("env.get");body.push_back("  "+r+" = call ptr @__stable_getenv(ptr "+n+")");return r;}
-            if(member=="has"){auto n=emitExpr(expr->args[0].get());auto r=newTemp("env.has.raw");body.push_back("  "+r+" = call i32 @__stable_env_has(ptr "+n+")");auto b=newTemp("env.has");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="set"){auto n=emitExpr(expr->args[0].get()),v=emitExpr(expr->args[1].get());auto r=newTemp("env.set");body.push_back("  "+r+" = call i32 @__stable_set_env_value(ptr "+n+", ptr "+v+")");auto b=newTemp("env.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="unset"){auto n=emitExpr(expr->args[0].get());auto r=newTemp("env.unset");body.push_back("  "+r+" = call i32 @__stable_set_env_unset(ptr "+n+")");auto b=newTemp("env.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="get"){auto n=emitExpr(expr->args[0].get());auto r=newTemp("env.get");body.push_back("  "+r+" = call ptr @__lanner_getenv(ptr "+n+")");return r;}
+            if(member=="has"){auto n=emitExpr(expr->args[0].get());auto r=newTemp("env.has.raw");body.push_back("  "+r+" = call i32 @__lanner_env_has(ptr "+n+")");auto b=newTemp("env.has");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="set"){auto n=emitExpr(expr->args[0].get()),v=emitExpr(expr->args[1].get());auto r=newTemp("env.set");body.push_back("  "+r+" = call i32 @__lanner_set_env_value(ptr "+n+", ptr "+v+")");auto b=newTemp("env.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="unset"){auto n=emitExpr(expr->args[0].get());auto r=newTemp("env.unset");body.push_back("  "+r+" = call i32 @__lanner_set_env_unset(ptr "+n+")");auto b=newTemp("env.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
         }
         if (ns == "FS") {
             auto str=[&](std::size_t i){return emitExpr(expr->args[i].get());};
-            if(member=="exists"||member=="isFile"||member=="isDir"){auto p=str(0);auto r=newTemp("fs.bool");body.push_back("  "+r+" = call i32 @__stable_fs_"+member+"(ptr "+p+")");auto b=newTemp("fs.bool.cast");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="fileSize"){auto p=str(0);auto r=newTemp("fs.size");body.push_back("  "+r+" = call i64 @__stable_fs_file_size(ptr "+p+")");return r;}
-            if(member=="read"){auto p=str(0);auto r=newTemp("fs.read");body.push_back("  "+r+" = call ptr @__stable_fs_read(ptr "+p+")");return r;}
-            if(member=="write"||member=="append"){auto p=str(0),t=str(1);auto r=newTemp("fs.write");body.push_back("  "+r+" = call i32 @__stable_fs_"+member+"(ptr "+p+", ptr "+t+")");auto b=newTemp("fs.write.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="writeBuffer"){auto p=str(0),b0=emitExpr(expr->args[1].get());auto d=newTemp("fs.buf.data");body.push_back("  "+d+" = call ptr @__stable_buffer_data(ptr "+b0+")");auto n=newTemp("fs.buf.len");body.push_back("  "+n+" = call i64 @__stable_buffer_len(ptr "+b0+")");auto r=newTemp("fs.buf.write");body.push_back("  "+r+" = call i32 @__stable_fs_write_buffer(ptr "+p+", ptr "+d+", i64 "+n+")");auto ok=newTemp("fs.buf.ok");body.push_back("  "+ok+" = trunc i32 "+r+" to i1");return ok;}
-            if(member=="remove"||member=="mkdir"||member=="rmdir"){auto p=str(0);auto r=newTemp("fs.mut");body.push_back("  "+r+" = call i32 @__stable_fs_"+member+"(ptr "+p+")");auto b=newTemp("fs.mut.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="rename"||member=="copy"){auto a=str(0),b0=str(1);auto r=newTemp("fs.rename");body.push_back("  "+r+" = call i32 @__stable_fs_"+member+"(ptr "+a+", ptr "+b0+")");auto ok=newTemp("fs.rename.bool");body.push_back("  "+ok+" = trunc i32 "+r+" to i1");return ok;}
-            if(member=="cwd"){auto r=newTemp("fs.cwd");body.push_back("  "+r+" = call ptr @__stable_fs_cwd()");return r;}
-            if(member=="chdir"){auto p=str(0);auto r=newTemp("fs.chdir");body.push_back("  "+r+" = call i32 @__stable_fs_chdir(ptr "+p+")");auto ok=newTemp("fs.chdir.ok");body.push_back("  "+ok+" = trunc i32 "+r+" to i1");return ok;}
-            if(member=="list"){auto p=str(0);auto r=newTemp("fs.list");body.push_back("  "+r+" = call ptr @__stable_fs_list(ptr "+p+")");return r;}
+            if(member=="exists"||member=="isFile"||member=="isDir"){auto p=str(0);auto r=newTemp("fs.bool");body.push_back("  "+r+" = call i32 @__lanner_fs_"+member+"(ptr "+p+")");auto b=newTemp("fs.bool.cast");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="fileSize"){auto p=str(0);auto r=newTemp("fs.size");body.push_back("  "+r+" = call i64 @__lanner_fs_file_size(ptr "+p+")");return r;}
+            if(member=="read"){auto p=str(0);auto r=newTemp("fs.read");body.push_back("  "+r+" = call ptr @__lanner_fs_read(ptr "+p+")");return r;}
+            if(member=="write"||member=="append"){auto p=str(0),t=str(1);auto r=newTemp("fs.write");body.push_back("  "+r+" = call i32 @__lanner_fs_"+member+"(ptr "+p+", ptr "+t+")");auto b=newTemp("fs.write.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="writeBuffer"){auto p=str(0),b0=emitExpr(expr->args[1].get());auto d=newTemp("fs.buf.data");body.push_back("  "+d+" = call ptr @__lanner_buffer_data(ptr "+b0+")");auto n=newTemp("fs.buf.len");body.push_back("  "+n+" = call i64 @__lanner_buffer_len(ptr "+b0+")");auto r=newTemp("fs.buf.write");body.push_back("  "+r+" = call i32 @__lanner_fs_write_buffer(ptr "+p+", ptr "+d+", i64 "+n+")");auto ok=newTemp("fs.buf.ok");body.push_back("  "+ok+" = trunc i32 "+r+" to i1");return ok;}
+            if(member=="remove"||member=="mkdir"||member=="rmdir"){auto p=str(0);auto r=newTemp("fs.mut");body.push_back("  "+r+" = call i32 @__lanner_fs_"+member+"(ptr "+p+")");auto b=newTemp("fs.mut.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="rename"||member=="copy"){auto a=str(0),b0=str(1);auto r=newTemp("fs.rename");body.push_back("  "+r+" = call i32 @__lanner_fs_"+member+"(ptr "+a+", ptr "+b0+")");auto ok=newTemp("fs.rename.bool");body.push_back("  "+ok+" = trunc i32 "+r+" to i1");return ok;}
+            if(member=="cwd"){auto r=newTemp("fs.cwd");body.push_back("  "+r+" = call ptr @__lanner_fs_cwd()");return r;}
+            if(member=="chdir"){auto p=str(0);auto r=newTemp("fs.chdir");body.push_back("  "+r+" = call i32 @__lanner_fs_chdir(ptr "+p+")");auto ok=newTemp("fs.chdir.ok");body.push_back("  "+ok+" = trunc i32 "+r+" to i1");return ok;}
+            if(member=="list"){auto p=str(0);auto r=newTemp("fs.list");body.push_back("  "+r+" = call ptr @__lanner_fs_list(ptr "+p+")");return r;}
         }
         if (ns == "Path") {
-            if(member=="join"){auto a=emitExpr(expr->args[0].get()),b=emitExpr(expr->args[1].get());auto r=newTemp("path.join");body.push_back("  "+r+" = call ptr @__stable_path_join(ptr "+a+", ptr "+b+")");return r;}
-            if(member=="basename"||member=="dirname"||member=="extension"||member=="stem"||member=="normalize"||member=="absolute"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("path."+member);body.push_back("  "+r+" = call ptr @__stable_path_"+member+"(ptr "+a+")");return r;}
-            if(member=="isAbsolute"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("path.abs");body.push_back("  "+r+" = call i32 @__stable_path_is_absolute(ptr "+a+")");auto b=newTemp("path.abs.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="join"){auto a=emitExpr(expr->args[0].get()),b=emitExpr(expr->args[1].get());auto r=newTemp("path.join");body.push_back("  "+r+" = call ptr @__lanner_path_join(ptr "+a+", ptr "+b+")");return r;}
+            if(member=="basename"||member=="dirname"||member=="extension"||member=="stem"||member=="normalize"||member=="absolute"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("path."+member);body.push_back("  "+r+" = call ptr @__lanner_path_"+member+"(ptr "+a+")");return r;}
+            if(member=="isAbsolute"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("path.abs");body.push_back("  "+r+" = call i32 @__lanner_path_is_absolute(ptr "+a+")");auto b=newTemp("path.abs.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
         }
         if (ns == "Regex") {
-            if(member=="compile"){auto p=emitExpr(expr->args[0].get());auto r=newTemp("regex.compile");body.push_back("  "+r+" = call ptr @__stable_regex_compile(ptr "+p+")");return r;}
-            if(member=="isMatch"){auto h=emitExpr(expr->args[0].get()),t=emitExpr(expr->args[1].get());auto r=newTemp("regex.match");body.push_back("  "+r+" = call i32 @__stable_regex_match(ptr "+h+", ptr "+t+")");auto b=newTemp("regex.match.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="find"){auto h=emitExpr(expr->args[0].get()),t=emitExpr(expr->args[1].get());auto r=newTemp("regex.find");body.push_back("  "+r+" = call i64 @__stable_regex_find(ptr "+h+", ptr "+t+")");return r;}
-            if(member=="free"){auto h=emitExpr(expr->args[0].get());body.push_back("  call void @__stable_regex_free(ptr "+h+")");return {};}
+            if(member=="compile"){auto p=emitExpr(expr->args[0].get());auto r=newTemp("regex.compile");body.push_back("  "+r+" = call ptr @__lanner_regex_compile(ptr "+p+")");return r;}
+            if(member=="isMatch"){auto h=emitExpr(expr->args[0].get()),t=emitExpr(expr->args[1].get());auto r=newTemp("regex.match");body.push_back("  "+r+" = call i32 @__lanner_regex_match(ptr "+h+", ptr "+t+")");auto b=newTemp("regex.match.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="find"){auto h=emitExpr(expr->args[0].get()),t=emitExpr(expr->args[1].get());auto r=newTemp("regex.find");body.push_back("  "+r+" = call i64 @__lanner_regex_find(ptr "+h+", ptr "+t+")");return r;}
+            if(member=="free"){auto h=emitExpr(expr->args[0].get());body.push_back("  call void @__lanner_regex_free(ptr "+h+")");return {};}
         }
         if (ns == "Shell") {
-            if(member=="run"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("shell.run");body.push_back("  "+r+" = call i32 @__stable_process_run(ptr "+c+")");return r;}
-            if(member=="output"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("shell.output");body.push_back("  "+r+" = call ptr @__stable_process_output(ptr "+c+")");return r;}
-            if(member=="which"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("shell.which");body.push_back("  "+r+" = call ptr @__stable_shell_which(ptr "+c+")");return r;}
+            if(member=="run"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("shell.run");body.push_back("  "+r+" = call i32 @__lanner_process_run(ptr "+c+")");return r;}
+            if(member=="output"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("shell.output");body.push_back("  "+r+" = call ptr @__lanner_process_output(ptr "+c+")");return r;}
+            if(member=="which"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("shell.which");body.push_back("  "+r+" = call ptr @__lanner_shell_which(ptr "+c+")");return r;}
         }
         if (ns == "String") {
-            if(member=="parseInt"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("str.parseint");body.push_back("  "+r+" = call i64 @__stable_string_parse_i64(ptr "+a+")");return r;}
-            if(member=="parseFloat"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("str.parsefloat");body.push_back("  "+r+" = call double @__stable_string_parse_f64(ptr "+a+")");return r;}
+            if(member=="parseInt"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("str.parseint");body.push_back("  "+r+" = call i64 @__lanner_string_parse_i64(ptr "+a+")");return r;}
+            if(member=="parseFloat"){auto a=emitExpr(expr->args[0].get());auto r=newTemp("str.parsefloat");body.push_back("  "+r+" = call double @__lanner_string_parse_f64(ptr "+a+")");return r;}
         }
         if (ns == "Stdin") {
-            if (member == "hasInput") { auto r = newTemp("stdin.ready"); body.push_back("  " + r + " = call i32 @__stable_stdin_has_input()"); const auto b = newTemp("stdin.bool"); body.push_back("  " + b + " = trunc i32 " + r + " to i1"); return b; }
-            if (member == "readLine") { auto r = newTemp("stdin.line"); body.push_back("  " + r + " = call ptr @__stable_stdin_read_line()"); return r; }
+            if (member == "hasInput") { auto r = newTemp("stdin.ready"); body.push_back("  " + r + " = call i32 @__lanner_stdin_has_input()"); const auto b = newTemp("stdin.bool"); body.push_back("  " + b + " = trunc i32 " + r + " to i1"); return b; }
+            if (member == "readLine") { auto r = newTemp("stdin.line"); body.push_back("  " + r + " = call ptr @__lanner_stdin_read_line()"); return r; }
         }
         if (ns == "Clock") {
-            if (member == "monotonicNanos") { auto r=newTemp("clock.now"); body.push_back("  "+r+" = call i64 @__stable_clock_monotonic_nanos()"); return r; }
-            if (member == "sleepNanos") { auto a=emitExpr(expr->args[0].get()); body.push_back("  call void @__stable_clock_sleep_nanos(i64 "+a+")"); return ""; }
-            if (member == "deadlineAfterNanos") { auto a=emitExpr(expr->args[0].get()); auto n=newTemp("clock.deadline"); body.push_back("  "+n+" = call i64 @__stable_clock_monotonic_nanos()"); auto r=newTemp("clock.deadline.add"); body.push_back("  "+r+" = add i64 "+n+", "+a); return r; }
-            if (member == "expired") { auto d=emitExpr(expr->args[0].get()); auto n=newTemp("clock.expired.now"); body.push_back("  "+n+" = call i64 @__stable_clock_monotonic_nanos()"); auto r=newTemp("clock.expired"); body.push_back("  "+r+" = icmp uge i64 "+n+", "+d); return r; }
-            if (member == "remainingNanos") { auto d=emitExpr(expr->args[0].get()); auto n=newTemp("clock.rem.now"); body.push_back("  "+n+" = call i64 @__stable_clock_monotonic_nanos()"); auto nonneg=newTemp("clock.rem.nonneg"); body.push_back("  "+nonneg+" = icmp ult i64 "+n+", "+d); auto delta=newTemp("clock.rem.delta"); body.push_back("  "+delta+" = sub i64 "+d+", "+n); auto r=newTemp("clock.rem"); body.push_back("  "+r+" = select i1 "+nonneg+", i64 "+delta+", i64 0"); return r; }
+            if (member == "monotonicNanos") { auto r=newTemp("clock.now"); body.push_back("  "+r+" = call i64 @__lanner_clock_monotonic_nanos()"); return r; }
+            if (member == "sleepNanos") { auto a=emitExpr(expr->args[0].get()); body.push_back("  call void @__lanner_clock_sleep_nanos(i64 "+a+")"); return ""; }
+            if (member == "deadlineAfterNanos") { auto a=emitExpr(expr->args[0].get()); auto n=newTemp("clock.deadline"); body.push_back("  "+n+" = call i64 @__lanner_clock_monotonic_nanos()"); auto r=newTemp("clock.deadline.add"); body.push_back("  "+r+" = add i64 "+n+", "+a); return r; }
+            if (member == "expired") { auto d=emitExpr(expr->args[0].get()); auto n=newTemp("clock.expired.now"); body.push_back("  "+n+" = call i64 @__lanner_clock_monotonic_nanos()"); auto r=newTemp("clock.expired"); body.push_back("  "+r+" = icmp uge i64 "+n+", "+d); return r; }
+            if (member == "remainingNanos") { auto d=emitExpr(expr->args[0].get()); auto n=newTemp("clock.rem.now"); body.push_back("  "+n+" = call i64 @__lanner_clock_monotonic_nanos()"); auto nonneg=newTemp("clock.rem.nonneg"); body.push_back("  "+nonneg+" = icmp ult i64 "+n+", "+d); auto delta=newTemp("clock.rem.delta"); body.push_back("  "+delta+" = sub i64 "+d+", "+n); auto r=newTemp("clock.rem"); body.push_back("  "+r+" = select i1 "+nonneg+", i64 "+delta+", i64 0"); return r; }
         }
         if (ns == "Thread") {
-            if (member == "hardwareConcurrency") { auto r=newTemp("thread.hw"); body.push_back("  "+r+" = call i64 @__stable_thread_hardware_concurrency()"); return r; }
-            if (member == "yield") { body.push_back("  call void @__stable_thread_yield()"); return ""; }
+            if (member == "hardwareConcurrency") { auto r=newTemp("thread.hw"); body.push_back("  "+r+" = call i64 @__lanner_thread_hardware_concurrency()"); return r; }
+            if (member == "yield") { body.push_back("  call void @__lanner_thread_yield()"); return ""; }
             if (member == "spawn") {
                 if (expr->args.size()!=1 || expr->args[0]->kind!=ExprKind::Identifier) unsupported("invalid Thread.spawn target", expr->line);
                 const auto r = newTemp("thread.spawn");
-                body.push_back("  "+r+" = call ptr @__stable_thread_spawn(ptr @__stable_thread_entry_"+expr->args[0]->strValue+")");
+                body.push_back("  "+r+" = call ptr @__lanner_thread_spawn(ptr @__lanner_thread_entry_"+expr->args[0]->strValue+")");
                 return r;
             }
         }
@@ -1811,77 +1811,77 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
             auto asI64 = [&](const Expr* a, const std::string& tag) {
                 auto v = emitExpr(a); auto t = exprLLVMType(a); if (t == "i64") return v; auto r = newTemp(tag); body.push_back("  " + r + " = zext " + t + " " + v + " to i64"); return r;
             };
-            if (member == "tcpConnect") { auto h=emitExpr(expr->args[0].get()); auto p=asI32(expr->args[1].get(),"net.port"); auto tm=emitExpr(expr->args[2].get()); auto r=newTemp("net.connect"); body.push_back("  "+r+" = call ptr @__stable_net_tcp_connect(ptr "+h+", i32 "+p+", i32 "+tm+")"); return r; }
-            if (member == "tcpListen") { auto h=emitExpr(expr->args[0].get()); auto p=asI32(expr->args[1].get(),"net.port"); auto b=emitExpr(expr->args[2].get()); auto r=newTemp("net.listen"); body.push_back("  "+r+" = call ptr @__stable_net_tcp_listen(ptr "+h+", i32 "+p+", i32 "+b+")"); return r; }
-            if (member == "accept") { auto s=emitExpr(expr->args[0].get()); auto r=newTemp("net.accept"); body.push_back("  "+r+" = call ptr @__stable_net_accept(ptr "+s+")"); return r; }
-            if (member == "close") { auto s=emitExpr(expr->args[0].get()); body.push_back("  call void @__stable_net_close(ptr "+s+")"); return {}; }
-            if (member == "send") { auto s=emitExpr(expr->args[0].get()); auto p=emitExpr(expr->args[1].get()); auto n=asI64(expr->args[2].get(),"net.send.len"); auto r=newTemp("net.send"); body.push_back("  "+r+" = call i64 @__stable_net_send(ptr "+s+", ptr "+p+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("net.send.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
-            if (member == "recv") { auto s=emitExpr(expr->args[0].get()); auto p=emitExpr(expr->args[1].get()); auto n=asI64(expr->args[2].get(),"net.recv.len"); auto r=newTemp("net.recv"); body.push_back("  "+r+" = call i64 @__stable_net_recv(ptr "+s+", ptr "+p+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("net.recv.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
-            if (member == "sendString") { auto s=emitExpr(expr->args[0].get()); auto t=emitExpr(expr->args[1].get()); auto r=newTemp("net.send.str"); body.push_back("  "+r+" = call i64 @__stable_net_send_string(ptr "+s+", ptr "+t+")"); if(pointerBits==64)return r; auto q=newTemp("net.send.str.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
-            if (member == "setNonblocking" || member == "tcpNoDelay") { auto s=emitExpr(expr->args[0].get()); auto en=emitExpr(expr->args[1].get()); auto r=newTemp("net.bool"); const char* f=member=="setNonblocking"?"__stable_net_set_nonblocking":"__stable_net_tcp_nodelay"; body.push_back("  "+r+" = call i32 @"+std::string(f)+"(ptr "+s+", i1 "+en+")"); auto b=newTemp("net.bool.cast"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "poll") { auto s=emitExpr(expr->args[0].get()); auto ev=emitExpr(expr->args[1].get()); auto tm=emitExpr(expr->args[2].get()); auto r=newTemp("net.poll"); body.push_back("  "+r+" = call i32 @__stable_net_poll(ptr "+s+", i32 "+ev+", i32 "+tm+")"); return r; }
-            if (member == "shutdown") { auto s=emitExpr(expr->args[0].get()); auto how=emitExpr(expr->args[1].get()); auto r=newTemp("net.shutdown"); body.push_back("  "+r+" = call i32 @__stable_net_shutdown(ptr "+s+", i32 "+how+")"); return r; }
-            if (member == "lastError") { auto r=newTemp("net.err"); body.push_back("  "+r+" = call i32 @__stable_net_last_error()"); return r; }
-            if (member == "errorString") { auto r=newTemp("net.err.str"); body.push_back("  "+r+" = call ptr @__stable_net_error_string()"); return r; }
-            if (member == "udpOpen") { auto r=newTemp("udp.open"); body.push_back("  "+r+" = call ptr @__stable_net_udp_open()"); return r; }
-            if (member == "udpBind") { auto s=emitExpr(expr->args[0].get()); auto h=emitExpr(expr->args[1].get()); auto p=asI32(expr->args[2].get(),"udp.port"); auto r=newTemp("udp.bind"); body.push_back("  "+r+" = call i32 @__stable_net_udp_bind(ptr "+s+", ptr "+h+", i32 "+p+")"); auto b=newTemp("udp.bind.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member == "udpSendTo") { auto s=emitExpr(expr->args[0].get()); auto h=emitExpr(expr->args[1].get()); auto p=asI32(expr->args[2].get(),"udp.port"); auto d=emitExpr(expr->args[3].get()); auto n=asI64(expr->args[4].get(),"udp.len"); auto r=newTemp("udp.send"); body.push_back("  "+r+" = call i64 @__stable_net_udp_send_to(ptr "+s+", ptr "+h+", i32 "+p+", ptr "+d+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("udp.send.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
-            if (member == "udpRecv") { auto s=emitExpr(expr->args[0].get()); auto d=emitExpr(expr->args[1].get()); auto n=asI64(expr->args[2].get(),"udp.recv.len"); auto r=newTemp("udp.recv"); body.push_back("  "+r+" = call i64 @__stable_net_udp_recv(ptr "+s+", ptr "+d+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("udp.recv.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
-            if (member == "localPort" || member == "peerPort") { auto s=emitExpr(expr->args[0].get()); auto r=newTemp("net.port"); body.push_back("  "+r+" = call i32 @__stable_net_"+(member=="localPort"?std::string("local_port"):std::string("peer_port"))+"(ptr "+s+")"); auto q=newTemp("net.port.u16"); body.push_back("  "+q+" = trunc i32 "+r+" to i16"); return q; }
+            if (member == "tcpConnect") { auto h=emitExpr(expr->args[0].get()); auto p=asI32(expr->args[1].get(),"net.port"); auto tm=emitExpr(expr->args[2].get()); auto r=newTemp("net.connect"); body.push_back("  "+r+" = call ptr @__lanner_net_tcp_connect(ptr "+h+", i32 "+p+", i32 "+tm+")"); return r; }
+            if (member == "tcpListen") { auto h=emitExpr(expr->args[0].get()); auto p=asI32(expr->args[1].get(),"net.port"); auto b=emitExpr(expr->args[2].get()); auto r=newTemp("net.listen"); body.push_back("  "+r+" = call ptr @__lanner_net_tcp_listen(ptr "+h+", i32 "+p+", i32 "+b+")"); return r; }
+            if (member == "accept") { auto s=emitExpr(expr->args[0].get()); auto r=newTemp("net.accept"); body.push_back("  "+r+" = call ptr @__lanner_net_accept(ptr "+s+")"); return r; }
+            if (member == "close") { auto s=emitExpr(expr->args[0].get()); body.push_back("  call void @__lanner_net_close(ptr "+s+")"); return {}; }
+            if (member == "send") { auto s=emitExpr(expr->args[0].get()); auto p=emitExpr(expr->args[1].get()); auto n=asI64(expr->args[2].get(),"net.send.len"); auto r=newTemp("net.send"); body.push_back("  "+r+" = call i64 @__lanner_net_send(ptr "+s+", ptr "+p+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("net.send.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
+            if (member == "recv") { auto s=emitExpr(expr->args[0].get()); auto p=emitExpr(expr->args[1].get()); auto n=asI64(expr->args[2].get(),"net.recv.len"); auto r=newTemp("net.recv"); body.push_back("  "+r+" = call i64 @__lanner_net_recv(ptr "+s+", ptr "+p+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("net.recv.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
+            if (member == "sendString") { auto s=emitExpr(expr->args[0].get()); auto t=emitExpr(expr->args[1].get()); auto r=newTemp("net.send.str"); body.push_back("  "+r+" = call i64 @__lanner_net_send_string(ptr "+s+", ptr "+t+")"); if(pointerBits==64)return r; auto q=newTemp("net.send.str.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
+            if (member == "setNonblocking" || member == "tcpNoDelay") { auto s=emitExpr(expr->args[0].get()); auto en=emitExpr(expr->args[1].get()); auto r=newTemp("net.bool"); const char* f=member=="setNonblocking"?"__lanner_net_set_nonblocking":"__lanner_net_tcp_nodelay"; body.push_back("  "+r+" = call i32 @"+std::string(f)+"(ptr "+s+", i1 "+en+")"); auto b=newTemp("net.bool.cast"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "poll") { auto s=emitExpr(expr->args[0].get()); auto ev=emitExpr(expr->args[1].get()); auto tm=emitExpr(expr->args[2].get()); auto r=newTemp("net.poll"); body.push_back("  "+r+" = call i32 @__lanner_net_poll(ptr "+s+", i32 "+ev+", i32 "+tm+")"); return r; }
+            if (member == "shutdown") { auto s=emitExpr(expr->args[0].get()); auto how=emitExpr(expr->args[1].get()); auto r=newTemp("net.shutdown"); body.push_back("  "+r+" = call i32 @__lanner_net_shutdown(ptr "+s+", i32 "+how+")"); return r; }
+            if (member == "lastError") { auto r=newTemp("net.err"); body.push_back("  "+r+" = call i32 @__lanner_net_last_error()"); return r; }
+            if (member == "errorString") { auto r=newTemp("net.err.str"); body.push_back("  "+r+" = call ptr @__lanner_net_error_string()"); return r; }
+            if (member == "udpOpen") { auto r=newTemp("udp.open"); body.push_back("  "+r+" = call ptr @__lanner_net_udp_open()"); return r; }
+            if (member == "udpBind") { auto s=emitExpr(expr->args[0].get()); auto h=emitExpr(expr->args[1].get()); auto p=asI32(expr->args[2].get(),"udp.port"); auto r=newTemp("udp.bind"); body.push_back("  "+r+" = call i32 @__lanner_net_udp_bind(ptr "+s+", ptr "+h+", i32 "+p+")"); auto b=newTemp("udp.bind.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member == "udpSendTo") { auto s=emitExpr(expr->args[0].get()); auto h=emitExpr(expr->args[1].get()); auto p=asI32(expr->args[2].get(),"udp.port"); auto d=emitExpr(expr->args[3].get()); auto n=asI64(expr->args[4].get(),"udp.len"); auto r=newTemp("udp.send"); body.push_back("  "+r+" = call i64 @__lanner_net_udp_send_to(ptr "+s+", ptr "+h+", i32 "+p+", ptr "+d+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("udp.send.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
+            if (member == "udpRecv") { auto s=emitExpr(expr->args[0].get()); auto d=emitExpr(expr->args[1].get()); auto n=asI64(expr->args[2].get(),"udp.recv.len"); auto r=newTemp("udp.recv"); body.push_back("  "+r+" = call i64 @__lanner_net_udp_recv(ptr "+s+", ptr "+d+", i64 "+n+")"); if(pointerBits==64)return r; auto q=newTemp("udp.recv.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
+            if (member == "localPort" || member == "peerPort") { auto s=emitExpr(expr->args[0].get()); auto r=newTemp("net.port"); body.push_back("  "+r+" = call i32 @__lanner_net_"+(member=="localPort"?std::string("local_port"):std::string("peer_port"))+"(ptr "+s+")"); auto q=newTemp("net.port.u16"); body.push_back("  "+q+" = trunc i32 "+r+" to i16"); return q; }
         }
         if (ns == "Poller") {
             auto asI32 = [&](const Expr* a, const std::string& tag) { auto v=emitExpr(a); auto t=exprLLVMType(a); if(t=="i32") return v; auto r=newTemp(tag); body.push_back("  "+r+" = zext "+t+" "+v+" to i32"); return r; };
-            if (member=="create") { auto r=newTemp("poller"); body.push_back("  "+r+" = call ptr @__stable_poller_create()"); return r; }
-            if (member=="add") { auto p=emitExpr(expr->args[0].get()); auto sck=emitExpr(expr->args[1].get()); auto ev=asI32(expr->args[2].get(),"poller.ev"); auto r=newTemp("poller.add"); body.push_back("  "+r+" = call i32 @__stable_poller_add(ptr "+p+", ptr "+sck+", i32 "+ev+")"); auto b=newTemp("poller.add.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member=="remove") { auto p=emitExpr(expr->args[0].get()); auto sck=emitExpr(expr->args[1].get()); auto r=newTemp("poller.remove"); body.push_back("  "+r+" = call i32 @__stable_poller_remove(ptr "+p+", ptr "+sck+")"); auto b=newTemp("poller.remove.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-            if (member=="wait") { auto p=emitExpr(expr->args[0].get()); auto tm=emitExpr(expr->args[1].get()); auto r=newTemp("poller.wait"); body.push_back("  "+r+" = call i32 @__stable_poller_wait(ptr "+p+", i32 "+tm+")"); return r; }
-            if (member=="count") { auto p=emitExpr(expr->args[0].get()); auto r=newTemp("poller.count"); body.push_back("  "+r+" = call i32 @__stable_poller_count(ptr "+p+")"); return r; }
-            if (member=="eventSocket") { auto p=emitExpr(expr->args[0].get()); auto i=asI32(expr->args[1].get(),"poller.index"); auto r=newTemp("poller.sock"); body.push_back("  "+r+" = call ptr @__stable_poller_event_socket(ptr "+p+", i32 "+i+")"); return r; }
-            if (member=="eventMask") { auto p=emitExpr(expr->args[0].get()); auto i=asI32(expr->args[1].get(),"poller.index"); auto r=newTemp("poller.mask"); body.push_back("  "+r+" = call i32 @__stable_poller_event_mask(ptr "+p+", i32 "+i+")"); return r; }
-            if (member=="readEvents" || member=="writeEvents" || member=="errorEvents") { auto r=newTemp("poller.events"); body.push_back("  "+r+" = call i32 @__stable_poller_"+(member=="readEvents"?std::string("read_events"):member=="writeEvents"?std::string("write_events"):std::string("error_events"))+"()"); return r; }
-            if (member=="destroy") { auto p=emitExpr(expr->args[0].get()); body.push_back("  call void @__stable_poller_destroy(ptr "+p+")"); return {}; }
+            if (member=="create") { auto r=newTemp("poller"); body.push_back("  "+r+" = call ptr @__lanner_poller_create()"); return r; }
+            if (member=="add") { auto p=emitExpr(expr->args[0].get()); auto sck=emitExpr(expr->args[1].get()); auto ev=asI32(expr->args[2].get(),"poller.ev"); auto r=newTemp("poller.add"); body.push_back("  "+r+" = call i32 @__lanner_poller_add(ptr "+p+", ptr "+sck+", i32 "+ev+")"); auto b=newTemp("poller.add.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member=="remove") { auto p=emitExpr(expr->args[0].get()); auto sck=emitExpr(expr->args[1].get()); auto r=newTemp("poller.remove"); body.push_back("  "+r+" = call i32 @__lanner_poller_remove(ptr "+p+", ptr "+sck+")"); auto b=newTemp("poller.remove.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+            if (member=="wait") { auto p=emitExpr(expr->args[0].get()); auto tm=emitExpr(expr->args[1].get()); auto r=newTemp("poller.wait"); body.push_back("  "+r+" = call i32 @__lanner_poller_wait(ptr "+p+", i32 "+tm+")"); return r; }
+            if (member=="count") { auto p=emitExpr(expr->args[0].get()); auto r=newTemp("poller.count"); body.push_back("  "+r+" = call i32 @__lanner_poller_count(ptr "+p+")"); return r; }
+            if (member=="eventSocket") { auto p=emitExpr(expr->args[0].get()); auto i=asI32(expr->args[1].get(),"poller.index"); auto r=newTemp("poller.sock"); body.push_back("  "+r+" = call ptr @__lanner_poller_event_socket(ptr "+p+", i32 "+i+")"); return r; }
+            if (member=="eventMask") { auto p=emitExpr(expr->args[0].get()); auto i=asI32(expr->args[1].get(),"poller.index"); auto r=newTemp("poller.mask"); body.push_back("  "+r+" = call i32 @__lanner_poller_event_mask(ptr "+p+", i32 "+i+")"); return r; }
+            if (member=="readEvents" || member=="writeEvents" || member=="errorEvents") { auto r=newTemp("poller.events"); body.push_back("  "+r+" = call i32 @__lanner_poller_"+(member=="readEvents"?std::string("read_events"):member=="writeEvents"?std::string("write_events"):std::string("error_events"))+"()"); return r; }
+            if (member=="destroy") { auto p=emitExpr(expr->args[0].get()); body.push_back("  call void @__lanner_poller_destroy(ptr "+p+")"); return {}; }
         }
         if (ns == "Mutex" || ns == "RwLock" || ns == "Condvar" || ns == "Semaphore") {
             if (member=="create") {
-                if(ns=="Mutex"){auto r=newTemp("mutex");body.push_back("  "+r+" = call ptr @__stable_mutex_create()");return r;}
-                if(ns=="RwLock"){auto r=newTemp("rwlock");body.push_back("  "+r+" = call ptr @__stable_rwlock_create()");return r;}
-                if(ns=="Condvar"){auto r=newTemp("condvar");body.push_back("  "+r+" = call ptr @__stable_condvar_create()");return r;}
-                auto v=emitExpr(expr->args[0].get()); auto r=newTemp("semaphore"); body.push_back("  "+r+" = call ptr @__stable_semaphore_create(i32 "+v+")"); return r;
+                if(ns=="Mutex"){auto r=newTemp("mutex");body.push_back("  "+r+" = call ptr @__lanner_mutex_create()");return r;}
+                if(ns=="RwLock"){auto r=newTemp("rwlock");body.push_back("  "+r+" = call ptr @__lanner_rwlock_create()");return r;}
+                if(ns=="Condvar"){auto r=newTemp("condvar");body.push_back("  "+r+" = call ptr @__lanner_condvar_create()");return r;}
+                auto v=emitExpr(expr->args[0].get()); auto r=newTemp("semaphore"); body.push_back("  "+r+" = call ptr @__lanner_semaphore_create(i32 "+v+")"); return r;
             }
-            if(ns=="Mutex"){auto m=emitExpr(expr->args[0].get()); if(member=="lock"||member=="unlock"||member=="destroy"){const char* f=member=="lock"?"__stable_mutex_lock":member=="unlock"?"__stable_mutex_unlock":"__stable_mutex_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+m+")");return {};} if(member=="tryLock"){auto r=newTemp("mutex.try");body.push_back("  "+r+" = call i32 @__stable_mutex_try_lock(ptr "+m+")");auto b=newTemp("mutex.try.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}}
-            if(ns=="RwLock"){auto m=emitExpr(expr->args[0].get()); if(member=="readLock"||member=="writeLock"||member=="destroy"){const char* f=member=="readLock"?"__stable_rwlock_read_lock":member=="writeLock"?"__stable_rwlock_write_lock":"__stable_rwlock_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+m+")");return {};} if(member=="tryReadLock"||member=="tryWriteLock"){const char* f=member=="tryReadLock"?"__stable_rwlock_try_read_lock":"__stable_rwlock_try_write_lock";auto r=newTemp("rw.try");body.push_back("  "+r+" = call i32 @"+std::string(f)+"(ptr "+m+")");auto b=newTemp("rw.try.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} if(member=="unlock"){auto w=emitExpr(expr->args[1].get());body.push_back("  call void @__stable_rwlock_unlock(ptr "+m+", i1 "+w+")");return {};}}
-            if(ns=="Condvar"){auto c=emitExpr(expr->args[0].get()); if(member=="wait"){auto m=emitExpr(expr->args[1].get());auto tm=emitExpr(expr->args[2].get());auto r=newTemp("cond.wait");body.push_back("  "+r+" = call i32 @__stable_condvar_wait(ptr "+c+", ptr "+m+", i32 "+tm+")");auto b=newTemp("cond.wait.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} const char* f=member=="signal"?"__stable_condvar_signal":member=="broadcast"?"__stable_condvar_broadcast":"__stable_condvar_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+c+")");return {};}
-            if(ns=="Semaphore"){auto sem=emitExpr(expr->args[0].get()); if(member=="wait"){auto tm=emitExpr(expr->args[1].get());auto r=newTemp("sem.wait");body.push_back("  "+r+" = call i32 @__stable_semaphore_wait(ptr "+sem+", i32 "+tm+")");auto b=newTemp("sem.wait.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} if(member=="tryWait"){auto r=newTemp("sem.try");body.push_back("  "+r+" = call i32 @__stable_semaphore_try_wait(ptr "+sem+")");auto b=newTemp("sem.try.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} const char* f=member=="post"?"__stable_semaphore_post":"__stable_semaphore_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+sem+")");return {};}
+            if(ns=="Mutex"){auto m=emitExpr(expr->args[0].get()); if(member=="lock"||member=="unlock"||member=="destroy"){const char* f=member=="lock"?"__lanner_mutex_lock":member=="unlock"?"__lanner_mutex_unlock":"__lanner_mutex_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+m+")");return {};} if(member=="tryLock"){auto r=newTemp("mutex.try");body.push_back("  "+r+" = call i32 @__lanner_mutex_try_lock(ptr "+m+")");auto b=newTemp("mutex.try.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}}
+            if(ns=="RwLock"){auto m=emitExpr(expr->args[0].get()); if(member=="readLock"||member=="writeLock"||member=="destroy"){const char* f=member=="readLock"?"__lanner_rwlock_read_lock":member=="writeLock"?"__lanner_rwlock_write_lock":"__lanner_rwlock_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+m+")");return {};} if(member=="tryReadLock"||member=="tryWriteLock"){const char* f=member=="tryReadLock"?"__lanner_rwlock_try_read_lock":"__lanner_rwlock_try_write_lock";auto r=newTemp("rw.try");body.push_back("  "+r+" = call i32 @"+std::string(f)+"(ptr "+m+")");auto b=newTemp("rw.try.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} if(member=="unlock"){auto w=emitExpr(expr->args[1].get());body.push_back("  call void @__lanner_rwlock_unlock(ptr "+m+", i1 "+w+")");return {};}}
+            if(ns=="Condvar"){auto c=emitExpr(expr->args[0].get()); if(member=="wait"){auto m=emitExpr(expr->args[1].get());auto tm=emitExpr(expr->args[2].get());auto r=newTemp("cond.wait");body.push_back("  "+r+" = call i32 @__lanner_condvar_wait(ptr "+c+", ptr "+m+", i32 "+tm+")");auto b=newTemp("cond.wait.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} const char* f=member=="signal"?"__lanner_condvar_signal":member=="broadcast"?"__lanner_condvar_broadcast":"__lanner_condvar_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+c+")");return {};}
+            if(ns=="Semaphore"){auto sem=emitExpr(expr->args[0].get()); if(member=="wait"){auto tm=emitExpr(expr->args[1].get());auto r=newTemp("sem.wait");body.push_back("  "+r+" = call i32 @__lanner_semaphore_wait(ptr "+sem+", i32 "+tm+")");auto b=newTemp("sem.wait.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} if(member=="tryWait"){auto r=newTemp("sem.try");body.push_back("  "+r+" = call i32 @__lanner_semaphore_try_wait(ptr "+sem+")");auto b=newTemp("sem.try.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;} const char* f=member=="post"?"__lanner_semaphore_post":"__lanner_semaphore_destroy";body.push_back("  call void @"+std::string(f)+"(ptr "+sem+")");return {};}
         }
         if (ns == "Buffer") {
-            if (member == "new") { auto n=emitExpr(expr->args[0].get()); auto t=exprLLVMType(expr->args[0].get()); if(t!="i64"){auto w=newTemp("buffer.capacity");body.push_back("  "+w+" = zext "+t+" "+n+" to i64");n=w;} auto r=newTemp("buffer.new"); body.push_back("  "+r+" = call ptr @__stable_buffer_new(i64 "+n+")"); return r; }
-            if (member == "fromString") { auto t=emitExpr(expr->args[0].get()); auto r=newTemp("buffer.from_string"); body.push_back("  "+r+" = call ptr @__stable_buffer_from_string(ptr "+t+")"); return r; }
+            if (member == "new") { auto n=emitExpr(expr->args[0].get()); auto t=exprLLVMType(expr->args[0].get()); if(t!="i64"){auto w=newTemp("buffer.capacity");body.push_back("  "+w+" = zext "+t+" "+n+" to i64");n=w;} auto r=newTemp("buffer.new"); body.push_back("  "+r+" = call ptr @__lanner_buffer_new(i64 "+n+")"); return r; }
+            if (member == "fromString") { auto t=emitExpr(expr->args[0].get()); auto r=newTemp("buffer.from_string"); body.push_back("  "+r+" = call ptr @__lanner_buffer_from_string(ptr "+t+")"); return r; }
         }
         if (ns == "Process") {
-            if(member=="run"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("process.run");body.push_back("  "+r+" = call i32 @__stable_process_run(ptr "+c+")");return r;}
-            if(member=="spawn"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("process.spawn");body.push_back("  "+r+" = call ptr @__stable_process_spawn(ptr "+c+")");return r;}
-            if(member=="wait"){auto h=emitExpr(expr->args[0].get());auto r=newTemp("process.wait");body.push_back("  "+r+" = call i32 @__stable_process_wait(ptr "+h+")");return r;}
-            if(member=="pid"){auto h=emitExpr(expr->args[0].get());auto r=newTemp("process.pid");body.push_back("  "+r+" = call i64 @__stable_process_pid(ptr "+h+")");return r;}
-            if(member=="terminate"){auto h=emitExpr(expr->args[0].get());auto r=newTemp("process.terminate");body.push_back("  "+r+" = call i32 @__stable_process_terminate(ptr "+h+")");auto b=newTemp("process.terminate.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-            if(member=="argCount"){auto r=newTemp("process.argc");body.push_back("  "+r+" = call i64 @__stable_process_argc()");return r;}
-            if(member=="arg"){auto i=emitExpr(expr->args[0].get());auto t=exprLLVMType(expr->args[0].get());if(t!="i64"){auto w=newTemp("process.arg.index");body.push_back("  "+w+" = zext "+t+" "+i+" to i64");i=w;}auto r=newTemp("process.argv");body.push_back("  "+r+" = call ptr @__stable_process_argv_at(i64 "+i+")");return r;}
-            if(member=="output"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("process.output");body.push_back("  "+r+" = call ptr @__stable_process_output(ptr "+c+")");return r;}
-            if(member=="setEnv"){auto n=emitExpr(expr->args[0].get());auto v=emitExpr(expr->args[1].get());auto r=newTemp("process.env");body.push_back("  "+r+" = call i32 @__stable_set_env(ptr "+n+", ptr "+v+")");auto b=newTemp("process.env.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="run"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("process.run");body.push_back("  "+r+" = call i32 @__lanner_process_run(ptr "+c+")");return r;}
+            if(member=="spawn"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("process.spawn");body.push_back("  "+r+" = call ptr @__lanner_process_spawn(ptr "+c+")");return r;}
+            if(member=="wait"){auto h=emitExpr(expr->args[0].get());auto r=newTemp("process.wait");body.push_back("  "+r+" = call i32 @__lanner_process_wait(ptr "+h+")");return r;}
+            if(member=="pid"){auto h=emitExpr(expr->args[0].get());auto r=newTemp("process.pid");body.push_back("  "+r+" = call i64 @__lanner_process_pid(ptr "+h+")");return r;}
+            if(member=="terminate"){auto h=emitExpr(expr->args[0].get());auto r=newTemp("process.terminate");body.push_back("  "+r+" = call i32 @__lanner_process_terminate(ptr "+h+")");auto b=newTemp("process.terminate.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="argCount"){auto r=newTemp("process.argc");body.push_back("  "+r+" = call i64 @__lanner_process_argc()");return r;}
+            if(member=="arg"){auto i=emitExpr(expr->args[0].get());auto t=exprLLVMType(expr->args[0].get());if(t!="i64"){auto w=newTemp("process.arg.index");body.push_back("  "+w+" = zext "+t+" "+i+" to i64");i=w;}auto r=newTemp("process.argv");body.push_back("  "+r+" = call ptr @__lanner_process_argv_at(i64 "+i+")");return r;}
+            if(member=="output"){auto c=emitExpr(expr->args[0].get());auto r=newTemp("process.output");body.push_back("  "+r+" = call ptr @__lanner_process_output(ptr "+c+")");return r;}
+            if(member=="setEnv"){auto n=emitExpr(expr->args[0].get());auto v=emitExpr(expr->args[1].get());auto r=newTemp("process.env");body.push_back("  "+r+" = call i32 @__lanner_set_env(ptr "+n+", ptr "+v+")");auto b=newTemp("process.env.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
         }
         if (ns == "Http") {
-            if(member=="get"){auto u=emitExpr(expr->args[0].get());auto tm=emitExpr(expr->args[1].get());auto r=newTemp("http.get");body.push_back("  "+r+" = call ptr @__stable_http_get(ptr "+u+", i32 "+tm+")");return r;}
-            if(member=="post"){auto u=emitExpr(expr->args[0].get());auto b=emitExpr(expr->args[1].get());auto tm=emitExpr(expr->args[2].get());auto r=newTemp("http.post");body.push_back("  "+r+" = call ptr @__stable_http_post(ptr "+u+", ptr "+b+", i32 "+tm+")");return r;}
-            if(member=="status"){auto r=newTemp("http.status");body.push_back("  "+r+" = call i32 @__stable_http_status()");return r;}
+            if(member=="get"){auto u=emitExpr(expr->args[0].get());auto tm=emitExpr(expr->args[1].get());auto r=newTemp("http.get");body.push_back("  "+r+" = call ptr @__lanner_http_get(ptr "+u+", i32 "+tm+")");return r;}
+            if(member=="post"){auto u=emitExpr(expr->args[0].get());auto b=emitExpr(expr->args[1].get());auto tm=emitExpr(expr->args[2].get());auto r=newTemp("http.post");body.push_back("  "+r+" = call ptr @__lanner_http_post(ptr "+u+", ptr "+b+", i32 "+tm+")");return r;}
+            if(member=="status"){auto r=newTemp("http.status");body.push_back("  "+r+" = call i32 @__lanner_http_status()");return r;}
         }
         if (ns == "Json") {
-            if(member=="validate"){auto j=emitExpr(expr->args[0].get());auto r=newTemp("json.valid");body.push_back("  "+r+" = call i32 @__stable_json_validate(ptr "+j+")");auto b=newTemp("json.valid.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+            if(member=="validate"){auto j=emitExpr(expr->args[0].get());auto r=newTemp("json.valid");body.push_back("  "+r+" = call i32 @__lanner_json_validate(ptr "+j+")");auto b=newTemp("json.valid.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
             if(member=="quote"||member=="int"||member=="float"||member=="bool"||member=="nullValue"){
-                if(member=="nullValue"){auto r=newTemp("json.null");body.push_back("  "+r+" = call ptr @__stable_json_null()");return r;}
+                if(member=="nullValue"){auto r=newTemp("json.null");body.push_back("  "+r+" = call ptr @__lanner_json_null()");return r;}
                 auto a=emitExpr(expr->args[0].get()); auto r=newTemp("json.value");
-                if(member=="quote") body.push_back("  "+r+" = call ptr @__stable_json_quote(ptr "+a+")");
-                else if(member=="int") { auto t=exprLLVMType(expr->args[0].get()); if(t!="i64"){auto w=newTemp("json.int64"); body.push_back("  "+w+" = sext "+t+" "+a+" to i64");a=w;} body.push_back("  "+r+" = call ptr @__stable_json_int(i64 "+a+")"); }
-                else if(member=="float") { body.push_back("  "+r+" = call ptr @__stable_json_float(double "+a+")"); }
-                else { body.push_back("  "+r+" = call ptr @__stable_json_bool(i1 "+a+")"); }
+                if(member=="quote") body.push_back("  "+r+" = call ptr @__lanner_json_quote(ptr "+a+")");
+                else if(member=="int") { auto t=exprLLVMType(expr->args[0].get()); if(t!="i64"){auto w=newTemp("json.int64"); body.push_back("  "+w+" = sext "+t+" "+a+" to i64");a=w;} body.push_back("  "+r+" = call ptr @__lanner_json_int(i64 "+a+")"); }
+                else if(member=="float") { body.push_back("  "+r+" = call ptr @__lanner_json_float(double "+a+")"); }
+                else { body.push_back("  "+r+" = call ptr @__lanner_json_bool(i1 "+a+")"); }
                 return r;
             }
         }
@@ -1889,7 +1889,7 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
             if (member == "hasAvx2" || member == "hasAvx512" || member == "hasSse42" || member == "hasBmi2" || member == "hasPopcnt") {
                 const std::string sym = member == "hasAvx2" ? "avx2" : member == "hasAvx512" ? "avx512" : member == "hasSse42" ? "sse42" : member == "hasBmi2" ? "bmi2" : "popcnt";
                 const auto r = newTemp("cpu.feature");
-                body.push_back("  " + r + " = call i32 @__stable_cpu_has_" + sym + "()");
+                body.push_back("  " + r + " = call i32 @__lanner_cpu_has_" + sym + "()");
                 const auto b = newTemp("cpu.feature.bool");
                 body.push_back("  " + b + " = trunc i32 " + r + " to i1");
                 return b;
@@ -1959,9 +1959,9 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
         const auto nt=exprLLVMType(expr->args[0].get()), at=exprLLVMType(expr->args[1].get());
         if(nt!="i64"){auto w=newTemp("aligned.size");body.push_back("  "+w+" = zext "+nt+" "+n+" to i64");n=w;}
         if(at!="i64"){auto w=newTemp("aligned.align");body.push_back("  "+w+" = zext "+at+" "+a+" to i64");a=w;}
-        auto r=newTemp("alloc.aligned"); body.push_back("  "+r+" = call ptr @stable_aligned_alloc(i64 "+n+", i64 "+a+")"); return r;
+        auto r=newTemp("alloc.aligned"); body.push_back("  "+r+" = call ptr @lanner_aligned_alloc(i64 "+n+", i64 "+a+")"); return r;
     }
-    if (name == "deallocAligned") { auto p=emitExpr(expr->args[0].get()); body.push_back("  call void @stable_aligned_free(ptr "+p+")"); return {}; }
+    if (name == "deallocAligned") { auto p=emitExpr(expr->args[0].get()); body.push_back("  call void @lanner_aligned_free(ptr "+p+")"); return {}; }
     if (name == "alloc") { auto n=emitExpr(expr->args[0].get()); const auto nt=exprLLVMType(expr->args[0].get()); if(nt!="i64"){auto w=newTemp("alloc.size");body.push_back("  "+w+" = zext "+nt+" "+n+" to i64");n=w;} auto r=newTemp("alloc"); body.push_back("  "+r+" = call ptr @malloc(i64 "+n+")"); return r; }
     if (name == "realloc") { auto p=emitExpr(expr->args[0].get()); auto n=emitExpr(expr->args[1].get()); const auto nt=exprLLVMType(expr->args[1].get()); if(nt!="i64"){auto w=newTemp("realloc.size");body.push_back("  "+w+" = zext "+nt+" "+n+" to i64");n=w;} auto r=newTemp("realloc"); body.push_back("  "+r+" = call ptr @realloc(ptr "+p+", i64 "+n+")"); return r; }
     if (name == "stackAlloc") {
@@ -2027,19 +2027,19 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
     if (name == "readFile") {
         const auto path = emitExpr(expr->args[0].get());
         const auto result = newTemp("readfile");
-        body.push_back("  " + result + " = call %StableDynArray @__stable_read_file(ptr " + path + ")");
+        body.push_back("  " + result + " = call %LannerDynArray @__lanner_read_file(ptr " + path + ")");
         return result;
     }
     if (name == "writeStdout") {
         const auto text = emitExpr(expr->args[0].get());
-        if (isWebTarget()) body.push_back("  call void @__stable_web_log(ptr " + text + ")");
+        if (isWebTarget()) body.push_back("  call void @__lanner_web_log(ptr " + text + ")");
         else body.push_back("  call i32 @puts(ptr " + text + ")");
         return {};
     }
     if (name == "writeRaw") {
         const auto text = emitExpr(expr->args[0].get());
         if (isWebTarget()) {
-            body.push_back("  call void @__stable_web_log(ptr " + text + ")");
+            body.push_back("  call void @__lanner_web_log(ptr " + text + ")");
             return {};
         }
         body.push_back("  %raw.len" + std::to_string(labelCounter++) + " = call i64 @strlen(ptr " + text + ")");
@@ -2050,14 +2050,14 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
     }
     if (name == "writeIntRaw") {
         const auto value = emitExpr(expr->args[0].get());
-        if (isWebTarget()) body.push_back("  call void @__stable_web_log_i64(i64 " + value + ")");
-        else body.push_back("  call i32 (ptr, ...) @printf(ptr @.stable.print_i64_raw, i64 " + value + ")");
+        if (isWebTarget()) body.push_back("  call void @__lanner_web_log_i64(i64 " + value + ")");
+        else body.push_back("  call i32 (ptr, ...) @printf(ptr @.lanner.print_i64_raw, i64 " + value + ")");
         return {};
     }
     if (name == "writeByteRaw") {
         const auto value = emitExpr(expr->args[0].get());
         if (isWebTarget()) {
-            body.push_back("  call void @__stable_web_log_i64(i64 " + value + ")");
+            body.push_back("  call void @__lanner_web_log_i64(i64 " + value + ")");
             return {};
         }
         const auto id = std::to_string(labelCounter++);
@@ -2071,8 +2071,8 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
     if (name == "print") return emitPrintCall(expr);
     if (name == "printInt") {
         const auto value = emitExpr(expr->args[0].get());
-        if (isWebTarget()) body.push_back("  call void @__stable_web_log_i64(i64 " + value + ")");
-        else body.push_back("  call void @__stable_print_i64(i64 " + value + ")");
+        if (isWebTarget()) body.push_back("  call void @__lanner_web_log_i64(i64 " + value + ")");
+        else body.push_back("  call void @__lanner_print_i64(i64 " + value + ")");
         return {};
     }
     if (name == "stringLen") {
@@ -2084,7 +2084,7 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
     if (name == "getEnv") {
         const auto text = emitExpr(expr->args[0].get());
         const auto result = newTemp("getenv");
-        body.push_back("  " + result + " = call ptr @__stable_getenv(ptr " + text + ")");
+        body.push_back("  " + result + " = call ptr @__lanner_getenv(ptr " + text + ")");
         return result;
     }
     return {};
@@ -2461,47 +2461,47 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                     auto asU64 = [&](std::size_t i) { auto v=emitExpr(expr->args[i].get()); auto t=exprLLVMType(expr->args[i].get()); if(t!="i64"){auto w=newTemp("tensor.u64");body.push_back("  "+w+" = zext "+t+" "+v+" to i64");v=w;} return v; };
                     auto asF64 = [&](std::size_t i) { auto v=emitExpr(expr->args[i].get()); auto t=exprLLVMType(expr->args[i].get()); if(t=="float"){auto w=newTemp("tensor.f64");body.push_back("  "+w+" = fpext float "+v+" to double");v=w;} return v; };
                     auto tensorArg=[&](std::size_t i){return emitExpr(expr->args[i].get());};
-                    if(member=="clone"||member=="contiguous"){auto r=newTemp("tensor.clone");body.push_back("  "+r+" = call ptr @"+std::string(member=="clone"?"__stable_tensor_clone":"__stable_tensor_contiguous")+"(ptr "+base+")");return r;}
-                    if(member=="free"){body.push_back("  call void @__stable_tensor_free(ptr "+base+")");return {};}
-                    if(member=="rank"||member=="len"){auto r=newTemp("tensor.query");body.push_back("  "+r+" = call i64 @"+std::string(member=="rank"?"__stable_tensor_rank":"__stable_tensor_len")+"(ptr "+base+")");return r;}
-                    if(member=="dim"||member=="stride"){auto r=newTemp("tensor.query");body.push_back("  "+r+" = call i64 @"+std::string(member=="dim"?"__stable_tensor_dim":"__stable_tensor_stride")+"(ptr "+base+", i64 "+asU64(0)+")");return r;}
-                    if(member=="dtype"){auto r=newTemp("tensor.dtype");body.push_back("  "+r+" = call i32 @__stable_tensor_dtype(ptr "+base+")");return r;}
-                    if(member=="isContiguous"){auto r=newTemp("tensor.contig");body.push_back("  "+r+" = call i32 @__stable_tensor_is_contiguous(ptr "+base+")");auto b=newTemp("tensor.contig.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
-                    if(member=="dataF32"||member=="dataF64"){auto r=newTemp("tensor.data");body.push_back("  "+r+" = call ptr @"+std::string(member=="dataF32"?"__stable_tensor_data_f32":"__stable_tensor_data_f64")+"(ptr "+base+")");return r;}
-                    if(member=="get1"||member=="get2"||member=="get3"){int n=member.back()-'0';std::string a="ptr "+base;for(int i=0;i<n;++i)a+=", i64 "+asU64(i);auto r=newTemp("tensor.get");body.push_back("  "+r+" = call double @__stable_tensor_get"+std::to_string(n)+"("+a+")");return r;}
-                    if(member=="set1"||member=="set2"||member=="set3"){int n=member.back()-'0';std::string a="ptr "+base;for(int i=0;i<n;++i)a+=", i64 "+asU64(i);a+=", double "+asF64(n);body.push_back("  call void @__stable_tensor_set"+std::to_string(n)+"("+a+")");return {};}
-                    if(member=="add"||member=="sub"||member=="mul"||member=="div"||member=="matmul"){const char*f=member=="add"?"__stable_tensor_add":member=="sub"?"__stable_tensor_sub":member=="mul"?"__stable_tensor_mul":member=="div"?"__stable_tensor_div":"__stable_tensor_matmul";auto r=newTemp("tensor.op");body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base+", ptr "+tensorArg(0)+")");return r;}
-                    if(member=="scale"){auto r=newTemp("tensor.scale");body.push_back("  "+r+" = call ptr @__stable_tensor_scale(ptr "+base+", double "+asF64(0)+")");return r;}
-                    if(member=="relu"||member=="sigmoid"||member=="tanh"){const char*f=member=="relu"?"__stable_tensor_relu":member=="sigmoid"?"__stable_tensor_sigmoid":"__stable_tensor_tanh";auto r=newTemp("tensor.act");body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base+")");return r;}
-                    if(member=="softmax"){auto r=newTemp("tensor.softmax");body.push_back("  "+r+" = call ptr @__stable_tensor_softmax(ptr "+base+", i64 "+asU64(0)+")");return r;}
-                    if(member=="sum"||member=="mean"||member=="l2Norm"){const char*f=member=="sum"?"__stable_tensor_sum":member=="mean"?"__stable_tensor_mean":"__stable_tensor_l2norm";auto r=newTemp("tensor.reduce");body.push_back("  "+r+" = call double @"+f+"(ptr "+base+")");return r;}
-                    if(member=="dot"){auto r=newTemp("tensor.dot");body.push_back("  "+r+" = call double @__stable_tensor_dot(ptr "+base+", ptr "+tensorArg(0)+")");return r;}
-                    if(member=="argmax"){auto r=newTemp("tensor.argmax");body.push_back("  "+r+" = call i64 @__stable_tensor_argmax(ptr "+base+", i64 "+asU64(0)+")");return r;}
-                    if(member=="reshape2"||member=="reshape3"||member=="reshape4"){int n=member.back()-'0';std::string a="ptr "+base;for(int i=0;i<n;++i)a+=", i64 "+asU64(i);auto r=newTemp("tensor.reshape");body.push_back("  "+r+" = call ptr @__stable_tensor_reshape"+std::to_string(n)+"("+a+")");return r;}
-                    if(member=="transpose2"){auto r=newTemp("tensor.transpose");body.push_back("  "+r+" = call ptr @__stable_tensor_transpose2(ptr "+base+")");return r;}
-                    if(member=="slice"){auto r=newTemp("tensor.slice");body.push_back("  "+r+" = call ptr @__stable_tensor_slice(ptr "+base+", i64 "+asU64(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+", i64 "+asU64(3)+")");return r;}
-                    if(member=="fill"){body.push_back("  call void @__stable_tensor_fill(ptr "+base+", double "+asF64(0)+")");return {};}
-                    if(member=="conv2d"){auto r=newTemp("tensor.conv2d");body.push_back("  "+r+" = call ptr @__stable_tensor_conv2d(ptr "+base+", ptr "+tensorArg(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+")");return r;}
+                    if(member=="clone"||member=="contiguous"){auto r=newTemp("tensor.clone");body.push_back("  "+r+" = call ptr @"+std::string(member=="clone"?"__lanner_tensor_clone":"__lanner_tensor_contiguous")+"(ptr "+base+")");return r;}
+                    if(member=="free"){body.push_back("  call void @__lanner_tensor_free(ptr "+base+")");return {};}
+                    if(member=="rank"||member=="len"){auto r=newTemp("tensor.query");body.push_back("  "+r+" = call i64 @"+std::string(member=="rank"?"__lanner_tensor_rank":"__lanner_tensor_len")+"(ptr "+base+")");return r;}
+                    if(member=="dim"||member=="stride"){auto r=newTemp("tensor.query");body.push_back("  "+r+" = call i64 @"+std::string(member=="dim"?"__lanner_tensor_dim":"__lanner_tensor_stride")+"(ptr "+base+", i64 "+asU64(0)+")");return r;}
+                    if(member=="dtype"){auto r=newTemp("tensor.dtype");body.push_back("  "+r+" = call i32 @__lanner_tensor_dtype(ptr "+base+")");return r;}
+                    if(member=="isContiguous"){auto r=newTemp("tensor.contig");body.push_back("  "+r+" = call i32 @__lanner_tensor_is_contiguous(ptr "+base+")");auto b=newTemp("tensor.contig.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
+                    if(member=="dataF32"||member=="dataF64"){auto r=newTemp("tensor.data");body.push_back("  "+r+" = call ptr @"+std::string(member=="dataF32"?"__lanner_tensor_data_f32":"__lanner_tensor_data_f64")+"(ptr "+base+")");return r;}
+                    if(member=="get1"||member=="get2"||member=="get3"){int n=member.back()-'0';std::string a="ptr "+base;for(int i=0;i<n;++i)a+=", i64 "+asU64(i);auto r=newTemp("tensor.get");body.push_back("  "+r+" = call double @__lanner_tensor_get"+std::to_string(n)+"("+a+")");return r;}
+                    if(member=="set1"||member=="set2"||member=="set3"){int n=member.back()-'0';std::string a="ptr "+base;for(int i=0;i<n;++i)a+=", i64 "+asU64(i);a+=", double "+asF64(n);body.push_back("  call void @__lanner_tensor_set"+std::to_string(n)+"("+a+")");return {};}
+                    if(member=="add"||member=="sub"||member=="mul"||member=="div"||member=="matmul"){const char*f=member=="add"?"__lanner_tensor_add":member=="sub"?"__lanner_tensor_sub":member=="mul"?"__lanner_tensor_mul":member=="div"?"__lanner_tensor_div":"__lanner_tensor_matmul";auto r=newTemp("tensor.op");body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base+", ptr "+tensorArg(0)+")");return r;}
+                    if(member=="scale"){auto r=newTemp("tensor.scale");body.push_back("  "+r+" = call ptr @__lanner_tensor_scale(ptr "+base+", double "+asF64(0)+")");return r;}
+                    if(member=="relu"||member=="sigmoid"||member=="tanh"){const char*f=member=="relu"?"__lanner_tensor_relu":member=="sigmoid"?"__lanner_tensor_sigmoid":"__lanner_tensor_tanh";auto r=newTemp("tensor.act");body.push_back("  "+r+" = call ptr @"+f+"(ptr "+base+")");return r;}
+                    if(member=="softmax"){auto r=newTemp("tensor.softmax");body.push_back("  "+r+" = call ptr @__lanner_tensor_softmax(ptr "+base+", i64 "+asU64(0)+")");return r;}
+                    if(member=="sum"||member=="mean"||member=="l2Norm"){const char*f=member=="sum"?"__lanner_tensor_sum":member=="mean"?"__lanner_tensor_mean":"__lanner_tensor_l2norm";auto r=newTemp("tensor.reduce");body.push_back("  "+r+" = call double @"+f+"(ptr "+base+")");return r;}
+                    if(member=="dot"){auto r=newTemp("tensor.dot");body.push_back("  "+r+" = call double @__lanner_tensor_dot(ptr "+base+", ptr "+tensorArg(0)+")");return r;}
+                    if(member=="argmax"){auto r=newTemp("tensor.argmax");body.push_back("  "+r+" = call i64 @__lanner_tensor_argmax(ptr "+base+", i64 "+asU64(0)+")");return r;}
+                    if(member=="reshape2"||member=="reshape3"||member=="reshape4"){int n=member.back()-'0';std::string a="ptr "+base;for(int i=0;i<n;++i)a+=", i64 "+asU64(i);auto r=newTemp("tensor.reshape");body.push_back("  "+r+" = call ptr @__lanner_tensor_reshape"+std::to_string(n)+"("+a+")");return r;}
+                    if(member=="transpose2"){auto r=newTemp("tensor.transpose");body.push_back("  "+r+" = call ptr @__lanner_tensor_transpose2(ptr "+base+")");return r;}
+                    if(member=="slice"){auto r=newTemp("tensor.slice");body.push_back("  "+r+" = call ptr @__lanner_tensor_slice(ptr "+base+", i64 "+asU64(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+", i64 "+asU64(3)+")");return r;}
+                    if(member=="fill"){body.push_back("  call void @__lanner_tensor_fill(ptr "+base+", double "+asF64(0)+")");return {};}
+                    if(member=="conv2d"){auto r=newTemp("tensor.conv2d");body.push_back("  "+r+" = call ptr @__lanner_tensor_conv2d(ptr "+base+", ptr "+tensorArg(0)+", i64 "+asU64(1)+", i64 "+asU64(2)+")");return r;}
                 }
                 if (targetType->name == "GradTape") {
-                    if (field->field == "free") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__stable_grad_free(ptr "+h+")"); return {}; }
+                    if (field->field == "free") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__lanner_grad_free(ptr "+h+")"); return {}; }
                 }
                 if (targetType->name == "Buffer") {
                     const auto b = emitExpr(field->target.get());
-                    if (field->field == "len") { auto r=newTemp("buffer.len"); body.push_back("  "+r+" = call i64 @__stable_buffer_len(ptr "+b+")"); if(pointerBits==64)return r; auto q=newTemp("buffer.len.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
-                    if (field->field == "data") { auto r=newTemp("buffer.data"); body.push_back("  "+r+" = call ptr @__stable_buffer_data(ptr "+b+")"); return r; }
-                    if (field->field == "cstr") { auto r=newTemp("buffer.cstr"); body.push_back("  "+r+" = call ptr @__stable_buffer_cstr(ptr "+b+")"); return r; }
-                    if (field->field == "free") { body.push_back("  call void @__stable_buffer_free(ptr "+b+")"); return {}; }
-                    if (field->field == "appendString") { auto t=emitExpr(expr->args[0].get()); auto r=newTemp("buffer.append"); body.push_back("  "+r+" = call i32 @__stable_buffer_append_string(ptr "+b+", ptr "+t+")"); auto q=newTemp("buffer.append.bool"); body.push_back("  "+q+" = trunc i32 "+r+" to i1"); return q; }
-                    if (field->field == "appendBuffer") { auto o=emitExpr(expr->args[0].get()); auto r=newTemp("buffer.append"); body.push_back("  "+r+" = call i32 @__stable_buffer_append_buffer(ptr "+b+", ptr "+o+")"); auto q=newTemp("buffer.append.bool"); body.push_back("  "+q+" = trunc i32 "+r+" to i1"); return q; }
+                    if (field->field == "len") { auto r=newTemp("buffer.len"); body.push_back("  "+r+" = call i64 @__lanner_buffer_len(ptr "+b+")"); if(pointerBits==64)return r; auto q=newTemp("buffer.len.narrow"); body.push_back("  "+q+" = trunc i64 "+r+" to i32"); return q; }
+                    if (field->field == "data") { auto r=newTemp("buffer.data"); body.push_back("  "+r+" = call ptr @__lanner_buffer_data(ptr "+b+")"); return r; }
+                    if (field->field == "cstr") { auto r=newTemp("buffer.cstr"); body.push_back("  "+r+" = call ptr @__lanner_buffer_cstr(ptr "+b+")"); return r; }
+                    if (field->field == "free") { body.push_back("  call void @__lanner_buffer_free(ptr "+b+")"); return {}; }
+                    if (field->field == "appendString") { auto t=emitExpr(expr->args[0].get()); auto r=newTemp("buffer.append"); body.push_back("  "+r+" = call i32 @__lanner_buffer_append_string(ptr "+b+", ptr "+t+")"); auto q=newTemp("buffer.append.bool"); body.push_back("  "+q+" = trunc i32 "+r+" to i1"); return q; }
+                    if (field->field == "appendBuffer") { auto o=emitExpr(expr->args[0].get()); auto r=newTemp("buffer.append"); body.push_back("  "+r+" = call i32 @__lanner_buffer_append_buffer(ptr "+b+", ptr "+o+")"); auto q=newTemp("buffer.append.bool"); body.push_back("  "+q+" = trunc i32 "+r+" to i1"); return q; }
                 }
                 if (targetType->name == "string" && !targetType->isArray) {
                     const auto text = emitExpr(field->target.get());
-                    if (field->field == "startsWith") { auto pref=emitExpr(expr->args[0].get()); auto r=newTemp("str.starts"); body.push_back("  "+r+" = call i32 @__stable_string_startsWith(ptr "+text+", ptr "+pref+")"); auto b=newTemp("str.starts.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-                    if (field->field == "contains" || field->field == "endsWith" || field->field == "equalsIgnoreCase") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.bool"); body.push_back("  "+r+" = call i32 @__stable_string_"+field->field+"(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.bool.cast"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-                    if (field->field == "equals") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.eq"); body.push_back("  "+r+" = call i32 @__stable_string_equals(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.eq.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
-                    if (field->field == "find") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.find"); body.push_back("  "+r+" = call i64 @__stable_string_find(ptr "+text+", ptr "+other+")"); return r; }
-                    if (field->field == "parseU64At") { auto pos=emitExpr(expr->args[0].get()); auto r=newTemp("str.parse.u64"); body.push_back("  "+r+" = call i64 @__stable_string_parse_u64_at(ptr "+text+", i64 "+pos+")"); return r; }
+                    if (field->field == "startsWith") { auto pref=emitExpr(expr->args[0].get()); auto r=newTemp("str.starts"); body.push_back("  "+r+" = call i32 @__lanner_string_startsWith(ptr "+text+", ptr "+pref+")"); auto b=newTemp("str.starts.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+                    if (field->field == "contains" || field->field == "endsWith" || field->field == "equalsIgnoreCase") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.bool"); body.push_back("  "+r+" = call i32 @__lanner_string_"+field->field+"(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.bool.cast"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+                    if (field->field == "equals") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.eq"); body.push_back("  "+r+" = call i32 @__lanner_string_equals(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.eq.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+                    if (field->field == "find") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.find"); body.push_back("  "+r+" = call i64 @__lanner_string_find(ptr "+text+", ptr "+other+")"); return r; }
+                    if (field->field == "parseU64At") { auto pos=emitExpr(expr->args[0].get()); auto r=newTemp("str.parse.u64"); body.push_back("  "+r+" = call i64 @__lanner_string_parse_u64_at(ptr "+text+", i64 "+pos+")"); return r; }
                 }
                 if (targetType->name == "Atomic" && targetType->generics.size() == 1) {
                     const std::string elem = llvmType(targetType->generics[0].get());
@@ -2528,8 +2528,8 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                         auto old=newTemp("atomic.old"); body.push_back("  "+old+" = extractvalue { "+elem+", i1 } "+pair+", 0"); auto ok=newTemp("atomic.ok"); body.push_back("  "+ok+" = extractvalue { "+elem+", i1 } "+pair+", 1"); return ok;
                     }
                 }
-                if (targetType->name == "Thread" && field->field == "join") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__stable_thread_join(ptr "+h+")"); return ""; }
-                if (targetType->name == "Thread" && field->field == "detach") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__stable_thread_detach(ptr "+h+")"); return ""; }
+                if (targetType->name == "Thread" && field->field == "join") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__lanner_thread_join(ptr "+h+")"); return ""; }
+                if (targetType->name == "Thread" && field->field == "detach") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__lanner_thread_detach(ptr "+h+")"); return ""; }
                 if ((targetType->name == "v128" || targetType->name == "v256" || targetType->name == "v512") &&
                     (field->field == "add" || field->field == "and" || field->field == "or" || field->field == "xor")) {
                     const std::string ty = targetType->name=="v128"?"<2 x i64>":targetType->name=="v256"?"<4 x i64>":"<8 x i64>";
@@ -2555,9 +2555,9 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                     }
                     if (targetType->isArray && targetType->fixedArraySize) return std::to_string(*targetType->fixedArraySize);
                     if (targetType->isArray) {
-                        const auto target = loadAggregate("%StableDynArray");
+                        const auto target = loadAggregate("%LannerDynArray");
                         const auto value = newTemp("array.len.value");
-                        body.push_back("  " + value + " = extractvalue %StableDynArray " + target + ", 1");
+                        body.push_back("  " + value + " = extractvalue %LannerDynArray " + target + ", 1");
                         return value;
                     }
                     if (targetType->name == "View" || targetType->name == "EditView") {
@@ -2571,9 +2571,9 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                     std::string length;
                     if (targetType->isArray && targetType->fixedArraySize) length = std::to_string(*targetType->fixedArraySize);
                     else if (targetType->isArray) {
-                        const auto target = loadAggregate("%StableDynArray");
+                        const auto target = loadAggregate("%LannerDynArray");
                         length = newTemp("array.empty.len");
-                        body.push_back("  " + length + " = extractvalue %StableDynArray " + target + ", 1");
+                        body.push_back("  " + length + " = extractvalue %LannerDynArray " + target + ", 1");
                     } else if (targetType->name == "View" || targetType->name == "EditView") {
                         const auto target = loadAggregate("{ ptr, i64 }");
                         length = newTemp("view.empty.len");
@@ -2748,7 +2748,7 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
         }
 
         case ExprKind::Index: {
-            // Strings are zero-terminated byte buffers, not Stable array aggregates.
+            // Strings are zero-terminated byte buffers, not Lanner array aggregates.
             // Lower string indexing directly to a checked i8 load instead of asking
             // emitLValueAddress() for an address in a non-lvalue aggregate.
             if (expr->target->checkedType && expr->target->checkedType->name == "string" &&
@@ -2794,13 +2794,13 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                 const auto arrayValue = sourceType->isReference ? [&]() {
                     const auto p = emitExpr(expr->target.get());
                     const auto loaded = newTemp("slice.array.ref");
-                    body.push_back("  " + loaded + " = load %StableDynArray, ptr " + p);
+                    body.push_back("  " + loaded + " = load %LannerDynArray, ptr " + p);
                     return loaded;
                 }() : emitExpr(expr->target.get());
                 const auto p = newTemp("slice.array.ptr");
                 const auto l = newTemp("slice.array.len");
-                body.push_back("  " + p + " = extractvalue %StableDynArray " + arrayValue + ", 0");
-                body.push_back("  " + l + " = extractvalue %StableDynArray " + arrayValue + ", 1");
+                body.push_back("  " + p + " = extractvalue %LannerDynArray " + arrayValue + ", 0");
+                body.push_back("  " + l + " = extractvalue %LannerDynArray " + arrayValue + ", 1");
                 base = p;
                 limit = l;
             } else if (normalized->name == "View" || normalized->name == "EditView") {
@@ -3168,13 +3168,13 @@ void LLVMCodeGenerator::emitStmt(const Stmt* stmt) {
                 const auto arrayValue = iterableTypeRaw->isReference ? [&]() {
                     const auto p = emitExpr(stmt->iterable.get());
                     const auto loaded = newTemp("for.array.ref");
-                    body.push_back("  " + loaded + " = load %StableDynArray, ptr " + p);
+                    body.push_back("  " + loaded + " = load %LannerDynArray, ptr " + p);
                     return loaded;
                 }() : emitExpr(stmt->iterable.get());
                 base = newTemp("for.array.base");
                 length = newTemp("for.array.len");
-                body.push_back("  " + base + " = extractvalue %StableDynArray " + arrayValue + ", 0");
-                body.push_back("  " + length + " = extractvalue %StableDynArray " + arrayValue + ", 1");
+                body.push_back("  " + base + " = extractvalue %LannerDynArray " + arrayValue + ", 0");
+                body.push_back("  " + length + " = extractvalue %LannerDynArray " + arrayValue + ", 1");
             } else {
                 const auto viewValue = iterableTypeRaw->isReference ? [&]() {
                     const auto p = emitExpr(stmt->iterable.get());
@@ -3284,13 +3284,13 @@ std::string LLVMCodeGenerator::emitStaticConstant(const Expr* expr, const TypeNo
         for(std::size_t i=0;i<st->fields.size();++i){ if(i) out += ", "; const auto& f=st->fields[i]; const Expr* val=nullptr; for(const auto& supplied: expr->fields) if(supplied.first==f.name) val=supplied.second.get(); if(!val) unsupported("missing static struct field",expr->line); out += llvmType(f.type.get())+" "+emitStaticConstant(val,f.type.get()); }
         out += "}"; return out;
     }
-    if (expr->kind == ExprKind::Identifier && expr->checkedType && expr->checkedType->name == "fn" && functions.count(expr->strValue)) return "@" + ((expr->strValue == "main" && includeRuntime && !isWebTarget()) ? std::string("stable_user_main") : expr->strValue);
+    if (expr->kind == ExprKind::Identifier && expr->checkedType && expr->checkedType->name == "fn" && functions.count(expr->strValue)) return "@" + ((expr->strValue == "main" && includeRuntime && !isWebTarget()) ? std::string("lanner_user_main") : expr->strValue);
     if (expr->kind == ExprKind::NoneLit && expr->strValue == "null") return "null";
     if (expr->kind == ExprKind::IntLit) return normalizeIntLiteral(expr->strValue);
     if (expr->kind == ExprKind::BoolLit) return expr->strValue == "true" ? "1" : "0";
     if (expr->kind == ExprKind::FloatLit) return llvmFloatLiteral(expr);
     if (expr->kind == ExprKind::StringLit) {
-        const auto name = ".stable.static.str." + std::to_string(stringLiterals.size());
+        const auto name = ".lanner.static.str." + std::to_string(stringLiterals.size());
         std::string encoded; for(unsigned char c: expr->strValue){ if(c>=0x20&&c<=0x7e&&c!='"'&&c!='\\') encoded.push_back((char)c); else encoded += hexByte(c); } encoded += "\\00";
         stringLiterals.push_back("@"+name+" = private unnamed_addr constant ["+std::to_string(expr->strValue.size()+1)+" x i8] c\""+encoded+"\"");
         return "getelementptr inbounds (["+std::to_string(expr->strValue.size()+1)+" x i8], ptr @"+name+", i64 0, i64 0)";
@@ -3338,7 +3338,7 @@ void LLVMCodeGenerator::emitStaticDecl(const StaticDecl& decl, std::string& out)
 
 void LLVMCodeGenerator::emitThreadWrapper(const FunctionDecl& fn, std::string& out) {
     if (fn.isExtern || !fn.params.empty() || llvmType(fn.returnType.get()) != "void") return;
-    out += "define internal void @__stable_thread_entry_"+fn.name+"(ptr %ctx) {\nentry:\n  call void @"+fn.name+"()\n  ret void\n}\n\n";
+    out += "define internal void @__lanner_thread_entry_"+fn.name+"(ptr %ctx) {\nentry:\n  call void @"+fn.name+"()\n  ret void\n}\n\n";
 }
 
 void LLVMCodeGenerator::emitFunction(const FunctionDecl& fn, std::string& out) {
@@ -3355,7 +3355,7 @@ void LLVMCodeGenerator::emitFunction(const FunctionDecl& fn, std::string& out) {
 
     pushScope();
     const auto ret = llvmType(fn.returnType.get());
-    const std::string emittedName = (fn.name == "main" && includeRuntime && !isWebTarget()) ? "stable_user_main" : fn.name;
+    const std::string emittedName = (fn.name == "main" && includeRuntime && !isWebTarget()) ? "lanner_user_main" : fn.name;
     out += "define " + ret + " @" + emittedName + "(";
     for (std::size_t i = 0; i < fn.params.size(); ++i) {
         if (i) out += ", ";
@@ -3419,19 +3419,19 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
     }
 
     std::string out;
-    out += "; Stable LLVM IR\n";
-    out += "; generated by stablec\n";
+    out += "; Lanner LLVM IR\n";
+    out += "; generated by lanner\n";
     if (!targetTriple.empty()) out += "target triple = \"" + targetTriple + "\"\n";
     out += "\n";
-    out += "%StableArena = type { ptr, ptr, i64, i64 }\n";
-    out += "%StableDynArray = type { ptr, i64, i64, ptr }\n";
-    out += "%StableArenaNode = type { ptr, i8 }\n\n";
+    out += "%LannerArena = type { ptr, ptr, i64, i64 }\n";
+    out += "%LannerDynArray = type { ptr, i64, i64, ptr }\n";
+    out += "%LannerArenaNode = type { ptr, i8 }\n\n";
     out += "declare void @llvm.trap()\n";
     out += "declare void @llvm.assume(i1)\n";
     out += "declare ptr @malloc(i64)\n";
     out += "declare ptr @realloc(ptr, i64)\n";
-    out += "declare ptr @stable_aligned_alloc(i64, i64)\n";
-    out += "declare void @stable_aligned_free(ptr)\n";
+    out += "declare ptr @lanner_aligned_alloc(i64, i64)\n";
+    out += "declare void @lanner_aligned_free(ptr)\n";
     out += "declare void @free(ptr)\n";
     out += "declare ptr @memset(ptr, i32, i64)\n";
     out += "declare ptr @memcpy(ptr, ptr, i64)\n";
@@ -3450,347 +3450,347 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
     out += "declare ptr @getenv(ptr)\n";
     out += "declare i32 @printf(ptr, ...)\n";
     {
-        out += "declare ptr @__stable_process_argv_at(i64)\n";
-        out += "declare i64 @__stable_process_argc()\n";
-        out += "declare i32 @__stable_env_has(ptr)\n";
-        out += "declare i32 @__stable_set_env_value(ptr, ptr)\n";
-        out += "declare i32 @__stable_set_env_unset(ptr)\n";
-        out += "declare i32 @__stable_fs_exists(ptr)\n";
-        out += "declare i32 @__stable_fs_isFile(ptr)\n";
-        out += "declare i32 @__stable_fs_isDir(ptr)\n";
-        out += "declare i64 @__stable_fs_file_size(ptr)\n";
-        out += "declare ptr @__stable_fs_read(ptr)\n";
-        out += "declare i32 @__stable_fs_write(ptr, ptr)\n";
-        out += "declare i32 @__stable_fs_append(ptr, ptr)\n";
-        out += "declare i32 @__stable_fs_write_buffer(ptr, ptr, i64)\n";
-        out += "declare i32 @__stable_fs_remove(ptr)\n";
-        out += "declare i32 @__stable_fs_mkdir(ptr)\n";
-        out += "declare i32 @__stable_fs_rmdir(ptr)\n";
-        out += "declare i32 @__stable_fs_rename(ptr, ptr)\n";
-        out += "declare i32 @__stable_fs_copy(ptr, ptr)\n";
-        out += "declare ptr @__stable_fs_cwd()\n";
-        out += "declare i32 @__stable_fs_chdir(ptr)\n";
-        out += "declare ptr @__stable_fs_list(ptr)\n";
-        out += "declare ptr @__stable_path_join(ptr, ptr)\n";
-        out += "declare ptr @__stable_path_basename(ptr)\n";
-        out += "declare ptr @__stable_path_dirname(ptr)\n";
-        out += "declare ptr @__stable_path_extension(ptr)\n";
-        out += "declare ptr @__stable_path_stem(ptr)\n";
-        out += "declare ptr @__stable_path_normalize(ptr)\n";
-        out += "declare ptr @__stable_path_absolute(ptr)\n";
-        out += "declare i32 @__stable_path_is_absolute(ptr)\n";
-        out += "declare ptr @__stable_regex_compile(ptr)\n";
-        out += "declare i32 @__stable_regex_match(ptr, ptr)\n";
-        out += "declare i64 @__stable_regex_find(ptr, ptr)\n";
-        out += "declare void @__stable_regex_free(ptr)\n";
-        out += "declare ptr @__stable_shell_which(ptr)\n";
-        out += "declare i64 @__stable_string_parse_i64(ptr)\n";
-        out += "declare double @__stable_string_parse_f64(ptr)\n";
-        out += "declare i32 @__stable_string_contains(ptr, ptr)\n";
-        out += "declare i32 @__stable_string_startsWith(ptr, ptr)\n";
-        out += "declare i32 @__stable_string_endsWith(ptr, ptr)\n";
-        out += "declare i32 @__stable_string_equalsIgnoreCase(ptr, ptr)\n";
-        out += "declare i64 @__stable_string_find(ptr, ptr)\n";
+        out += "declare ptr @__lanner_process_argv_at(i64)\n";
+        out += "declare i64 @__lanner_process_argc()\n";
+        out += "declare i32 @__lanner_env_has(ptr)\n";
+        out += "declare i32 @__lanner_set_env_value(ptr, ptr)\n";
+        out += "declare i32 @__lanner_set_env_unset(ptr)\n";
+        out += "declare i32 @__lanner_fs_exists(ptr)\n";
+        out += "declare i32 @__lanner_fs_isFile(ptr)\n";
+        out += "declare i32 @__lanner_fs_isDir(ptr)\n";
+        out += "declare i64 @__lanner_fs_file_size(ptr)\n";
+        out += "declare ptr @__lanner_fs_read(ptr)\n";
+        out += "declare i32 @__lanner_fs_write(ptr, ptr)\n";
+        out += "declare i32 @__lanner_fs_append(ptr, ptr)\n";
+        out += "declare i32 @__lanner_fs_write_buffer(ptr, ptr, i64)\n";
+        out += "declare i32 @__lanner_fs_remove(ptr)\n";
+        out += "declare i32 @__lanner_fs_mkdir(ptr)\n";
+        out += "declare i32 @__lanner_fs_rmdir(ptr)\n";
+        out += "declare i32 @__lanner_fs_rename(ptr, ptr)\n";
+        out += "declare i32 @__lanner_fs_copy(ptr, ptr)\n";
+        out += "declare ptr @__lanner_fs_cwd()\n";
+        out += "declare i32 @__lanner_fs_chdir(ptr)\n";
+        out += "declare ptr @__lanner_fs_list(ptr)\n";
+        out += "declare ptr @__lanner_path_join(ptr, ptr)\n";
+        out += "declare ptr @__lanner_path_basename(ptr)\n";
+        out += "declare ptr @__lanner_path_dirname(ptr)\n";
+        out += "declare ptr @__lanner_path_extension(ptr)\n";
+        out += "declare ptr @__lanner_path_stem(ptr)\n";
+        out += "declare ptr @__lanner_path_normalize(ptr)\n";
+        out += "declare ptr @__lanner_path_absolute(ptr)\n";
+        out += "declare i32 @__lanner_path_is_absolute(ptr)\n";
+        out += "declare ptr @__lanner_regex_compile(ptr)\n";
+        out += "declare i32 @__lanner_regex_match(ptr, ptr)\n";
+        out += "declare i64 @__lanner_regex_find(ptr, ptr)\n";
+        out += "declare void @__lanner_regex_free(ptr)\n";
+        out += "declare ptr @__lanner_shell_which(ptr)\n";
+        out += "declare i64 @__lanner_string_parse_i64(ptr)\n";
+        out += "declare double @__lanner_string_parse_f64(ptr)\n";
+        out += "declare i32 @__lanner_string_contains(ptr, ptr)\n";
+        out += "declare i32 @__lanner_string_startsWith(ptr, ptr)\n";
+        out += "declare i32 @__lanner_string_endsWith(ptr, ptr)\n";
+        out += "declare i32 @__lanner_string_equalsIgnoreCase(ptr, ptr)\n";
+        out += "declare i64 @__lanner_string_find(ptr, ptr)\n";
     }
     {
-        out += "declare ptr @__stable_net_tcp_connect(ptr, i32, i32)\n";
-        out += "declare ptr @__stable_net_tcp_listen(ptr, i32, i32)\n";
-        out += "declare ptr @__stable_net_accept(ptr)\n";
-        out += "declare void @__stable_net_close(ptr)\n";
-        out += "declare i64 @__stable_net_send(ptr, ptr, i64)\n";
-        out += "declare i64 @__stable_net_recv(ptr, ptr, i64)\n";
-        out += "declare i64 @__stable_net_send_string(ptr, ptr)\n";
-        out += "declare i32 @__stable_net_set_nonblocking(ptr, i1)\n";
-        out += "declare i32 @__stable_net_poll(ptr, i32, i32)\n";
-        out += "declare i32 @__stable_net_tcp_nodelay(ptr, i1)\n";
-        out += "declare i32 @__stable_net_shutdown(ptr, i32)\n";
-        out += "declare i32 @__stable_net_last_error()\n";
-        out += "declare ptr @__stable_net_error_string()\n";
-        out += "declare ptr @__stable_net_udp_open()\n";
-        out += "declare i32 @__stable_net_udp_bind(ptr, ptr, i32)\n";
-        out += "declare i64 @__stable_net_udp_send_to(ptr, ptr, i32, ptr, i64)\n";
-        out += "declare i64 @__stable_net_udp_recv(ptr, ptr, i64)\n";
-        out += "declare i32 @__stable_net_local_port(ptr)\n";
-        out += "declare i32 @__stable_net_peer_port(ptr)\n";
-        out += "declare ptr @__stable_poller_create()\n";
-        out += "declare i32 @__stable_poller_add(ptr, ptr, i32)\n";
-        out += "declare i32 @__stable_poller_remove(ptr, ptr)\n";
-        out += "declare i32 @__stable_poller_wait(ptr, i32)\n";
-        out += "declare i32 @__stable_poller_count(ptr)\n";
-        out += "declare ptr @__stable_poller_event_socket(ptr, i32)\n";
-        out += "declare i32 @__stable_poller_event_mask(ptr, i32)\n";
-        out += "declare i32 @__stable_poller_read_events()\n";
-        out += "declare i32 @__stable_poller_write_events()\n";
-        out += "declare i32 @__stable_poller_error_events()\n";
-        out += "declare void @__stable_poller_destroy(ptr)\n";
-        out += "declare ptr @__stable_mutex_create()\n";
-        out += "declare void @__stable_mutex_lock(ptr)\n";
-        out += "declare i32 @__stable_mutex_try_lock(ptr)\n";
-        out += "declare void @__stable_mutex_unlock(ptr)\n";
-        out += "declare void @__stable_mutex_destroy(ptr)\n";
-        out += "declare ptr @__stable_rwlock_create()\n";
-        out += "declare void @__stable_rwlock_read_lock(ptr)\n";
-        out += "declare void @__stable_rwlock_write_lock(ptr)\n";
-        out += "declare i32 @__stable_rwlock_try_read_lock(ptr)\n";
-        out += "declare i32 @__stable_rwlock_try_write_lock(ptr)\n";
-        out += "declare void @__stable_rwlock_unlock(ptr, i1)\n";
-        out += "declare void @__stable_rwlock_destroy(ptr)\n";
-        out += "declare ptr @__stable_condvar_create()\n";
-        out += "declare i32 @__stable_condvar_wait(ptr, ptr, i32)\n";
-        out += "declare void @__stable_condvar_signal(ptr)\n";
-        out += "declare void @__stable_condvar_broadcast(ptr)\n";
-        out += "declare void @__stable_condvar_destroy(ptr)\n";
-        out += "declare ptr @__stable_semaphore_create(i32)\n";
-        out += "declare i32 @__stable_semaphore_wait(ptr, i32)\n";
-        out += "declare i32 @__stable_semaphore_try_wait(ptr)\n";
-        out += "declare void @__stable_semaphore_post(ptr)\n";
-        out += "declare void @__stable_semaphore_destroy(ptr)\n";
-        out += "declare i32 @__stable_process_run(ptr)\n";
-        out += "declare ptr @__stable_process_spawn(ptr)\n";
-        out += "declare i32 @__stable_process_wait(ptr)\n";
-        out += "declare i64 @__stable_process_pid(ptr)\n";
-        out += "declare i32 @__stable_process_terminate(ptr)\n";
-        out += "declare ptr @__stable_process_output(ptr)\n";
-        out += "declare i32 @__stable_set_env(ptr, ptr)\n";
-        out += "declare ptr @__stable_buffer_new(i64)\n";
-        out += "declare ptr @__stable_buffer_from_string(ptr)\n";
-        out += "declare i64 @__stable_buffer_len(ptr)\n";
-        out += "declare ptr @__stable_buffer_data(ptr)\n";
-        out += "declare ptr @__stable_buffer_cstr(ptr)\n";
-        out += "declare void @__stable_buffer_free(ptr)\n";
-        out += "declare i32 @__stable_buffer_append_string(ptr, ptr)\n";
-        out += "declare i32 @__stable_buffer_append_buffer(ptr, ptr)\n";
-        out += "declare ptr @__stable_http_get(ptr, i32)\n";
-        out += "declare ptr @__stable_http_post(ptr, ptr, i32)\n";
-        out += "declare i32 @__stable_http_status()\n";
-        out += "declare ptr @__stable_game_window_create(ptr, i32, i32, i32)\n";
-        out += "declare void @__stable_game_window_destroy(ptr)\n";
-        out += "declare i32 @__stable_game_poll(ptr)\n";
-        out += "declare i32 @__stable_game_should_close(ptr)\n";
-        out += "declare void @__stable_game_request_close(ptr)\n";
-        out += "declare void @__stable_game_set_title(ptr, ptr)\n";
-        out += "declare i32 @__stable_game_window_width(ptr)\n";
-        out += "declare i32 @__stable_game_window_height(ptr)\n";
-        out += "declare i32 @__stable_game_set_vsync(ptr, i1)\n";
-        out += "declare i32 @__stable_game_make_gl_context(ptr)\n";
-        out += "declare void @__stable_game_present(ptr)\n";
-        out += "declare i32 @__stable_game_window_flags(i1, i1, i1, i1)\n";
-        out += "declare i32 @__stable_game_renderer_flags(i1, i1)\n";
-        out += "declare ptr @__stable_game_renderer_create(ptr, i32)\n";
-        out += "declare void @__stable_game_renderer_destroy(ptr)\n";
-        out += "declare i32 @__stable_game_renderer_set_color(ptr, i8, i8, i8, i8)\n";
-        out += "declare i32 @__stable_game_renderer_clear(ptr)\n";
-        out += "declare i32 @__stable_game_renderer_line(ptr, i32, i32, i32, i32)\n";
-        out += "declare i32 @__stable_game_renderer_fill_rect(ptr, i32, i32, i32, i32)\n";
-        out += "declare void @__stable_game_renderer_present(ptr)\n";
-        out += "declare ptr @__stable_game_texture_create(ptr, i32, i32, i32, i32)\n";
-        out += "declare i32 @__stable_game_texture_update(ptr, ptr, i32)\n";
-        out += "declare i32 @__stable_game_texture_copy(ptr, ptr, i32, i32, i32)\n";
-        out += "declare void @__stable_game_texture_destroy(ptr)\n";
-        out += "declare i32 @__stable_game_event_type()\n";
-        out += "declare i32 @__stable_game_event_code()\n";
-        out += "declare i32 @__stable_game_event_x()\n";
-        out += "declare i32 @__stable_game_event_y()\n";
-        out += "declare ptr @__stable_game_event_text()\n";
-        out += "declare i32 @__stable_game_key_down(i32)\n";
-        out += "declare i32 @__stable_game_mouse_button_down(i32)\n";
-        out += "declare i32 @__stable_game_mouse_x()\n";
-        out += "declare i32 @__stable_game_mouse_y()\n";
-        out += "declare i32 @__stable_game_controller_connected(i32)\n";
-        out += "declare float @__stable_game_controller_axis(i32, i32)\n";
-        out += "declare i32 @__stable_game_controller_button(i32, i32)\n";
-        out += "declare ptr @__stable_game_audio_open(i32, i32, i32)\n";
-        out += "declare i64 @__stable_game_audio_write(ptr, ptr, i64)\n";
-        out += "declare i64 @__stable_game_audio_queued(ptr)\n";
-        out += "declare void @__stable_game_audio_pause(ptr, i1)\n";
-        out += "declare void @__stable_game_audio_close(ptr)\n";
-        out += "declare i64 @__stable_game_time_nanos()\n";
-        out += "declare double @__stable_game_delta_seconds()\n";
-        out += "declare void @__stable_game_sleep_nanos(i64)\n";
-        out += "declare i32 @__stable_gfx_available(ptr)\n";
-        out += "declare ptr @__stable_gfx_backend()\n";
-        out += "declare ptr @__stable_gfx_load_proc(ptr, ptr)\n";
-        out += "declare void @__stable_gl_clear_color(float, float, float, float)\n";
-        out += "declare void @__stable_gl_clear(i32)\n";
-        out += "declare void @__stable_gl_viewport(i32, i32, i32, i32)\n";
-        out += "declare void @__stable_gl_enable(i32)\n";
-        out += "declare void @__stable_gl_disable(i32)\n";
-        out += "declare void @__stable_gl_gen_buffers(i32, ptr)\n";
-        out += "declare void @__stable_gl_gen_vertex_arrays(i32, ptr)\n";
-        out += "declare void @__stable_gl_bind_buffer(i32, i32)\n";
-        out += "declare void @__stable_gl_buffer_data(i32, i64, ptr, i32)\n";
-        out += "declare i32 @__stable_gl_create_shader(i32)\n";
-        out += "declare void @__stable_gl_shader_source(i32, ptr)\n";
-        out += "declare void @__stable_gl_compile_shader(i32)\n";
-        out += "declare i32 @__stable_gl_shader_status(i32)\n";
-        out += "declare ptr @__stable_gl_shader_log(i32)\n";
-        out += "declare void @__stable_gl_attach_shader(i32, i32)\n";
-        out += "declare void @__stable_gl_link_program(i32)\n";
-        out += "declare i32 @__stable_gl_create_program()\n";
-        out += "declare i32 @__stable_gl_program_status(i32)\n";
-        out += "declare ptr @__stable_gl_program_log(i32)\n";
-        out += "declare void @__stable_gl_use_program(i32)\n";
-        out += "declare void @__stable_gl_draw_arrays(i32, i32, i32)\n";
-        out += "declare void @__stable_gl_bind_vertex_array(i32)\n";
-        out += "declare void @__stable_gl_enable_vertex_attrib(i32)\n";
-        out += "declare void @__stable_gl_vertex_attrib_pointer(i32, i32, i32, i1, i32, i64)\n";
-        out += "declare i32 @__stable_gl_get_error()\n";
-        out += "declare void @__stable_gl_delete_shader(i32)\n";
-        out += "declare void @__stable_gl_delete_program(i32)\n";
-        out += "declare void @__stable_gl_delete_buffers(i32, ptr)\n";
-        out += "declare void @__stable_gl_delete_vertex_arrays(i32, ptr)\n";
-        out += "declare i32 @__stable_json_validate(ptr)\n";
-        out += "declare ptr @__stable_json_quote(ptr)\n";
-        out += "declare ptr @__stable_json_int(i64)\n";
-        out += "declare ptr @__stable_json_float(double)\n";
-        out += "declare ptr @__stable_json_bool(i1)\n";
-        out += "declare ptr @__stable_json_null()\n";
-        out += "declare void @__stable_process_set_argv(i32, ptr)\n";
-        out += "declare ptr @__stable_tensor_zeros1(i64)\n";
-        out += "declare ptr @__stable_tensor_zeros2(i64, i64)\n";
-        out += "declare ptr @__stable_tensor_zeros3(i64, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_zeros4(i64, i64, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_ones1(i64)\n";
-        out += "declare ptr @__stable_tensor_ones2(i64, i64)\n";
-        out += "declare ptr @__stable_tensor_ones3(i64, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_ones4(i64, i64, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_zeros_f32(i64)\n";
-        out += "declare ptr @__stable_tensor_ones_f32(i64)\n";
-        out += "declare ptr @__stable_tensor_zeros_f64(i64)\n";
-        out += "declare ptr @__stable_tensor_ones_f64(i64)\n";
-        out += "declare ptr @__stable_tensor_from1_f32(ptr, i64)\n";
-        out += "declare ptr @__stable_tensor_from1_f64(ptr, i64)\n";
-        out += "declare ptr @__stable_tensor_from2_f32(ptr, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_from2_f64(ptr, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_clone(ptr)\n";
-        out += "declare ptr @__stable_tensor_contiguous(ptr)\n";
-        out += "declare void @__stable_tensor_free(ptr)\n";
-        out += "declare i64 @__stable_tensor_rank(ptr)\n";
-        out += "declare i64 @__stable_tensor_len(ptr)\n";
-        out += "declare i64 @__stable_tensor_dim(ptr, i64)\n";
-        out += "declare i64 @__stable_tensor_stride(ptr, i64)\n";
-        out += "declare i32 @__stable_tensor_dtype(ptr)\n";
-        out += "declare i32 @__stable_tensor_is_contiguous(ptr)\n";
-        out += "declare ptr @__stable_tensor_data_f32(ptr)\n";
-        out += "declare ptr @__stable_tensor_data_f64(ptr)\n";
-        out += "declare double @__stable_tensor_get1(ptr, i64)\n";
-        out += "declare double @__stable_tensor_get2(ptr, i64, i64)\n";
-        out += "declare double @__stable_tensor_get3(ptr, i64, i64, i64)\n";
-        out += "declare void @__stable_tensor_set1(ptr, i64, double)\n";
-        out += "declare void @__stable_tensor_set2(ptr, i64, i64, double)\n";
-        out += "declare void @__stable_tensor_set3(ptr, i64, i64, i64, double)\n";
-        out += "declare ptr @__stable_tensor_add(ptr, ptr)\n";
-        out += "declare ptr @__stable_tensor_sub(ptr, ptr)\n";
-        out += "declare ptr @__stable_tensor_mul(ptr, ptr)\n";
-        out += "declare ptr @__stable_tensor_div(ptr, ptr)\n";
-        out += "declare ptr @__stable_tensor_matmul(ptr, ptr)\n";
-        out += "declare ptr @__stable_tensor_scale(ptr, double)\n";
-        out += "declare ptr @__stable_tensor_relu(ptr)\n";
-        out += "declare ptr @__stable_tensor_sigmoid(ptr)\n";
-        out += "declare ptr @__stable_tensor_tanh(ptr)\n";
-        out += "declare ptr @__stable_tensor_softmax(ptr, i64)\n";
-        out += "declare double @__stable_tensor_sum(ptr)\n";
-        out += "declare double @__stable_tensor_mean(ptr)\n";
-        out += "declare double @__stable_tensor_l2norm(ptr)\n";
-        out += "declare double @__stable_tensor_dot(ptr, ptr)\n";
-        out += "declare i64 @__stable_tensor_argmax(ptr, i64)\n";
-        out += "declare ptr @__stable_tensor_reshape2(ptr, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_reshape3(ptr, i64, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_reshape4(ptr, i64, i64, i64, i64)\n";
-        out += "declare ptr @__stable_tensor_transpose2(ptr)\n";
-        out += "declare ptr @__stable_tensor_slice(ptr, i64, i64, i64, i64)\n";
-        out += "declare void @__stable_tensor_fill(ptr, double)\n";
-        out += "declare ptr @__stable_tensor_conv2d(ptr, ptr, i64, i64)\n";
-        out += "declare ptr @__stable_grad_create()\n";
-        out += "declare void @__stable_grad_watch(ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_add(ptr, ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_mul(ptr, ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_matmul(ptr, ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_relu(ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_tanh(ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_sum(ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_scale(ptr, ptr, double)\n";
-        out += "declare void @__stable_grad_backward(ptr, ptr)\n";
-        out += "declare ptr @__stable_grad_get(ptr, ptr)\n";
-        out += "declare void @__stable_grad_free(ptr)\n";
-        out += "declare i32 @__stable_accel_cuda_available()\n";
-        out += "declare i32 @__stable_accel_rocm_available()\n";
-        out += "declare i32 @__stable_accel_metal_available()\n";
-        out += "declare i32 @__stable_accel_blas_available()\n";
-        out += "declare ptr @__stable_accel_backend()\n";
+        out += "declare ptr @__lanner_net_tcp_connect(ptr, i32, i32)\n";
+        out += "declare ptr @__lanner_net_tcp_listen(ptr, i32, i32)\n";
+        out += "declare ptr @__lanner_net_accept(ptr)\n";
+        out += "declare void @__lanner_net_close(ptr)\n";
+        out += "declare i64 @__lanner_net_send(ptr, ptr, i64)\n";
+        out += "declare i64 @__lanner_net_recv(ptr, ptr, i64)\n";
+        out += "declare i64 @__lanner_net_send_string(ptr, ptr)\n";
+        out += "declare i32 @__lanner_net_set_nonblocking(ptr, i1)\n";
+        out += "declare i32 @__lanner_net_poll(ptr, i32, i32)\n";
+        out += "declare i32 @__lanner_net_tcp_nodelay(ptr, i1)\n";
+        out += "declare i32 @__lanner_net_shutdown(ptr, i32)\n";
+        out += "declare i32 @__lanner_net_last_error()\n";
+        out += "declare ptr @__lanner_net_error_string()\n";
+        out += "declare ptr @__lanner_net_udp_open()\n";
+        out += "declare i32 @__lanner_net_udp_bind(ptr, ptr, i32)\n";
+        out += "declare i64 @__lanner_net_udp_send_to(ptr, ptr, i32, ptr, i64)\n";
+        out += "declare i64 @__lanner_net_udp_recv(ptr, ptr, i64)\n";
+        out += "declare i32 @__lanner_net_local_port(ptr)\n";
+        out += "declare i32 @__lanner_net_peer_port(ptr)\n";
+        out += "declare ptr @__lanner_poller_create()\n";
+        out += "declare i32 @__lanner_poller_add(ptr, ptr, i32)\n";
+        out += "declare i32 @__lanner_poller_remove(ptr, ptr)\n";
+        out += "declare i32 @__lanner_poller_wait(ptr, i32)\n";
+        out += "declare i32 @__lanner_poller_count(ptr)\n";
+        out += "declare ptr @__lanner_poller_event_socket(ptr, i32)\n";
+        out += "declare i32 @__lanner_poller_event_mask(ptr, i32)\n";
+        out += "declare i32 @__lanner_poller_read_events()\n";
+        out += "declare i32 @__lanner_poller_write_events()\n";
+        out += "declare i32 @__lanner_poller_error_events()\n";
+        out += "declare void @__lanner_poller_destroy(ptr)\n";
+        out += "declare ptr @__lanner_mutex_create()\n";
+        out += "declare void @__lanner_mutex_lock(ptr)\n";
+        out += "declare i32 @__lanner_mutex_try_lock(ptr)\n";
+        out += "declare void @__lanner_mutex_unlock(ptr)\n";
+        out += "declare void @__lanner_mutex_destroy(ptr)\n";
+        out += "declare ptr @__lanner_rwlock_create()\n";
+        out += "declare void @__lanner_rwlock_read_lock(ptr)\n";
+        out += "declare void @__lanner_rwlock_write_lock(ptr)\n";
+        out += "declare i32 @__lanner_rwlock_try_read_lock(ptr)\n";
+        out += "declare i32 @__lanner_rwlock_try_write_lock(ptr)\n";
+        out += "declare void @__lanner_rwlock_unlock(ptr, i1)\n";
+        out += "declare void @__lanner_rwlock_destroy(ptr)\n";
+        out += "declare ptr @__lanner_condvar_create()\n";
+        out += "declare i32 @__lanner_condvar_wait(ptr, ptr, i32)\n";
+        out += "declare void @__lanner_condvar_signal(ptr)\n";
+        out += "declare void @__lanner_condvar_broadcast(ptr)\n";
+        out += "declare void @__lanner_condvar_destroy(ptr)\n";
+        out += "declare ptr @__lanner_semaphore_create(i32)\n";
+        out += "declare i32 @__lanner_semaphore_wait(ptr, i32)\n";
+        out += "declare i32 @__lanner_semaphore_try_wait(ptr)\n";
+        out += "declare void @__lanner_semaphore_post(ptr)\n";
+        out += "declare void @__lanner_semaphore_destroy(ptr)\n";
+        out += "declare i32 @__lanner_process_run(ptr)\n";
+        out += "declare ptr @__lanner_process_spawn(ptr)\n";
+        out += "declare i32 @__lanner_process_wait(ptr)\n";
+        out += "declare i64 @__lanner_process_pid(ptr)\n";
+        out += "declare i32 @__lanner_process_terminate(ptr)\n";
+        out += "declare ptr @__lanner_process_output(ptr)\n";
+        out += "declare i32 @__lanner_set_env(ptr, ptr)\n";
+        out += "declare ptr @__lanner_buffer_new(i64)\n";
+        out += "declare ptr @__lanner_buffer_from_string(ptr)\n";
+        out += "declare i64 @__lanner_buffer_len(ptr)\n";
+        out += "declare ptr @__lanner_buffer_data(ptr)\n";
+        out += "declare ptr @__lanner_buffer_cstr(ptr)\n";
+        out += "declare void @__lanner_buffer_free(ptr)\n";
+        out += "declare i32 @__lanner_buffer_append_string(ptr, ptr)\n";
+        out += "declare i32 @__lanner_buffer_append_buffer(ptr, ptr)\n";
+        out += "declare ptr @__lanner_http_get(ptr, i32)\n";
+        out += "declare ptr @__lanner_http_post(ptr, ptr, i32)\n";
+        out += "declare i32 @__lanner_http_status()\n";
+        out += "declare ptr @__lanner_game_window_create(ptr, i32, i32, i32)\n";
+        out += "declare void @__lanner_game_window_destroy(ptr)\n";
+        out += "declare i32 @__lanner_game_poll(ptr)\n";
+        out += "declare i32 @__lanner_game_should_close(ptr)\n";
+        out += "declare void @__lanner_game_request_close(ptr)\n";
+        out += "declare void @__lanner_game_set_title(ptr, ptr)\n";
+        out += "declare i32 @__lanner_game_window_width(ptr)\n";
+        out += "declare i32 @__lanner_game_window_height(ptr)\n";
+        out += "declare i32 @__lanner_game_set_vsync(ptr, i1)\n";
+        out += "declare i32 @__lanner_game_make_gl_context(ptr)\n";
+        out += "declare void @__lanner_game_present(ptr)\n";
+        out += "declare i32 @__lanner_game_window_flags(i1, i1, i1, i1)\n";
+        out += "declare i32 @__lanner_game_renderer_flags(i1, i1)\n";
+        out += "declare ptr @__lanner_game_renderer_create(ptr, i32)\n";
+        out += "declare void @__lanner_game_renderer_destroy(ptr)\n";
+        out += "declare i32 @__lanner_game_renderer_set_color(ptr, i8, i8, i8, i8)\n";
+        out += "declare i32 @__lanner_game_renderer_clear(ptr)\n";
+        out += "declare i32 @__lanner_game_renderer_line(ptr, i32, i32, i32, i32)\n";
+        out += "declare i32 @__lanner_game_renderer_fill_rect(ptr, i32, i32, i32, i32)\n";
+        out += "declare void @__lanner_game_renderer_present(ptr)\n";
+        out += "declare ptr @__lanner_game_texture_create(ptr, i32, i32, i32, i32)\n";
+        out += "declare i32 @__lanner_game_texture_update(ptr, ptr, i32)\n";
+        out += "declare i32 @__lanner_game_texture_copy(ptr, ptr, i32, i32, i32)\n";
+        out += "declare void @__lanner_game_texture_destroy(ptr)\n";
+        out += "declare i32 @__lanner_game_event_type()\n";
+        out += "declare i32 @__lanner_game_event_code()\n";
+        out += "declare i32 @__lanner_game_event_x()\n";
+        out += "declare i32 @__lanner_game_event_y()\n";
+        out += "declare ptr @__lanner_game_event_text()\n";
+        out += "declare i32 @__lanner_game_key_down(i32)\n";
+        out += "declare i32 @__lanner_game_mouse_button_down(i32)\n";
+        out += "declare i32 @__lanner_game_mouse_x()\n";
+        out += "declare i32 @__lanner_game_mouse_y()\n";
+        out += "declare i32 @__lanner_game_controller_connected(i32)\n";
+        out += "declare float @__lanner_game_controller_axis(i32, i32)\n";
+        out += "declare i32 @__lanner_game_controller_button(i32, i32)\n";
+        out += "declare ptr @__lanner_game_audio_open(i32, i32, i32)\n";
+        out += "declare i64 @__lanner_game_audio_write(ptr, ptr, i64)\n";
+        out += "declare i64 @__lanner_game_audio_queued(ptr)\n";
+        out += "declare void @__lanner_game_audio_pause(ptr, i1)\n";
+        out += "declare void @__lanner_game_audio_close(ptr)\n";
+        out += "declare i64 @__lanner_game_time_nanos()\n";
+        out += "declare double @__lanner_game_delta_seconds()\n";
+        out += "declare void @__lanner_game_sleep_nanos(i64)\n";
+        out += "declare i32 @__lanner_gfx_available(ptr)\n";
+        out += "declare ptr @__lanner_gfx_backend()\n";
+        out += "declare ptr @__lanner_gfx_load_proc(ptr, ptr)\n";
+        out += "declare void @__lanner_gl_clear_color(float, float, float, float)\n";
+        out += "declare void @__lanner_gl_clear(i32)\n";
+        out += "declare void @__lanner_gl_viewport(i32, i32, i32, i32)\n";
+        out += "declare void @__lanner_gl_enable(i32)\n";
+        out += "declare void @__lanner_gl_disable(i32)\n";
+        out += "declare void @__lanner_gl_gen_buffers(i32, ptr)\n";
+        out += "declare void @__lanner_gl_gen_vertex_arrays(i32, ptr)\n";
+        out += "declare void @__lanner_gl_bind_buffer(i32, i32)\n";
+        out += "declare void @__lanner_gl_buffer_data(i32, i64, ptr, i32)\n";
+        out += "declare i32 @__lanner_gl_create_shader(i32)\n";
+        out += "declare void @__lanner_gl_shader_source(i32, ptr)\n";
+        out += "declare void @__lanner_gl_compile_shader(i32)\n";
+        out += "declare i32 @__lanner_gl_shader_status(i32)\n";
+        out += "declare ptr @__lanner_gl_shader_log(i32)\n";
+        out += "declare void @__lanner_gl_attach_shader(i32, i32)\n";
+        out += "declare void @__lanner_gl_link_program(i32)\n";
+        out += "declare i32 @__lanner_gl_create_program()\n";
+        out += "declare i32 @__lanner_gl_program_status(i32)\n";
+        out += "declare ptr @__lanner_gl_program_log(i32)\n";
+        out += "declare void @__lanner_gl_use_program(i32)\n";
+        out += "declare void @__lanner_gl_draw_arrays(i32, i32, i32)\n";
+        out += "declare void @__lanner_gl_bind_vertex_array(i32)\n";
+        out += "declare void @__lanner_gl_enable_vertex_attrib(i32)\n";
+        out += "declare void @__lanner_gl_vertex_attrib_pointer(i32, i32, i32, i1, i32, i64)\n";
+        out += "declare i32 @__lanner_gl_get_error()\n";
+        out += "declare void @__lanner_gl_delete_shader(i32)\n";
+        out += "declare void @__lanner_gl_delete_program(i32)\n";
+        out += "declare void @__lanner_gl_delete_buffers(i32, ptr)\n";
+        out += "declare void @__lanner_gl_delete_vertex_arrays(i32, ptr)\n";
+        out += "declare i32 @__lanner_json_validate(ptr)\n";
+        out += "declare ptr @__lanner_json_quote(ptr)\n";
+        out += "declare ptr @__lanner_json_int(i64)\n";
+        out += "declare ptr @__lanner_json_float(double)\n";
+        out += "declare ptr @__lanner_json_bool(i1)\n";
+        out += "declare ptr @__lanner_json_null()\n";
+        out += "declare void @__lanner_process_set_argv(i32, ptr)\n";
+        out += "declare ptr @__lanner_tensor_zeros1(i64)\n";
+        out += "declare ptr @__lanner_tensor_zeros2(i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_zeros3(i64, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_zeros4(i64, i64, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_ones1(i64)\n";
+        out += "declare ptr @__lanner_tensor_ones2(i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_ones3(i64, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_ones4(i64, i64, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_zeros_f32(i64)\n";
+        out += "declare ptr @__lanner_tensor_ones_f32(i64)\n";
+        out += "declare ptr @__lanner_tensor_zeros_f64(i64)\n";
+        out += "declare ptr @__lanner_tensor_ones_f64(i64)\n";
+        out += "declare ptr @__lanner_tensor_from1_f32(ptr, i64)\n";
+        out += "declare ptr @__lanner_tensor_from1_f64(ptr, i64)\n";
+        out += "declare ptr @__lanner_tensor_from2_f32(ptr, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_from2_f64(ptr, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_clone(ptr)\n";
+        out += "declare ptr @__lanner_tensor_contiguous(ptr)\n";
+        out += "declare void @__lanner_tensor_free(ptr)\n";
+        out += "declare i64 @__lanner_tensor_rank(ptr)\n";
+        out += "declare i64 @__lanner_tensor_len(ptr)\n";
+        out += "declare i64 @__lanner_tensor_dim(ptr, i64)\n";
+        out += "declare i64 @__lanner_tensor_stride(ptr, i64)\n";
+        out += "declare i32 @__lanner_tensor_dtype(ptr)\n";
+        out += "declare i32 @__lanner_tensor_is_contiguous(ptr)\n";
+        out += "declare ptr @__lanner_tensor_data_f32(ptr)\n";
+        out += "declare ptr @__lanner_tensor_data_f64(ptr)\n";
+        out += "declare double @__lanner_tensor_get1(ptr, i64)\n";
+        out += "declare double @__lanner_tensor_get2(ptr, i64, i64)\n";
+        out += "declare double @__lanner_tensor_get3(ptr, i64, i64, i64)\n";
+        out += "declare void @__lanner_tensor_set1(ptr, i64, double)\n";
+        out += "declare void @__lanner_tensor_set2(ptr, i64, i64, double)\n";
+        out += "declare void @__lanner_tensor_set3(ptr, i64, i64, i64, double)\n";
+        out += "declare ptr @__lanner_tensor_add(ptr, ptr)\n";
+        out += "declare ptr @__lanner_tensor_sub(ptr, ptr)\n";
+        out += "declare ptr @__lanner_tensor_mul(ptr, ptr)\n";
+        out += "declare ptr @__lanner_tensor_div(ptr, ptr)\n";
+        out += "declare ptr @__lanner_tensor_matmul(ptr, ptr)\n";
+        out += "declare ptr @__lanner_tensor_scale(ptr, double)\n";
+        out += "declare ptr @__lanner_tensor_relu(ptr)\n";
+        out += "declare ptr @__lanner_tensor_sigmoid(ptr)\n";
+        out += "declare ptr @__lanner_tensor_tanh(ptr)\n";
+        out += "declare ptr @__lanner_tensor_softmax(ptr, i64)\n";
+        out += "declare double @__lanner_tensor_sum(ptr)\n";
+        out += "declare double @__lanner_tensor_mean(ptr)\n";
+        out += "declare double @__lanner_tensor_l2norm(ptr)\n";
+        out += "declare double @__lanner_tensor_dot(ptr, ptr)\n";
+        out += "declare i64 @__lanner_tensor_argmax(ptr, i64)\n";
+        out += "declare ptr @__lanner_tensor_reshape2(ptr, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_reshape3(ptr, i64, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_reshape4(ptr, i64, i64, i64, i64)\n";
+        out += "declare ptr @__lanner_tensor_transpose2(ptr)\n";
+        out += "declare ptr @__lanner_tensor_slice(ptr, i64, i64, i64, i64)\n";
+        out += "declare void @__lanner_tensor_fill(ptr, double)\n";
+        out += "declare ptr @__lanner_tensor_conv2d(ptr, ptr, i64, i64)\n";
+        out += "declare ptr @__lanner_grad_create()\n";
+        out += "declare void @__lanner_grad_watch(ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_add(ptr, ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_mul(ptr, ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_matmul(ptr, ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_relu(ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_tanh(ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_sum(ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_scale(ptr, ptr, double)\n";
+        out += "declare void @__lanner_grad_backward(ptr, ptr)\n";
+        out += "declare ptr @__lanner_grad_get(ptr, ptr)\n";
+        out += "declare void @__lanner_grad_free(ptr)\n";
+        out += "declare i32 @__lanner_accel_cuda_available()\n";
+        out += "declare i32 @__lanner_accel_rocm_available()\n";
+        out += "declare i32 @__lanner_accel_metal_available()\n";
+        out += "declare i32 @__lanner_accel_blas_available()\n";
+        out += "declare ptr @__lanner_accel_backend()\n";
     }
     if (targetTriple.find("android") != std::string::npos || targetTriple.find("apple-ios") != std::string::npos) {
-        out += "declare void @__stable_mobile_log(ptr)\n";
-        out += "declare ptr @__stable_mobile_platform()\n";
-        out += "declare ptr @__stable_mobile_os_version()\n";
-        out += "declare i32 @__stable_mobile_is_simulator()\n";
-        out += "declare i32 @__stable_mobile_screen_width()\n";
-        out += "declare i32 @__stable_mobile_screen_height()\n";
-        out += "declare double @__stable_mobile_device_scale()\n";
-        out += "declare i32 @__stable_mobile_safe_top()\n";
-        out += "declare i32 @__stable_mobile_safe_bottom()\n";
-        out += "declare i32 @__stable_mobile_safe_left()\n";
-        out += "declare i32 @__stable_mobile_safe_right()\n";
-        out += "declare i32 @__stable_mobile_open_url(ptr)\n";
-        out += "declare i32 @__stable_mobile_vibrate(i32)\n";
-        out += "declare i32 @__stable_mobile_request_permission(ptr)\n";
-        out += "declare i32 @__stable_mobile_clipboard_set(ptr)\n";
-        out += "declare ptr @__stable_mobile_clipboard_get()\n";
-        out += "declare i32 @__stable_mobile_camera_available()\n";
-        out += "declare i32 @__stable_mobile_location_available()\n";
-        out += "declare i32 @__stable_mobile_bluetooth_available()\n";
-        out += "declare ptr @__stable_mobile_app_data_path()\n";
-        out += "declare ptr @__stable_mobile_documents_path()\n";
-        out += "declare ptr @__stable_mobile_cache_path()\n";
+        out += "declare void @__lanner_mobile_log(ptr)\n";
+        out += "declare ptr @__lanner_mobile_platform()\n";
+        out += "declare ptr @__lanner_mobile_os_version()\n";
+        out += "declare i32 @__lanner_mobile_is_simulator()\n";
+        out += "declare i32 @__lanner_mobile_screen_width()\n";
+        out += "declare i32 @__lanner_mobile_screen_height()\n";
+        out += "declare double @__lanner_mobile_device_scale()\n";
+        out += "declare i32 @__lanner_mobile_safe_top()\n";
+        out += "declare i32 @__lanner_mobile_safe_bottom()\n";
+        out += "declare i32 @__lanner_mobile_safe_left()\n";
+        out += "declare i32 @__lanner_mobile_safe_right()\n";
+        out += "declare i32 @__lanner_mobile_open_url(ptr)\n";
+        out += "declare i32 @__lanner_mobile_vibrate(i32)\n";
+        out += "declare i32 @__lanner_mobile_request_permission(ptr)\n";
+        out += "declare i32 @__lanner_mobile_clipboard_set(ptr)\n";
+        out += "declare ptr @__lanner_mobile_clipboard_get()\n";
+        out += "declare i32 @__lanner_mobile_camera_available()\n";
+        out += "declare i32 @__lanner_mobile_location_available()\n";
+        out += "declare i32 @__lanner_mobile_bluetooth_available()\n";
+        out += "declare ptr @__lanner_mobile_app_data_path()\n";
+        out += "declare ptr @__lanner_mobile_documents_path()\n";
+        out += "declare ptr @__lanner_mobile_cache_path()\n";
     }
     if (isWebTarget()) {
-        out += "declare void @__stable_web_log(ptr)\n";
-        out += "declare void @__stable_web_warn(ptr)\n";
-        out += "declare void @__stable_web_error(ptr)\n";
-        out += "declare void @__stable_web_log_bool(i1)\n";
-        out += "declare void @__stable_web_log_i64(i64)\n";
-        out += "declare void @__stable_web_log_f64(double)\n";
-        out += "declare double @__stable_web_now_ms()\n";
-        out += "declare double @__stable_web_random()\n";
-        out += "declare i32 @__stable_web_set_text(ptr, ptr)\n";
-        out += "declare i32 @__stable_web_set_html(ptr, ptr)\n";
-        out += "declare i32 @__stable_web_set_attr(ptr, ptr, ptr)\n";
-        out += "declare i32 @__stable_web_add_class(ptr, ptr)\n";
-        out += "declare i32 @__stable_web_remove_class(ptr, ptr)\n";
-        out += "declare i32 @__stable_web_remove(ptr)\n";
-        out += "declare i32 @__stable_web_query_count(ptr)\n";
-        out += "declare i32 @__stable_web_focus(ptr)\n";
-        out += "declare i32 @__stable_web_set_timeout(ptr, i32)\n";
-        out += "declare void @__stable_web_clear_timeout(i32)\n";
-        out += "declare i32 @__stable_web_request_animation_frame(ptr)\n";
-        out += "declare void @__stable_web_cancel_animation_frame(i32)\n";
-        out += "declare i32 @__stable_web_queue_microtask(ptr)\n";
-        out += "declare i32 @__stable_web_add_event_listener(ptr, ptr, ptr)\n";
-        out += "declare void @__stable_web_remove_event_listener(i32)\n";
-        out += "declare i32 @__stable_web_fetch_text(ptr, ptr)\n";
-        out += "declare void @__stable_web_buffer_free(ptr)\n";
-        out += "declare i64 @__stable_stdin_has_input()\n";
+        out += "declare void @__lanner_web_log(ptr)\n";
+        out += "declare void @__lanner_web_warn(ptr)\n";
+        out += "declare void @__lanner_web_error(ptr)\n";
+        out += "declare void @__lanner_web_log_bool(i1)\n";
+        out += "declare void @__lanner_web_log_i64(i64)\n";
+        out += "declare void @__lanner_web_log_f64(double)\n";
+        out += "declare double @__lanner_web_now_ms()\n";
+        out += "declare double @__lanner_web_random()\n";
+        out += "declare i32 @__lanner_web_set_text(ptr, ptr)\n";
+        out += "declare i32 @__lanner_web_set_html(ptr, ptr)\n";
+        out += "declare i32 @__lanner_web_set_attr(ptr, ptr, ptr)\n";
+        out += "declare i32 @__lanner_web_add_class(ptr, ptr)\n";
+        out += "declare i32 @__lanner_web_remove_class(ptr, ptr)\n";
+        out += "declare i32 @__lanner_web_remove(ptr)\n";
+        out += "declare i32 @__lanner_web_query_count(ptr)\n";
+        out += "declare i32 @__lanner_web_focus(ptr)\n";
+        out += "declare i32 @__lanner_web_set_timeout(ptr, i32)\n";
+        out += "declare void @__lanner_web_clear_timeout(i32)\n";
+        out += "declare i32 @__lanner_web_request_animation_frame(ptr)\n";
+        out += "declare void @__lanner_web_cancel_animation_frame(i32)\n";
+        out += "declare i32 @__lanner_web_queue_microtask(ptr)\n";
+        out += "declare i32 @__lanner_web_add_event_listener(ptr, ptr, ptr)\n";
+        out += "declare void @__lanner_web_remove_event_listener(i32)\n";
+        out += "declare i32 @__lanner_web_fetch_text(ptr, ptr)\n";
+        out += "declare void @__lanner_web_buffer_free(ptr)\n";
+        out += "declare i64 @__lanner_stdin_has_input()\n";
     }
     if (includeRuntime || targetTriple.find("android") != std::string::npos || targetTriple.find("apple-ios") != std::string::npos) {
-        out += "declare ptr @__stable_stdin_read_line()\n";
-        out += "declare i32 @__stable_stdin_has_input()\n";
-        out += "declare i64 @__stable_string_parse_u64_at(ptr, i64)\n";
-        out += "declare i32 @__stable_string_starts_with(ptr, ptr)\n";
-        out += "declare i32 @__stable_string_equals(ptr, ptr)\n";
-        out += "declare i64 @__stable_clock_monotonic_nanos()\n";
-        out += "declare void @__stable_clock_sleep_nanos(i64)\n";
-        out += "declare i64 @__stable_thread_hardware_concurrency()\n";
-        out += "declare ptr @__stable_thread_spawn(ptr)\n";
-        out += "declare void @__stable_thread_join(ptr)\n";
-        out += "declare void @__stable_thread_detach(ptr)\n";
-        out += "declare void @__stable_thread_yield()\n";
-        out += "declare i32 @__stable_cpu_has_avx2()\n";
-        out += "declare i32 @__stable_cpu_has_avx512()\n";
-        out += "declare i32 @__stable_cpu_has_sse42()\n";
-        out += "declare i32 @__stable_cpu_has_bmi2()\n";
-        out += "declare i32 @__stable_cpu_has_popcnt()\n";
+        out += "declare ptr @__lanner_stdin_read_line()\n";
+        out += "declare i32 @__lanner_stdin_has_input()\n";
+        out += "declare i64 @__lanner_string_parse_u64_at(ptr, i64)\n";
+        out += "declare i32 @__lanner_string_starts_with(ptr, ptr)\n";
+        out += "declare i32 @__lanner_string_equals(ptr, ptr)\n";
+        out += "declare i64 @__lanner_clock_monotonic_nanos()\n";
+        out += "declare void @__lanner_clock_sleep_nanos(i64)\n";
+        out += "declare i64 @__lanner_thread_hardware_concurrency()\n";
+        out += "declare ptr @__lanner_thread_spawn(ptr)\n";
+        out += "declare void @__lanner_thread_join(ptr)\n";
+        out += "declare void @__lanner_thread_detach(ptr)\n";
+        out += "declare void @__lanner_thread_yield()\n";
+        out += "declare i32 @__lanner_cpu_has_avx2()\n";
+        out += "declare i32 @__lanner_cpu_has_avx512()\n";
+        out += "declare i32 @__lanner_cpu_has_sse42()\n";
+        out += "declare i32 @__lanner_cpu_has_bmi2()\n";
+        out += "declare i32 @__lanner_cpu_has_popcnt()\n";
         out += "declare i64 @llvm.readcyclecounter()\n";
-        out += "declare i64 @__stable_cpu_rdtsc()\n";
+        out += "declare i64 @__lanner_cpu_rdtsc()\n";
     }
     out += "declare i64 @llvm.x86.bmi.pext.64(i64, i64)\n";
     out += "declare i64 @llvm.x86.bmi.pdep.64(i64, i64)\n";
@@ -3807,18 +3807,18 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
     }
     if (!functions.empty()) out += "\n";
     if (includeRuntime || isWebTarget()) {
-        out += "@.stable.rb = private unnamed_addr constant [3 x i8] c\"rb\\00\"\n";
-        out += "@.stable.print_i64 = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n";
-        out += "@.stable.print_u64 = private unnamed_addr constant [5 x i8] c\"%lu\\0A\\00\"\n";
-        out += "@.stable.print_f64 = private unnamed_addr constant [4 x i8] c\"%g\\0A\\00\"\n";
-        out += "@.stable.print_true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n";
-        out += "@.stable.print_false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n";
-        out += "@.stable.print_bool = private unnamed_addr constant [3 x i8] c\"%s\\00\"\n\n";
-        out += "@.stable.print_i64_raw = private unnamed_addr constant [4 x i8] c\"%ld\\00\"\n";
+        out += "@.lanner.rb = private unnamed_addr constant [3 x i8] c\"rb\\00\"\n";
+        out += "@.lanner.print_i64 = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n";
+        out += "@.lanner.print_u64 = private unnamed_addr constant [5 x i8] c\"%lu\\0A\\00\"\n";
+        out += "@.lanner.print_f64 = private unnamed_addr constant [4 x i8] c\"%g\\0A\\00\"\n";
+        out += "@.lanner.print_true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n";
+        out += "@.lanner.print_false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n";
+        out += "@.lanner.print_bool = private unnamed_addr constant [3 x i8] c\"%s\\00\"\n\n";
+        out += "@.lanner.print_i64_raw = private unnamed_addr constant [4 x i8] c\"%ld\\00\"\n";
         out += "@stdout = external global ptr\n";
-        out += "define internal %StableDynArray @__stable_read_file(ptr %path) {\n";
+        out += "define internal %LannerDynArray @__lanner_read_file(ptr %path) {\n";
         out += "entry:\n";
-        out += "  %file = call ptr @fopen(ptr %path, ptr @.stable.rb)\n";
+        out += "  %file = call ptr @fopen(ptr %path, ptr @.lanner.rb)\n";
         out += "  %missing = icmp eq ptr %file, null\n";
         out += "  br i1 %missing, label %fail_no_close, label %seek_end\n";
         out += "seek_end:\n";
@@ -3849,11 +3849,11 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "  %end = getelementptr inbounds i8, ptr %data, i64 %file_size\n";
         out += "  store i8 0, ptr %end\n";
         out += "  %close_rc = call i32 @fclose(ptr %file)\n";
-        out += "  %a0 = insertvalue %StableDynArray zeroinitializer, ptr %data, 0\n";
-        out += "  %a1 = insertvalue %StableDynArray %a0, i64 %file_size, 1\n";
-        out += "  %a2 = insertvalue %StableDynArray %a1, i64 %file_size, 2\n";
-        out += "  %a3 = insertvalue %StableDynArray %a2, ptr null, 3\n";
-        out += "  ret %StableDynArray %a3\n";
+        out += "  %a0 = insertvalue %LannerDynArray zeroinitializer, ptr %data, 0\n";
+        out += "  %a1 = insertvalue %LannerDynArray %a0, i64 %file_size, 1\n";
+        out += "  %a2 = insertvalue %LannerDynArray %a1, i64 %file_size, 2\n";
+        out += "  %a3 = insertvalue %LannerDynArray %a2, ptr null, 3\n";
+        out += "  ret %LannerDynArray %a3\n";
         out += "free_fail:\n";
         out += "  call void @free(ptr %data)\n";
         out += "  br label %close_fail\n";
@@ -3866,45 +3866,45 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "  call void @llvm.trap()\n";
         out += "  unreachable\n";
         out += "}\n\n";
-        out += "@.stable.empty = private unnamed_addr constant [1 x i8] c\"\\00\"\n\n";
-        out += "define internal ptr @__stable_getenv(ptr %name) {\n";
+        out += "@.lanner.empty = private unnamed_addr constant [1 x i8] c\"\\00\"\n\n";
+        out += "define internal ptr @__lanner_getenv(ptr %name) {\n";
         out += "entry:\n";
         out += "  %value = call ptr @getenv(ptr %name)\n";
         out += "  %missing = icmp eq ptr %value, null\n";
         out += "  br i1 %missing, label %empty, label %found\n";
         out += "empty:\n";
-        out += "  ret ptr getelementptr inbounds ([1 x i8], ptr @.stable.empty, i64 0, i64 0)\n";
+        out += "  ret ptr getelementptr inbounds ([1 x i8], ptr @.lanner.empty, i64 0, i64 0)\n";
         out += "found:\n";
         out += "  ret ptr %value\n";
         out += "}\n\n";
     
-        out += "define internal void @__stable_print_i64(i64 %value) {\n";
+        out += "define internal void @__lanner_print_i64(i64 %value) {\n";
         out += "entry:\n";
-        out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_i64, i64 %value)\n";
+        out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_i64, i64 %value)\n";
         out += "  ret void\n";
         out += "}\n\n";
-        out += "define internal void @__stable_print_u64(i64 %value) {\n";
+        out += "define internal void @__lanner_print_u64(i64 %value) {\n";
         out += "entry:\n";
-        out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_u64, i64 %value)\n";
+        out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_u64, i64 %value)\n";
         out += "  ret void\n";
         out += "}\n\n";
-        out += "define internal void @__stable_print_f64(double %value) {\n";
+        out += "define internal void @__lanner_print_f64(double %value) {\n";
         out += "entry:\n";
-        out += "  call i32 (ptr, ...) @printf(ptr @.stable.print_f64, double %value)\n";
+        out += "  call i32 (ptr, ...) @printf(ptr @.lanner.print_f64, double %value)\n";
         out += "  ret void\n";
         out += "}\n\n";
-        out += "define internal void @__stable_print_bool(i1 %value) {\n";
+        out += "define internal void @__lanner_print_bool(i1 %value) {\n";
         out += "entry:\n";
-        out += "  %ptr = select i1 %value, ptr getelementptr inbounds ([5 x i8], ptr @.stable.print_true, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.stable.print_false, i64 0, i64 0)\n";
+        out += "  %ptr = select i1 %value, ptr getelementptr inbounds ([5 x i8], ptr @.lanner.print_true, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.lanner.print_false, i64 0, i64 0)\n";
         out += "  call i32 @puts(ptr %ptr)\n";
         out += "  ret void\n";
         out += "}\n\n";
-        out += "define internal ptr @__stable_arena_alloc(ptr %arena, i64 %bytes) {\n";
+        out += "define internal ptr @__lanner_arena_alloc(ptr %arena, i64 %bytes) {\n";
         out += "entry:\n";
-        out += "  %rem.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 2\n";
-        out += "  %cur.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 1\n";
-        out += "  %head.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 0\n";
-        out += "  %chunk.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 3\n";
+        out += "  %rem.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 2\n";
+        out += "  %cur.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 1\n";
+        out += "  %head.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 0\n";
+        out += "  %chunk.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 3\n";
         out += "  %remaining = load i64, ptr %rem.addr\n";
         out += "  %current = load ptr, ptr %cur.addr\n";
         out += "  %align_sum = add i64 %bytes, 7\n";
@@ -3943,7 +3943,7 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "  %head = load ptr, ptr %head.addr\n";
         out += "  store ptr %head, ptr %mem\n";
         out += "  store ptr %mem, ptr %head.addr\n";
-        out += "  %payload = getelementptr inbounds %StableArenaNode, ptr %mem, i32 0, i32 1\n";
+        out += "  %payload = getelementptr inbounds %LannerArenaNode, ptr %mem, i32 0, i32 1\n";
         out += "  store ptr %payload, ptr %cur.addr\n";
         out += "  store i64 %capacity, ptr %rem.addr\n";
         out += "  store i64 %capacity, ptr %chunk.addr\n";
@@ -3960,7 +3960,7 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "  call void @llvm.trap()\n";
         out += "  unreachable\n";
         out += "}\n\n";
-        out += "define internal void @__stable_arena_destroy(ptr %arena) {\n";
+        out += "define internal void @__lanner_arena_destroy(ptr %arena) {\n";
         out += "entry:\n";
         out += "  %first = load ptr, ptr %arena\n";
         out += "  br label %loop\n";
@@ -3975,9 +3975,9 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "step:\n";
         out += "  br label %loop\n";
         out += "done:\n";
-        out += "  %head.addr2 = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 0\n";
-        out += "  %cur.addr2 = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 1\n";
-        out += "  %rem.addr2 = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 2\n";
+        out += "  %head.addr2 = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 0\n";
+        out += "  %cur.addr2 = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 1\n";
+        out += "  %rem.addr2 = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 2\n";
         out += "  store ptr null, ptr %head.addr2\n";
         out += "  store ptr null, ptr %cur.addr2\n";
         out += "  store i64 0, ptr %rem.addr2\n";
@@ -4009,12 +4009,12 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
             const auto retType = llvmType(it->second->returnType.get());
             out += "define i32 @main(i32 %argc, ptr %argv) {\n";
             out += "entry:\n";
-            out += "  call void @__stable_process_set_argv(i32 %argc, ptr %argv)\n";
+            out += "  call void @__lanner_process_set_argv(i32 %argc, ptr %argv)\n";
             if (retType == "i32") {
-                out += "  %stable.main.ret = call i32 @stable_user_main()\n";
-                out += "  ret i32 %stable.main.ret\n";
+                out += "  %lanner.main.ret = call i32 @lanner_user_main()\n";
+                out += "  ret i32 %lanner.main.ret\n";
             } else {
-                out += "  call " + retType + " @stable_user_main()\n";
+                out += "  call " + retType + " @lanner_user_main()\n";
                 out += "  ret i32 0\n";
             }
             out += "}\n\n";

@@ -1,11 +1,11 @@
-# **Stable 1.0.0 Bootstrap**
+# **Lanner 1.0.0 Bootstrap**
 
-Stable contains a Stable-written compiler track and recursive self-hosting verification.
+Lanner contains a Lanner-written compiler track and recursive self-hosting verification.
 
 ## **Production path**
 
 ```text
-Stable source
+Lanner source
     |
     v
 C++ bootstrap compiler
@@ -22,9 +22,9 @@ Native executable
 
 ## **Native self-hosting**
 
-The Stable-written compiler is located under **`selfhost/`**.
+The Lanner-written compiler is located under **`selfhost/`**.
 
-The native LLVM self-hosting verifier compiles the Stable-written compiler through the Stable compiler and compares the resulting stages.
+The native LLVM self-hosting verifier compiles the Lanner-written compiler through the Lanner compiler and compares the resulting stages.
 
 The validated production path reaches a **byte-identical stage-2/stage-3 fixed point**.
 
@@ -34,8 +34,8 @@ The legacy HIR/SSA path is optional:
 
 ```sh
 cmake -S . -B build \
-    -DSTABLE_ENABLE_LEGACY_HIR=ON \
-    -DSTABLE_BUILD_TESTS=ON
+    -DLANNER_ENABLE_LEGACY_HIR=ON \
+    -DLANNER_BUILD_TESTS=ON
 ```
 
 It remains useful for bootstrap/reference testing and IR inspection.
@@ -56,11 +56,11 @@ tools/verify_llvm_compat.sh
 tools/verify_native_readfile_failure.sh
 ```
 
-LLVM toolchain selection is available through **`STABLE_CLANG`** and **`LLVM_CC`**.
+LLVM toolchain selection is available through **`LANNER_CLANG`** and **`LLVM_CC`**.
 
 
 ## **Current bootstrap boundary**
 
 The recursive native bootstrap is a **supported-subset fixed point**, not a claim that the entire 1.0 compiler is self-hosted. The full production compiler remains implemented in C++ for the authoritative lexer, parser, typechecker, comptime evaluator, native LLVM code generator, command-line/toolchain driver, and mobile/game project generators. The optional legacy HIR implementation is also C++.
 
-The Stable-written compiler currently does not cover the Step 2-7 runtime namespaces (Web, backend/cloud, ML/AI, Mobile, Game, and DevOps) or the complete systems/unsafe/toolchain surface.
+The Lanner-written compiler currently does not cover the Step 2-7 runtime namespaces (Web, backend/cloud, ML/AI, Mobile, Game, and DevOps) or the complete systems/unsafe/toolchain surface.

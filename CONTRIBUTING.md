@@ -1,11 +1,11 @@
-# **Contributing to Stable**
+# **Contributing to Lanner**
 
-Stable is both a language and a compiler. Contributions should preserve **language semantics**, **generated-code correctness**, and **memory-model invariants**.
+Lanner is both a language and a compiler. Contributions should preserve **language semantics**, **generated-code correctness**, and **memory-model invariants**.
 
 ## **Build**
 
 ```sh
-cmake -S . -B build -DSTABLE_BUILD_TESTS=ON
+cmake -S . -B build -DLANNER_BUILD_TESTS=ON
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```

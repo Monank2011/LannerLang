@@ -46,7 +46,7 @@ main() i32:
     if sent != 1 || Result.load() != 90:
         return 2
 
-    child: Process = Process.spawn("echo stable-process")
+    child: Process = Process.spawn("echo lanner-process")
     status: i32 = Process.wait(child)
     if status != 0:
         return 3

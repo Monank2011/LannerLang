@@ -1,31 +1,31 @@
-# **Stable 1.0.0**
+# **LannerLang 1.0.0**
 
 > **A native systems programming language with compile-time ownership safety, deterministic memory management, and LLVM code generation.**
 > **Created and developed by Monank Gohil, who began the project at age 15.**
 
-Stable is a general-purpose systems programming language built around a simple goal: make **native, predictable performance** compatible with a **strong static memory-safety model** that remains practical to learn.
+Lanner is a general-purpose systems programming language built around a simple goal: make **native, predictable performance** compatible with a **strong static memory-safety model** that remains practical to learn.
 
-Stable uses **indentation-based syntax**, **static typing**, **ownership and borrowing**, **non-owning views**, **region/arena allocation**, and **LLVM** for native code generation.
+Lanner uses **indentation-based syntax**, **static typing**, **ownership and borrowing**, **non-owning views**, **region/arena allocation**, and **LLVM** for native code generation.
 
 The native engine stack includes interactive stdin, compile-time static/global tables, explicit C FFI, CPU/SIMD intrinsics, OS threads and atomics, a monotonic engine clock, and a systems/low-level layer for raw pointers, allocation, inline assembly, volatile memory, ABI/layout control, and freestanding cross-target builds. See [`docs/ENGINE_RUNTIME.md`](docs/ENGINE_RUNTIME.md), [`docs/SYSTEMS.md`](docs/SYSTEMS.md), and [`examples/uci_engine.st`](examples/uci_engine.st).
 
 The hosted backend/cloud runtime adds TCP/UDP sockets, scalable readiness polling, synchronization primitives, child processes, HTTP/1.1 client operations, JSON serialization/validation, and owned byte buffers. See [`docs/BACKEND_CLOUD.md`](docs/BACKEND_CLOUD.md) and the `examples/backend_*.st` programs.
 
-The DevOps/scripting runtime adds process arguments, environment management, filesystem and path APIs, lightweight regex, shell command/output helpers, executable lookup, and compiled-script execution through `stablec --script ... -- args`. See [`docs/DEVOPS_SCRIPTING.md`](docs/DEVOPS_SCRIPTING.md) and [`examples/devops_script.st`](examples/devops_script.st).
+The DevOps/scripting runtime adds process arguments, environment management, filesystem and path APIs, lightweight regex, shell command/output helpers, executable lookup, and compiled-script execution through `lanner --script ... -- args`. See [`docs/DEVOPS_SCRIPTING.md`](docs/DEVOPS_SCRIPTING.md) and [`examples/devops_script.st`](examples/devops_script.st).
 
-The Version 1 native engine readiness audit now verifies that Stable can compile and execute representative chess bitboard/search code, the UCI runtime, and a representative 45,192 → 16 → 32 → 1 quantized NNUE inference path entirely from Stable source. See [`docs/CHESS_NNUE_AUDIT.md`](docs/CHESS_NNUE_AUDIT.md), [`examples/chess_engine_kernel_audit.st`](examples/chess_engine_kernel_audit.st), and [`examples/nnue_host_audit.st`](examples/nnue_host_audit.st).
+The Version 1 native engine readiness audit now verifies that Lanner can compile and execute representative chess bitboard/search code, the UCI runtime, and a representative 45,192 → 16 → 32 → 1 quantized NNUE inference path entirely from Lanner source. See [`docs/CHESS_NNUE_AUDIT.md`](docs/CHESS_NNUE_AUDIT.md), [`examples/chess_engine_kernel_audit.st`](examples/chess_engine_kernel_audit.st), and [`examples/nnue_host_audit.st`](examples/nnue_host_audit.st).
 
 The compiler is designed so the source-level memory rules are authoritative. Backend lowering must preserve those rules rather than inventing a separate safety convention.
 
-Full self-hosting is not yet claimed: the recursive Stable-written bootstrap covers a supported subset, while the complete production compiler and platform driver remain in C++. See [`docs/BOOTSTRAP_AUDIT.md`](docs/BOOTSTRAP_AUDIT.md).
+Full self-hosting is not yet claimed: the recursive Lanner-written bootstrap covers a supported subset, while the complete production compiler and platform driver remain in C++. See [`docs/BOOTSTRAP_AUDIT.md`](docs/BOOTSTRAP_AUDIT.md).
 
 ---
 
 ## **Project author**
 
-Stable was created and is developed by **Monank Gohil**, who began developing the language at age **15**. See [`AUTHORS.md`](AUTHORS.md).
+Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**. See [`AUTHORS.md`](AUTHORS.md).
 
-## **Stable at a glance**
+## **Lanner at a glance**
 
 ```text
 T            Own this value.
@@ -36,34 +36,34 @@ EditView[T]  Borrow a range for exclusive mutable access.
 Arena        Own a region containing allocations.
 ```
 
-Stable's borrow lifetimes are **inferred**. Ordinary source code does not require explicit lifetime parameters.
+Lanner's borrow lifetimes are **inferred**. Ordinary source code does not require explicit lifetime parameters.
 
 The core model does **not** require tracing garbage collection and does **not** silently introduce reference counting for ordinary values.
 
-[![Release](https://img.shields.io/github/v/release/Monank2011/STABLE?display_name=tag&sort=semver)](https://github.com/Monank2011/STABLE/releases/tag/v1.0.0)
-[![License](https://img.shields.io/github/license/Monank2011/STABLE)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Monank2011/LannerLang?display_name=tag&sort=semver)](https://github.com/Monank2011/LannerLang/releases/tag/v1.0.0)
+[![License](https://img.shields.io/github/license/Monank2011/LannerLang)](LICENSE)
 [![Build](https://img.shields.io/badge/build-CMake%20%2B%20C%2B%2B17-blue)](CMakeLists.txt)
 
-> **Stable 1.0.0 is the first packaged release.** Download a ready-to-run compiler below, or build the compiler from source.
+> **Lanner 1.0.0 is the first packaged release.** Download a ready-to-run compiler below, or build the compiler from source.
 
 ### Release downloads
 
-- **[Linux x86_64 compiler](https://github.com/Monank2011/STABLE/releases/download/v1.0.0/stablec-1.0.0-linux-x86_64.tar.gz)**
-- **[Windows x86_64 compiler](https://github.com/Monank2011/STABLE/releases/download/v1.0.0/stablec-1.0.0-windows-x86_64.zip)**
-- **[Source code (this repository)](https://github.com/Monank2011/STABLE/tree/v1.0.0)**
+- **[Linux x86_64 compiler](https://github.com/Monank2011/LannerLang/releases/download/v1.0.0/lanner-1.0.0-linux-x86_64.tar.gz)**
+- **[Windows x86_64 compiler](https://github.com/Monank2011/LannerLang/releases/download/v1.0.0/lanner-1.0.0-windows-x86_64.zip)**
+- **[Source code (this repository)](https://github.com/Monank2011/LannerLang/tree/v1.0.0)**
 
-Each binary package includes the `stablec` compiler, runtime support files, examples, and an installer that downloads official LLVM/Clang **23.1.2** into a Stable-owned side-by-side directory. The installer verifies the download checksum and does not replace a system LLVM installation. SHA-256 checksums are published with the GitHub release. See [`docs/release/README.md`](docs/release/README.md).
+Each binary package includes the `lanner` compiler, runtime support files, examples, and an installer that downloads official LLVM/Clang **23.1.2** into a Lanner-owned side-by-side directory. The installer verifies the download checksum and does not replace a system LLVM installation. SHA-256 checksums are published with the GitHub release. See [`docs/release/README.md`](docs/release/README.md).
 
 For convenience, see the [installation guide](docs/INSTALL.md) for a `pip` command that fetches the latest release and a `g++` source-build command.
 
-New users can start with the [**Stable 1.0.0 Handbook**](Stable_handbook.md), a practical guide to the language, ownership model, syntax, runtime, and V1 capabilities.
+New users can start with the [**Lanner 1.0.0 Handbook**](Lanner_handbook.md), a practical guide to the language, ownership model, syntax, runtime, and V1 capabilities.
 
 
 ---
 
 ## **Version 1.0.0**
 
-Stable 1.0.0 is the current published implementation of the Stable compiler and language surface.
+Lanner 1.0.0 is the current published implementation of the Lanner compiler and language surface.
 
 The release includes:
 
@@ -105,9 +105,9 @@ Future expansion is tracked separately in **`ROADMAP.md`**.
 
 ---
 
-## **Why Stable exists**
+## **Why Lanner exists**
 
-Stable targets the part of systems programming where programmers want both:
+Lanner targets the part of systems programming where programmers want both:
 
 - **Low-level control and native performance**, and
 - **Strong compile-time memory guarantees**.
@@ -128,18 +128,18 @@ The primary design goals are:
 
 ---
 
-## **Hello, Stable**
+## **Hello, Lanner**
 
-```stable
+```lanner
 main() i32:
-    print("Hello, STABLE!")
+    print("Hello, LANNER!")
     return 0
 ```
 
 Build:
 
 ```sh
-stablec hello.st
+lanner hello.st
 ```
 
 Run:
@@ -229,12 +229,12 @@ While an exclusive borrow is active, conflicting accesses are rejected.
 
 Example:
 
-```stable
+```lanner
 inc(v: &mut i64) void:
     v = v + 1
 ```
 
-Stable automatically determines when the borrow is no longer needed.
+Lanner automatically determines when the borrow is no longer needed.
 
 ---
 
@@ -254,7 +254,7 @@ Dynamic-array operations that could relocate storage are prevented while conflic
 
 ### **Fixed arrays**
 
-```stable
+```lanner
 comptime N = 4
 xs: [N]i32 = [1, 2, 3, 4]
 ```
@@ -263,7 +263,7 @@ Fixed arrays support indexed access and mutation and participate in ownership/bo
 
 ### **Dynamic arrays**
 
-```stable
+```lanner
 xs = [1, 2, 3]
 xs.push(4)
 print(xs.len())
@@ -304,7 +304,7 @@ Arena-backed values and references remain subject to **escape and lifetime check
 
 ## **Optionals**
 
-```stable
+```lanner
 value: i32? = none
 ```
 
@@ -314,7 +314,7 @@ Optional values participate in normal ownership and destruction rules when their
 
 ## **Results**
 
-```stable
+```lanner
 enum ErrorCode:
     Empty
 
@@ -330,13 +330,13 @@ Supported forms include `Ok(...)`, `Err(...)`, and typed `is Ok(...)` / `is Err(
 
 ## **Comptime**
 
-Stable evaluates supported compile-time expressions during compilation.
+Lanner evaluates supported compile-time expressions during compilation.
 
 Current compile-time values include **integer**, **floating-point**, **boolean**, and **string** expressions.
 
 Example:
 
-```stable
+```lanner
 comptime N = 2 + 2
 xs: [N]i32 = [10, 20, 30, 40]
 ```
@@ -347,7 +347,7 @@ The compile-time evaluator includes checks such as **overflow detection** and **
 
 ## **Control flow**
 
-Stable provides:
+Lanner provides:
 
 ```text
 if / else if / else
@@ -389,17 +389,17 @@ Comparison:
 
 Explicit conversion:
 
-```stable
+```lanner
 x as i64
 ```
 
-Stable supports decimal, hexadecimal, and binary integer literals plus floating-point literals.
+Lanner supports decimal, hexadecimal, and binary integer literals plus floating-point literals.
 
 ---
 
 ## **Diagnostics**
 
-Stable diagnostics include **file, line, column, highlighted source**, and repair-oriented help when available.
+Lanner diagnostics include **file, line, column, highlighted source**, and repair-oriented help when available.
 
 Example:
 
@@ -418,23 +418,23 @@ file.st:4:7: error: cannot modify an owner while it is borrowed
 
 ## **LLVM backend**
 
-The production compiler lowers Stable to **LLVM IR**, then invokes the selected LLVM/Clang toolchain for native code generation.
+The production compiler lowers Lanner to **LLVM IR**, then invokes the selected LLVM/Clang toolchain for native code generation.
 
 Toolchain selection:
 
 ```sh
-STABLE_CLANG=/path/to/clang stablec hello.st
+LANNER_CLANG=/path/to/clang lanner hello.st
 ```
 
 or:
 
 ```sh
-LLVM_CC=/path/to/clang stablec hello.st
+LLVM_CC=/path/to/clang lanner hello.st
 ```
 
 If neither is set, the compiler uses `clang` from the environment.
 
-Stable emits modern **opaque-pointer LLVM IR** and targets the LLVM 15+ IR family.
+Lanner emits modern **opaque-pointer LLVM IR** and targets the LLVM 15+ IR family.
 
 Run compatibility checks with:
 
@@ -462,9 +462,9 @@ The LLVM backend then performs target-level optimization.
 
 ## **Self-hosting**
 
-Stable contains a Stable-written compiler track and recursive bootstrap verification.
+Lanner contains a Lanner-written compiler track and recursive bootstrap verification.
 
-The native self-hosting path can compile the Stable-written compiler through the Stable compiler itself and compare resulting stages.
+The native self-hosting path can compile the Lanner-written compiler through the Lanner compiler itself and compare resulting stages.
 
 The bootstrap infrastructure verifies a **byte-identical stage-2/stage-3 fixed point** for the validated native path.
 
@@ -472,7 +472,7 @@ The bootstrap infrastructure verifies a **byte-identical stage-2/stage-3 fixed p
 
 ## **Memory safety**
 
-Stable's core memory invariants include:
+Lanner's core memory invariants include:
 
 - **no use-after-move**
 - **no double destruction**
@@ -490,7 +490,7 @@ See **`Memory_Model.md`** for the complete model.
 
 ## **Validation**
 
-Stable has been exercised through:
+Lanner has been exercised through:
 
 - compiler regression tests
 - native self-hosting tests
@@ -520,7 +520,7 @@ Requirements:
 - **Clang/LLVM 15+**
 
 ```sh
-cmake -S . -B build -DSTABLE_BUILD_TESTS=ON
+cmake -S . -B build -DLANNER_BUILD_TESTS=ON
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
@@ -529,8 +529,8 @@ Legacy HIR compatibility:
 
 ```sh
 cmake -S . -B build \
-    -DSTABLE_BUILD_TESTS=ON \
-    -DSTABLE_ENABLE_LEGACY_HIR=ON
+    -DLANNER_BUILD_TESTS=ON \
+    -DLANNER_ENABLE_LEGACY_HIR=ON
 ```
 
 ---
@@ -538,19 +538,19 @@ cmake -S . -B build \
 ## **Command-line interface**
 
 ```sh
-stablec program.st
-stablec program.st -o program
-stablec program.st --run
-stablec program.st --check
-stablec program.st --emit-llvm
+lanner program.st
+lanner program.st -o program
+lanner program.st --run
+lanner program.st --check
+lanner program.st --emit-llvm
 ```
 
 Backend selection:
 
 ```sh
-stablec program.st --backend=auto
-stablec program.st --backend=llvm
-stablec program.st --backend=hir
+lanner program.st --backend=auto
+lanner program.st --backend=llvm
+lanner program.st --backend=hir
 ```
 
 `auto` selects the production native LLVM path. `hir` is the optional legacy/bootstrap path.
@@ -561,7 +561,7 @@ stablec program.st --backend=hir
 
 ```text
 src/          Compiler implementation
-selfhost/     Stable-written compiler track
+selfhost/     Lanner-written compiler track
 examples/     Language and regression examples
 docs/         Detailed technical documentation
 tools/        Bootstrap and compatibility tooling
@@ -584,7 +584,7 @@ tools/        Bootstrap and compatibility tooling
 
 ## **Release scope**
 
-Stable 1.0.0 is a complete release of the **currently implemented language/compiler surface**, including native systems programming, browser WebAssembly, hosted backend/cloud primitives, native ML/AI compute, mobile targets, and game-development APIs.
+Lanner 1.0.0 is a complete release of the **currently implemented language/compiler surface**, including native systems programming, browser WebAssembly, hosted backend/cloud primitives, native ML/AI compute, mobile targets, and game-development APIs.
 
 Future expansion focuses on broader language/ecosystem features such as general-purpose generics, richer pattern matching, modules/packages, language-level async/await, advanced GPU libraries, PGO, and broader tooling.
 
@@ -597,7 +597,7 @@ See **`LICENSE`**.
 
 ## Building on Linux and Windows
 
-Stable 1.0.0 is designed to build on both Linux and Windows using CMake 3.20+ and a C++17 compiler. The production backend uses an external LLVM/Clang toolchain.
+Lanner 1.0.0 is designed to build on both Linux and Windows using CMake 3.20+ and a C++17 compiler. The production backend uses an external LLVM/Clang toolchain.
 
 ### Linux
 
@@ -615,18 +615,18 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 cmake --build build --config Release
 ```
 
-Install a modern LLVM/Clang toolchain and ensure `clang` is on `PATH`, or configure `STABLE_CLANG_EXECUTABLE` at CMake configure time. Stable accepts LLVM/Clang 15 or newer because its generated IR uses opaque pointers.
+Install a modern LLVM/Clang toolchain and ensure `clang` is on `PATH`, or configure `LANNER_CLANG_EXECUTABLE` at CMake configure time. Lanner accepts LLVM/Clang 15 or newer because its generated IR uses opaque pointers.
 
-The compiler driver contains platform-specific process, quoting, executable-name, and temporary-file handling so the same Stable source tree can build and run on POSIX systems and Windows.
+The compiler driver contains platform-specific process, quoting, executable-name, and temporary-file handling so the same Lanner source tree can build and run on POSIX systems and Windows.
 
 ## Web Frontend
 
-Stable supports browser-oriented WebAssembly builds with `stablec --web`; see `docs/WEB.md`.
+Lanner supports browser-oriented WebAssembly builds with `lanner --web`; see `docs/WEB.md`.
 
 ## Mobile targets
 
-Stable 1.0.0 includes native Android and iOS target support, mobile project generation, JNI/Objective-C bridge scaffolding, native UI shells, and a platform-neutral `Mobile` API for screen metrics, safe areas, storage paths, clipboard, URLs, haptics, permissions, and hardware capability queries. See `docs/Mobile.md`.
+Lanner 1.0.0 includes native Android and iOS target support, mobile project generation, JNI/Objective-C bridge scaffolding, native UI shells, and a platform-neutral `Mobile` API for screen metrics, safe areas, storage paths, clipboard, URLs, haptics, permissions, and hardware capability queries. See `docs/Mobile.md`.
 
 ## Game development
 
-Stable 1.0.0 includes a native SDL2-backed `Game` runtime for windows, events, input, 2D rendering, textures, audio and frame timing, plus a `Graphics` layer for OpenGL and dynamically loaded native GPU APIs. `stablec --game-project` generates a portable CMake game project. See `docs/GAME_DEVELOPMENT.md`.
+Lanner 1.0.0 includes a native SDL2-backed `Game` runtime for windows, events, input, 2D rendering, textures, audio and frame timing, plus a `Graphics` layer for OpenGL and dynamically loaded native GPU APIs. `lanner --game-project` generates a portable CMake game project. See `docs/GAME_DEVELOPMENT.md`.

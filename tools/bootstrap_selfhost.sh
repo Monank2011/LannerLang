@@ -2,18 +2,18 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [[ "${STABLE_BOOTSTRAP_FRONTEND_ONLY:-0}" == "1" ]]; then
-    BUILD_DIR="${STABLE_BUILD_DIR:-$ROOT_DIR/build}"
+if [[ "${LANNER_BOOTSTRAP_FRONTEND_ONLY:-0}" == "1" ]]; then
+    BUILD_DIR="${LANNER_BUILD_DIR:-$ROOT_DIR/build}"
     INPUT="${1:-selfhost/compiler.st}"
-    SELFHOST_BIN="${STABLE_SELFHOST_BIN:-$BUILD_DIR/stable-selfhost-front}"
-    if [[ ! -x "$BUILD_DIR/stablec" ]]; then
-        cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DSTABLE_BUILD_TESTS=ON -DSTABLE_ENABLE_LEGACY_HIR=OFF
+    SELFHOST_BIN="${LANNER_SELFHOST_BIN:-$BUILD_DIR/lanner-selfhost-front}"
+    if [[ ! -x "$BUILD_DIR/lanner" ]]; then
+        cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DLANNER_BUILD_TESTS=ON -DLANNER_ENABLE_LEGACY_HIR=OFF
         cmake --build "$BUILD_DIR" -j"${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
     fi
-    printf '[stage0] building Stable-written frontend -> %s\n' "$SELFHOST_BIN"
-    "$BUILD_DIR/stablec" "$ROOT_DIR/selfhost/compiler.st" --backend=llvm -o "$SELFHOST_BIN"
-    printf '[stage1] running Stable-written native frontend on %s\n' "$INPUT"
-    ( cd "$ROOT_DIR"; STABLE_SELFHOST_INPUT="$INPUT" "$SELFHOST_BIN" )
+    printf '[stage0] building Lanner-written frontend -> %s\n' "$SELFHOST_BIN"
+    "$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.st" --backend=llvm -o "$SELFHOST_BIN"
+    printf '[stage1] running Lanner-written native frontend on %s\n' "$INPUT"
+    ( cd "$ROOT_DIR"; LANNER_SELFHOST_INPUT="$INPUT" "$SELFHOST_BIN" )
     exit 0
 fi
 

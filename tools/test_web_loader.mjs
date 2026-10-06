@@ -38,9 +38,9 @@ globalThis.cancelAnimationFrame = id => clearTimeout(id);
 
 const wasmUrl = pathToFileURL(wasmPath);
 const loaderUrl = new URL(wasmUrl.href.replace(/\.wasm$/, ".js"));
-const {loadStable} = await import(loaderUrl.href);
+const {loadLanner} = await import(loaderUrl.href);
 const moduleUrl = wasmUrl;
-const result = await loadStable(moduleUrl);
+const result = await loadLanner(moduleUrl);
 const code = result.exports.main();
 await new Promise(resolve => setTimeout(resolve, 75));
 

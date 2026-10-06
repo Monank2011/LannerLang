@@ -3,16 +3,16 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "stable-lang-installer"
+name = "lannerlang-installer"
 version = "1.0.0"
-description = "Installer for the Stable programming language compiler"
+description = "Installer for the LannerLang programming language compiler"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [{name = "Monank Gohil"}]
 license = {text = "Apache-2.0"}
 
 [project.scripts]
-stable-install = "stable_installer:main"
+lanner-install = "lanner_installer:main"
 
 [tool.setuptools]
-py-modules = ["stable_installer"]
+py-modules = ["lanner_installer"]

@@ -1,6 +1,6 @@
 # **Security Policy**
 
-Stable is a systems programming language and compiler with **memory safety as a core design goal**.
+Lanner is a systems programming language and compiler with **memory safety as a core design goal**.
 
 Security issues may include:
 
@@ -20,7 +20,7 @@ For sensitive vulnerabilities, use a private vulnerability-reporting mechanism r
 
 Include:
 
-- **Stable version**
+- **Lanner version**
 - **OS/toolchain**
 - **minimal reproducer**
 - **exact command line**
@@ -30,7 +30,7 @@ Include:
 
 ## **Security philosophy**
 
-The Stable memory model aims to prevent common classes of memory misuse through compile-time ownership and borrowing checks.
+The Lanner memory model aims to prevent common classes of memory misuse through compile-time ownership and borrowing checks.
 
 Important invariants include **no use-after-move**, **no conflicting mutable aliases**, **no dangling borrows**, **bounds-safe indexing**, and **deterministic destruction**.
 

@@ -1,6 +1,6 @@
 main() i32:
     windowFlags = Game.windowFlags(false, true, false, false)
-    window = Game.createWindow("Stable Game", 320, 240, windowFlags)
+    window = Game.createWindow("Lanner Game", 320, 240, windowFlags)
     if Game.width(window) != 320:
         Game.destroyWindow(window)
         return 1

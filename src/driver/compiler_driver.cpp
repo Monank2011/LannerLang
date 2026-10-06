@@ -1,6 +1,6 @@
 #include "compiler_driver.hpp"
 #include "../codegen/llvm_codegen.hpp"
-#if STABLE_ENABLE_LEGACY_HIR
+#if LANNER_ENABLE_LEGACY_HIR
 #include "../ir/hir.hpp"
 #include "../ir/hir_lowerer.hpp"
 #include "../ir/hir_llvm_codegen.hpp"
@@ -37,14 +37,14 @@ std::string removeExtension(const std::string& path) {
 }
 
 std::string clangExecutable() {
-    if (const char* value = std::getenv("STABLE_CLANG")) {
+    if (const char* value = std::getenv("LANNER_CLANG")) {
         if (*value != '\0') return value;
     }
     if (const char* value = std::getenv("LLVM_CC")) {
         if (*value != '\0') return value;
     }
-#ifdef STABLE_CLANG_EXECUTABLE
-    return STABLE_CLANG_EXECUTABLE;
+#ifdef LANNER_CLANG_EXECUTABLE
+    return LANNER_CLANG_EXECUTABLE;
 #else
     return "clang";
 #endif
@@ -96,7 +96,7 @@ std::string webLoaderSource(const std::string& wasmFileName) {
     std::string out = R"JS(const utf8 = new TextDecoder("utf-8");
 const utf8Encoder = new TextEncoder();
 
-export async function loadStable(url = new URL("WASM_FILE", import.meta.url), extraImports = {}) {
+export async function loadLanner(url = new URL("WASM_FILE", import.meta.url), extraImports = {}) {
     let instance = null;
     let memory = null;
     let heap = 0;
@@ -168,29 +168,29 @@ export async function loadStable(url = new URL("WASM_FILE", import.meta.url), ex
             for (let i = 0; i < n; ++i) { if (aa[x+i] !== aa[y+i]) return aa[x+i] - aa[y+i]; } return 0;
         }),
         strlen: importFn("strlen", (ptr) => cstr(ptr).length),
-        __stable_web_log: importFn("__stable_web_log", (ptr) => console.log(cstr(ptr))),
-        __stable_web_warn: importFn("__stable_web_warn", (ptr) => console.warn(cstr(ptr))),
-        __stable_web_error: importFn("__stable_web_error", (ptr) => console.error(cstr(ptr))),
-        __stable_web_now_ms: importFn("__stable_web_now_ms", () => performance.now()),
-        __stable_web_random: importFn("__stable_web_random", () => Math.random()),
-        __stable_web_set_text: importFn("__stable_web_set_text", (selector, text) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.textContent=cstr(text); return 1; }),
-        __stable_web_set_html: importFn("__stable_web_set_html", (selector, html) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.innerHTML=cstr(html); return 1; }),
-        __stable_web_set_attr: importFn("__stable_web_set_attr", (selector, name, value) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.setAttribute(cstr(name), cstr(value)); return 1; }),
-        __stable_web_add_class: importFn("__stable_web_add_class", (selector, cls) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.classList.add(cstr(cls)); return 1; }),
-        __stable_web_remove_class: importFn("__stable_web_remove_class", (selector, cls) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.classList.remove(cstr(cls)); return 1; }),
-        __stable_web_remove: importFn("__stable_web_remove", (selector) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.remove(); return 1; }),
-        __stable_web_query_count: importFn("__stable_web_query_count", (selector) => document.querySelectorAll(cstr(selector)).length),
-        __stable_web_focus: importFn("__stable_web_focus", (selector) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.focus(); return 1; }),
-        __stable_web_set_timeout: importFn("__stable_web_set_timeout", (callbackName, ms) => { const id = setTimeout(() => { const f=instance?.exports?.[cstr(callbackName)]; if(typeof f === "function") f(); }, Number(ms)); timers.set(id,id); return id|0; }),
-        __stable_web_clear_timeout: importFn("__stable_web_clear_timeout", (id) => { clearTimeout(Number(id)); timers.delete(Number(id)); }),
-        __stable_web_request_animation_frame: importFn("__stable_web_request_animation_frame", (callbackName) => { const id=requestAnimationFrame((t)=>{ const f=instance?.exports?.[cstr(callbackName)]; if(typeof f === "function") f(t); }); timers.set(id,id); return id|0; }),
-        __stable_web_cancel_animation_frame: importFn("__stable_web_cancel_animation_frame", (id) => { cancelAnimationFrame(Number(id)); timers.delete(Number(id)); }),
-        __stable_web_queue_microtask: importFn("__stable_web_queue_microtask", (callbackName) => { queueMicrotask(()=>{ const f=instance?.exports?.[cstr(callbackName)]; if(typeof f === "function") f(); }); return 0; }),
-        __stable_web_add_event_listener: importFn("__stable_web_add_event_listener", (selector, event, callbackName) => {
+        __lanner_web_log: importFn("__lanner_web_log", (ptr) => console.log(cstr(ptr))),
+        __lanner_web_warn: importFn("__lanner_web_warn", (ptr) => console.warn(cstr(ptr))),
+        __lanner_web_error: importFn("__lanner_web_error", (ptr) => console.error(cstr(ptr))),
+        __lanner_web_now_ms: importFn("__lanner_web_now_ms", () => performance.now()),
+        __lanner_web_random: importFn("__lanner_web_random", () => Math.random()),
+        __lanner_web_set_text: importFn("__lanner_web_set_text", (selector, text) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.textContent=cstr(text); return 1; }),
+        __lanner_web_set_html: importFn("__lanner_web_set_html", (selector, html) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.innerHTML=cstr(html); return 1; }),
+        __lanner_web_set_attr: importFn("__lanner_web_set_attr", (selector, name, value) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.setAttribute(cstr(name), cstr(value)); return 1; }),
+        __lanner_web_add_class: importFn("__lanner_web_add_class", (selector, cls) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.classList.add(cstr(cls)); return 1; }),
+        __lanner_web_remove_class: importFn("__lanner_web_remove_class", (selector, cls) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.classList.remove(cstr(cls)); return 1; }),
+        __lanner_web_remove: importFn("__lanner_web_remove", (selector) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.remove(); return 1; }),
+        __lanner_web_query_count: importFn("__lanner_web_query_count", (selector) => document.querySelectorAll(cstr(selector)).length),
+        __lanner_web_focus: importFn("__lanner_web_focus", (selector) => { const e=document.querySelector(cstr(selector)); if(!e)return 0; e.focus(); return 1; }),
+        __lanner_web_set_timeout: importFn("__lanner_web_set_timeout", (callbackName, ms) => { const id = setTimeout(() => { const f=instance?.exports?.[cstr(callbackName)]; if(typeof f === "function") f(); }, Number(ms)); timers.set(id,id); return id|0; }),
+        __lanner_web_clear_timeout: importFn("__lanner_web_clear_timeout", (id) => { clearTimeout(Number(id)); timers.delete(Number(id)); }),
+        __lanner_web_request_animation_frame: importFn("__lanner_web_request_animation_frame", (callbackName) => { const id=requestAnimationFrame((t)=>{ const f=instance?.exports?.[cstr(callbackName)]; if(typeof f === "function") f(t); }); timers.set(id,id); return id|0; }),
+        __lanner_web_cancel_animation_frame: importFn("__lanner_web_cancel_animation_frame", (id) => { cancelAnimationFrame(Number(id)); timers.delete(Number(id)); }),
+        __lanner_web_queue_microtask: importFn("__lanner_web_queue_microtask", (callbackName) => { queueMicrotask(()=>{ const f=instance?.exports?.[cstr(callbackName)]; if(typeof f === "function") f(); }); return 0; }),
+        __lanner_web_add_event_listener: importFn("__lanner_web_add_event_listener", (selector, event, callbackName) => {
             const e=document.querySelector(cstr(selector)); if(!e)return 0; const name=cstr(callbackName); const fn=()=>{ const f=instance?.exports?.[name]; if(typeof f === "function") f(); }; e.addEventListener(cstr(event),fn); const id=nextListenerId++; listeners.set(id,{e,event:cstr(event),fn}); return id;
         }),
-        __stable_web_remove_event_listener: importFn("__stable_web_remove_event_listener", (id) => { const r=listeners.get(Number(id)); if(!r)return 0; r.e.removeEventListener(r.event,r.fn); listeners.delete(Number(id)); return 1; }),
-        __stable_web_fetch_text: importFn("__stable_web_fetch_text", (urlPtr, callbackPtr) => {
+        __lanner_web_remove_event_listener: importFn("__lanner_web_remove_event_listener", (id) => { const r=listeners.get(Number(id)); if(!r)return 0; r.e.removeEventListener(r.event,r.fn); listeners.delete(Number(id)); return 1; }),
+        __lanner_web_fetch_text: importFn("__lanner_web_fetch_text", (urlPtr, callbackPtr) => {
             const urlText=cstr(urlPtr), cbName=cstr(callbackPtr);
             fetch(urlText).then(async r => {
                 const buf=new Uint8Array(await r.arrayBuffer());
@@ -201,7 +201,7 @@ export async function loadStable(url = new URL("WASM_FILE", import.meta.url), ex
             });
             return 0;
         }),
-        __stable_web_buffer_free: importFn("__stable_web_buffer_free", free),
+        __lanner_web_buffer_free: importFn("__lanner_web_buffer_free", free),
     };
 
     const imports = { env };
@@ -211,13 +211,13 @@ export async function loadStable(url = new URL("WASM_FILE", import.meta.url), ex
     catch (_) { const bytes = await (await fetch(url)).arrayBuffer(); result = await WebAssembly.instantiate(bytes, imports); }
     instance = result.instance ?? result;
     memory = instance.exports.memory;
-    if (!memory) throw new Error("Stable Web module did not export linear memory");
+    if (!memory) throw new Error("Lanner Web module did not export linear memory");
     const hb = instance.exports.__heap_base;
     heap = hb && "value" in hb ? Number(hb.value) : 1024;
     return { instance, module: result.module ?? null, memory, exports: instance.exports };
 }
 
-export const ready = loadStable;
+export const ready = loadLanner;
 )JS";
     const std::string marker = "WASM_FILE";
     std::size_t pos = 0;
@@ -245,10 +245,10 @@ int clangMajorVersion(const std::string& executable) {
 
 }
 
-std::string stableRuntimePath() {
-    if (const char* value = std::getenv("STABLE_RUNTIME")) return value;
-#ifdef STABLE_RUNTIME_SOURCE
-    return STABLE_RUNTIME_SOURCE;
+std::string lannerRuntimePath() {
+    if (const char* value = std::getenv("LANNER_RUNTIME")) return value;
+#ifdef LANNER_RUNTIME_SOURCE
+    return LANNER_RUNTIME_SOURCE;
 #else
     return {};
 #endif
@@ -310,7 +310,7 @@ std::string CompilerDriver::makeTemporaryPath(const std::string& inputPath) {
     pid = static_cast<long long>(::getpid());
 #endif
     return (base / (std::filesystem::path(inputPath).stem().string() + "." +
-                    std::to_string(pid) + "." + std::to_string(now) + ".stable.ll")).string();
+                    std::to_string(pid) + "." + std::to_string(now) + ".lanner.ll")).string();
 }
 
 bool CompilerDriver::hasMain(const Program& program) {
@@ -321,25 +321,25 @@ bool CompilerDriver::hasMain(const Program& program) {
 }
 
 std::string CompilerDriver::generateLLVM(const Program& program, BackendKind backend, int optimizationLevel, BackendKind& usedBackend, bool includeRuntime, const std::string& targetTriple) {
-#if !STABLE_ENABLE_LEGACY_HIR
+#if !LANNER_ENABLE_LEGACY_HIR
     (void)optimizationLevel;
     (void)includeRuntime;
     (void)targetTriple;
 #endif
     // Native LLVM is now the production backend.  HIR remains only as an
-    // explicitly gated bootstrap/research path while the Stable-written
+    // explicitly gated bootstrap/research path while the Lanner-written
     // compiler is brought to feature parity.  Production `auto` never
     // silently falls back to HIR.
     if (backend == BackendKind::HIR) {
-#if STABLE_ENABLE_LEGACY_HIR
-        stable::hir::Lowerer lowerer;
-        stable::hir::Module module = lowerer.lowerProgram(program);
+#if LANNER_ENABLE_LEGACY_HIR
+        lanner::hir::Lowerer lowerer;
+        lanner::hir::Module module = lowerer.lowerProgram(program);
         if (optimizationLevel > 0) {
-            const auto level = optimizationLevel >= 2 ? stable::hir::OptimizationLevel::O2
-                                                      : stable::hir::OptimizationLevel::O1;
-            stable::hir::optimize(module, level);
+            const auto level = optimizationLevel >= 2 ? lanner::hir::OptimizationLevel::O2
+                                                      : lanner::hir::OptimizationLevel::O1;
+            lanner::hir::optimize(module, level);
         }
-        stable::hir::LLVMCodegen codegen;
+        lanner::hir::LLVMCodegen codegen;
         usedBackend = BackendKind::HIR;
         return codegen.generate(module);
 #else
@@ -451,9 +451,9 @@ int CompilerDriver::run(const CompilerOptions& options) {
         if (temporaryRunOutput) {
             output = (std::filesystem::path(llPath).replace_extension(
 #if defined(_WIN32)
-                ".stable.run.exe"
+                ".lanner.run.exe"
 #else
-                ".stable.run"
+                ".lanner.run"
 #endif
             )).string();
         } else if (!options.outputPath.empty()) {
@@ -478,8 +478,8 @@ int CompilerDriver::run(const CompilerOptions& options) {
         const int major = clangMajorVersion(compiler);
         if (major > 0 && major < 15) {
             throw std::runtime_error(
-                "LLVM toolchain '" + compiler + "' is too old for Stable's opaque-pointer LLVM IR "
-                "(LLVM 15+ is required); select a modern clang with STABLE_CLANG or LLVM_CC");
+                "LLVM toolchain '" + compiler + "' is too old for Lanner's opaque-pointer LLVM IR "
+                "(LLVM 15+ is required); select a modern clang with LANNER_CLANG or LLVM_CC");
         }
         const std::string opt = "-O" + std::to_string(options.optimizationLevel);
         std::vector<std::string> command;
@@ -519,7 +519,7 @@ int CompilerDriver::run(const CompilerOptions& options) {
         } else {
             command.push_back(llPath);
             if (!options.noRuntime) {
-                const auto runtime = stableRuntimePath();
+                const auto runtime = lannerRuntimePath();
                 if (!runtime.empty()) command.push_back(runtime);
             }
             if (options.web) {
@@ -542,9 +542,9 @@ int CompilerDriver::run(const CompilerOptions& options) {
             command.push_back("-o");
             command.push_back(output);
 #if !defined(_WIN32)
-            if (!options.noRuntime && !options.freestanding && !stableRuntimePath().empty()) { command.push_back("-pthread"); command.push_back("-ldl"); command.push_back("-lm"); }
+            if (!options.noRuntime && !options.freestanding && !lannerRuntimePath().empty()) { command.push_back("-pthread"); command.push_back("-ldl"); command.push_back("-lm"); }
 #else
-            if (!options.noRuntime && !options.freestanding && !stableRuntimePath().empty()) command.push_back("ws2_32.lib");
+            if (!options.noRuntime && !options.freestanding && !lannerRuntimePath().empty()) command.push_back("ws2_32.lib");
 #endif
             for (const auto& linkArg : options.linkArgs) command.push_back(linkArg);
         }
@@ -591,8 +591,8 @@ int CompilerDriver::run(const CompilerOptions& options) {
 #endif
         return runStatus;
     } catch (const std::exception& e) {
-        const auto parsed = stable::diagnostics::parseErrorMessage(e.what());
-        std::cerr << stable::diagnostics::render(parsed, options.inputPath, source);
+        const auto parsed = lanner::diagnostics::parseErrorMessage(e.what());
+        std::cerr << lanner::diagnostics::render(parsed, options.inputPath, source);
         return 1;
     }
 }

@@ -1,6 +1,6 @@
-# Stable Language Design
+# Lanner Language Design
 
-Stable is a general-purpose systems programming language. Chess engines are one demanding workload used to stress-test the language, not the language's domain.
+Lanner is a general-purpose systems programming language. Chess engines are one demanding workload used to stress-test the language, not the language's domain.
 
 ## Design goals
 
@@ -26,7 +26,7 @@ Stable is a general-purpose systems programming language. Chess engines are one 
 
 `EditView[T]` is a non-owning, exclusive, mutable slice. It is move-only. The compiler prevents another shared or mutable borrow of the owner while an `EditView` is alive.
 
-References follow the same rule: `&T` is shared/read-only and `&mut T` is exclusive/mutable. The compiler infers the borrow lifetime lexically in the first safety pass and will later shorten it with flow-sensitive last-use analysis. Users do not write lifetime annotations in normal Stable code.
+References follow the same rule: `&T` is shared/read-only and `&mut T` is exclusive/mutable. The compiler infers the borrow lifetime lexically in the first safety pass and will later shorten it with flow-sensitive last-use analysis. Users do not write lifetime annotations in normal Lanner code.
 
 The intended mental model is:
 
@@ -42,7 +42,7 @@ The intended mental model is:
 
 ### Shared ownership
 
-Reference counting is opt-in (`Shared[T]` and eventually `SharedSync[T]`). Stable will never silently turn an ordinary local into an atomic reference-counted object.
+Reference counting is opt-in (`Shared[T]` and eventually `SharedSync[T]`). Lanner will never silently turn an ordinary local into an atomic reference-counted object.
 
 ### Unsafe boundary
 
@@ -61,7 +61,7 @@ Raw pointers and operations that bypass safety checks belong behind an explicit 
 - support profile-guided optimization later
 - keep compile-time work cacheable and incremental
 
-## Features intended to differentiate Stable
+## Features intended to differentiate Lanner
 
 ### 1. Inferred borrowing instead of explicit lifetime syntax
 
@@ -73,11 +73,11 @@ Instead of teaching every developer multiple smart-pointer forms, regions make a
 
 ### 3. Safe views as a primitive
 
-Slices/views are first-class values, not library wrappers with hidden ownership rules. Their pointer+length representation should be ABI-stable and zero-cost.
+Slices/views are first-class values, not library wrappers with hidden ownership rules. Their pointer+length representation should be ABI-lanner and zero-cost.
 
 ### 4. Explicit cost surface
 
-Stable should make the expensive things obvious: allocation, atomic sharing, locks, copies of large values, dynamic dispatch, and FFI transitions.
+Lanner should make the expensive things obvious: allocation, atomic sharing, locks, copies of large values, dynamic dispatch, and FFI transitions.
 
 ### 5. Comptime as normal language machinery
 
@@ -107,7 +107,7 @@ Ownership and type errors should explain the owner, the borrow/view origin, the 
 
 ## Benchmark policy
 
-Stable must not claim to beat C++ or Rust because a single microbenchmark looks good. The project should eventually ship reproducible benchmark suites for:
+Lanner must not claim to beat C++ or Rust because a single microbenchmark looks good. The project should eventually ship reproducible benchmark suites for:
 
 - compiler throughput
 - integer/bit manipulation

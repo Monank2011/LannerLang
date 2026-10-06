@@ -2,7 +2,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace stable::hir {
+namespace lanner::hir {
 
 std::string Type::toString() const {
     if (!sourceName.empty()) return sourceName;
@@ -167,4 +167,4 @@ std::string print(const Module& module) {
     return out.str();
 }
 
-} // namespace stable::hir
+} // namespace lanner::hir

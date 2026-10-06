@@ -1,11 +1,11 @@
-# Stable Web Frontend
+# Lanner Web Frontend
 
-Stable can target browser WebAssembly with `stablec --web`.
+Lanner can target browser WebAssembly with `lanner --web`.
 
 ## Build
 
 ```text
-stablec app.st --web -O3 -o app.wasm
+lanner app.st --web -O3 -o app.wasm
 ```
 
 This produces:
@@ -21,10 +21,10 @@ instantiation when the response is not streamable.
 
 ## JavaScript interop
 
-Stable `extern` functions are emitted as WebAssembly imports. The generated
+Lanner `extern` functions are emitted as WebAssembly imports. The generated
 loader accepts an optional second argument containing host functions:
 
-```stable
+```lanner
 extern host_add(a: i32, b: i32) i32
 
 main() i32:
@@ -32,20 +32,20 @@ main() i32:
 ```
 
 ```javascript
-import {loadStable} from "./app.js";
-const stable = await loadStable("./app.wasm", {
+import {loadLanner} from "./app.js";
+const lanner = await loadLanner("./app.wasm", {
     host_add: (a, b) => a + b
 });
-console.log(stable.exports.main());
+console.log(lanner.exports.main());
 ```
 
 ## Browser namespace
 
 `Web` is available only for a wasm32 browser build:
 
-```stable
+```lanner
 Web.log("hello")
-Web.setText("#status", "hello from Stable")
+Web.setText("#status", "hello from Lanner")
 Web.setTimeout("tick", 1000)
 Web.requestAnimationFrame("frame")
 Web.addEventListener("#button", "click", "clicked")
@@ -57,13 +57,13 @@ Callback names are checked when they are string literals. The compiler checks
 arity, parameter types, and `void` return type for the callback ABI.
 
 Web callbacks use ordinary browser event-loop scheduling. `fetchText` starts an
-asynchronous Fetch operation and later invokes the named Stable callback with
+asynchronous Fetch operation and later invokes the named Lanner callback with
 `status`, a raw byte pointer, and byte length. The callback owns the returned
 buffer and can call `Web.freeBuffer()` when finished.
 
 ## Runtime boundary
 
-Browser builds are freestanding and do not link the hosted Stable runtime.
+Browser builds are freestanding and do not link the hosted Lanner runtime.
 The loader supplies the minimal linear-memory services needed by the language,
 including `malloc`, `realloc`, `free`, `memset`, `memcpy`, `memmove`, and
 `memcmp`, plus the browser APIs above.

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace stable::hir {
+namespace lanner::hir {
 
 class Lowerer {
 public:
@@ -74,4 +74,4 @@ private:
     [[noreturn]] void unsupported(const std::string& message, int line) const;
 };
 
-} // namespace stable::hir
+} // namespace lanner::hir

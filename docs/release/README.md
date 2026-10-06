@@ -1,23 +1,23 @@
-# **Stable 1.0.0 Release Packages**
+# **LannerLang 1.0.0 Release Packages**
 
-> **Stable was created and is developed by Monank Gohil, who began developing it at age 15.**
+> **Lanner was created and is developed by Monank Gohil, who began developing it at age 15.**
 
-Stable 1.0.0 provides prebuilt `stablec` compiler packages for **Linux x86_64** and **Windows x86_64**. The included installer downloads the official **LLVM/Clang 23.1.2** archive, verifies its SHA-256 checksum, and installs it side by side under Stable's own directory. It does not replace or modify a system LLVM installation.
+LannerLang 1.0.0 provides prebuilt `lanner` compiler packages for **Linux x86_64** and **Windows x86_64**. The included installer downloads the official **LLVM/Clang 23.1.2** archive, verifies its SHA-256 checksum, and installs it side by side under Lanner's own directory. It does not replace or modify a system LLVM installation.
 
 ## Recommended installation
 
 ### Linux
 
 ```sh
-tar -xzf stablec-1.0.0-linux-x86_64.tar.gz
-cd stablec-1.0.0-linux-x86_64
+tar -xzf lanner-1.0.0-linux-x86_64.tar.gz
+cd lanner-1.0.0-linux-x86_64
 ./install.sh
-export PATH="$HOME/.local/stable/1.0.0/bin:$PATH"
-stablec examples/hello.st -o hello
+export PATH="$HOME/.local/lanner/1.0.0/bin:$PATH"
+lanner examples/hello.st -o hello
 ./hello
 ```
 
-Use `sudo ./install.sh --system` to install under `/usr/local/lib/stable/1.0.0`.
+Use `sudo ./install.sh --system` to install under `/usr/local/lib/lanner/1.0.0`.
 
 ### Windows
 
@@ -26,12 +26,12 @@ Extract the ZIP, open PowerShell in the extracted directory, and run:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\install.ps1
-$env:Path = "$env:LOCALAPPDATA\Stable\1.0.0\bin;$env:Path"
-stablec.cmd .\examples\hello.st -o hello.exe
+$env:Path = "$env:LOCALAPPDATA\Lanner\1.0.0\bin;$env:Path"
+lanner.cmd .\examples\hello.st -o hello.exe
 .\hello.exe
 ```
 
-The Windows installer uses the official x86_64 LLVM archive and stores it at `%LOCALAPPDATA%\Stable\1.0.0\llvm\23.1.2`.
+The Windows installer uses the official x86_64 LLVM archive and stores it at `%LOCALAPPDATA%\Lanner\1.0.0\llvm\23.1.2`.
 
 ## Pinned LLVM downloads
 
@@ -48,9 +48,9 @@ Windows: 8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095
 
 ## Package contents
 
-- `bin/stablec` or `bin/stablec.exe` — the Stable compiler
+- `bin/lanner` or `bin/lanner.exe` — the Lanner compiler
 - `install.sh` / `install.ps1` — LLVM-aware installers
-- `lib/stable_runtime.c` — runtime support source
+- `lib/lanner_runtime.c` — runtime support source
 - `examples/hello.st` — a minimal example
 - `README.txt` — platform-specific installation and usage notes
 
@@ -59,18 +59,18 @@ Windows: 8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095
 Install the latest release bootstrapper through pip:
 
 ```bash
-python -m pip install --upgrade git+https://github.com/Monank2011/STABLE.git#subdirectory=packaging/python
-stable-install
+python -m pip install --upgrade git+https://github.com/Monank2011/LannerLang.git#subdirectory=packaging/python
+lanner-install
 ```
 
 On Linux, build the latest source with `g++`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Monank2011/STABLE/main/tools/install-from-source-g++.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Monank2011/LannerLang/main/tools/install-from-source-g++.sh | bash
 ```
 
 See [`docs/INSTALL.md`](../INSTALL.md) for the full installation guide.
 
-New users can read the [**Stable 1.0.0 Handbook**](../../Stable_handbook.md) for a practical introduction to Stable syntax, types, ownership, borrowing, memory safety, runtime APIs, and the V1 feature set.
+New users can read the [**Lanner 1.0.0 Handbook**](../../Lanner_handbook.md) for a practical introduction to Lanner syntax, types, ownership, borrowing, memory safety, runtime APIs, and the V1 feature set.
 
 The pip bootstrapper selects the actual latest release asset name correctly and supports an optional `GITHUB_TOKEN` environment variable for GitHub API rate-limit resilience.

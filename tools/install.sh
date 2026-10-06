@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STABLE_VERSION="1.0.0"
+LANNER_VERSION="1.0.0"
 LLVM_VERSION="23.1.2"
 LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
 LLVM_SHA256="b5ed9675149cc837c282e9b6962c276c9fa62863d5b2f91537b60848552995b7"
 
-PREFIX="${STABLE_PREFIX:-${HOME}/.local/stable/${STABLE_VERSION}}"
+PREFIX="${LANNER_PREFIX:-${HOME}/.local/lanner/${LANNER_VERSION}}"
 if [[ "${1:-}" == "--system" ]]; then
-  PREFIX="/usr/local/lib/stable/${STABLE_VERSION}"
+  PREFIX="/usr/local/lib/lanner/${LANNER_VERSION}"
 fi
 
 if [[ ! -w "$(dirname "$PREFIX")" && ! -w "$PREFIX" ]]; then
@@ -48,25 +48,25 @@ rm -rf "$PREFIX/llvm/$LLVM_VERSION"
 mv "$LLVM_ROOT" "$PREFIX/llvm/$LLVM_VERSION"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPILER="${SCRIPT_DIR}/../bin/stablec"
+COMPILER="${SCRIPT_DIR}/../bin/lanner"
 if [[ ! -x "$COMPILER" ]]; then
-  echo "error: stablec binary not found next to this installer" >&2
+  echo "error: lanner binary not found next to this installer" >&2
   exit 1
 fi
-cp "$COMPILER" "$PREFIX/bin/stablec-bin"
-cat > "$PREFIX/bin/stablec" <<EOF
+cp "$COMPILER" "$PREFIX/bin/lanner-bin"
+cat > "$PREFIX/bin/lanner" <<EOF
 #!/usr/bin/env bash
 set -e
-export STABLE_CLANG="${PREFIX}/llvm/${LLVM_VERSION}/bin/clang"
-exec "${PREFIX}/bin/stablec-bin" "\$@"
+export LANNER_CLANG="${PREFIX}/llvm/${LLVM_VERSION}/bin/clang"
+exec "${PREFIX}/bin/lanner-bin" "\$@"
 EOF
-chmod +x "$PREFIX/bin/stablec"
+chmod +x "$PREFIX/bin/lanner"
 
 cat <<EOF
-Stable ${STABLE_VERSION} installed.
+Lanner ${LANNER_VERSION} installed.
 LLVM/Clang ${LLVM_VERSION} installed side by side at:
   ${PREFIX}/llvm/${LLVM_VERSION}
 Compiler wrapper:
-  ${PREFIX}/bin/stablec
-Add ${PREFIX}/bin to PATH to use stablec from new shells.
+  ${PREFIX}/bin/lanner
+Add ${PREFIX}/bin to PATH to use lanner from new shells.
 EOF

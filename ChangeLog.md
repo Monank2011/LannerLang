@@ -1,8 +1,8 @@
-# **Stable Changelog**
+# **Lanner Changelog**
 
 ## **1.0.0**
 
-Stable 1.0.0 marks the first release checkpoint of the current implemented Stable language/compiler surface.
+Lanner 1.0.0 marks the first release checkpoint of the current implemented Lanner language/compiler surface.
 
 ### **Language**
 
@@ -62,6 +62,6 @@ The development benchmark campaign exposed and fixed several subtle compiler def
 
 ## **Development history**
 
-Earlier Stable development milestones include the prototype compiler, memory-model redesign, native LLVM migration, self-hosting work, HIR/SSA infrastructure, and bootstrap milestones.
+Earlier Lanner development milestones include the prototype compiler, memory-model redesign, native LLVM migration, self-hosting work, HIR/SSA infrastructure, and bootstrap milestones.
 
 The detailed historical commits remain available in the Git history.

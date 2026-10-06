@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
-$StableVersion = '1.0.0'
+$LannerVersion = '1.0.0'
 $LLVMVersion = '23.1.2'
 $LlmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVMVersion/clang%2Bllvm-$LLVMVersion-x86_64-pc-windows-msvc.tar.xz"
 $LlvmSha256 = '8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095'
-$Prefix = if ($env:STABLE_PREFIX) { $env:STABLE_PREFIX } else { Join-Path $env:LOCALAPPDATA "Stable\$StableVersion" }
-$Temp = Join-Path ([System.IO.Path]::GetTempPath()) ("stable-install-" + [guid]::NewGuid())
+$Prefix = if ($env:LANNER_PREFIX) { $env:LANNER_PREFIX } else { Join-Path $env:LOCALAPPDATA "Lanner\$LannerVersion" }
+$Temp = Join-Path ([System.IO.Path]::GetTempPath()) ("lanner-install-" + [guid]::NewGuid())
 $Archive = Join-Path $Temp 'llvm.tar.xz'
 $LlvmRoot = Join-Path $Prefix "llvm\$LLVMVersion"
 
@@ -29,19 +29,19 @@ try {
     Move-Item $ExtractedRoot.FullName $LlvmRoot
 
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $Compiler = Join-Path $ScriptDir '..\bin\stablec.exe'
-    if (-not (Test-Path $Compiler)) { throw 'stablec.exe was not found next to this installer.' }
-    Copy-Item $Compiler (Join-Path $Prefix 'bin\stablec-bin.exe') -Force
+    $Compiler = Join-Path $ScriptDir '..\bin\lanner.exe'
+    if (-not (Test-Path $Compiler)) { throw 'lanner.exe was not found next to this installer.' }
+    Copy-Item $Compiler (Join-Path $Prefix 'bin\lanner-bin.exe') -Force
     @"
 @echo off
-set "STABLE_CLANG=$LlvmRoot\bin\clang.exe"
-"$Prefix\bin\stablec-bin.exe" %*
-"@ | Set-Content -Encoding ASCII (Join-Path $Prefix 'bin\stablec.cmd')
+set "LANNER_CLANG=$LlvmRoot\bin\clang.exe"
+"$Prefix\bin\lanner-bin.exe" %*
+"@ | Set-Content -Encoding ASCII (Join-Path $Prefix 'bin\lanner.cmd')
 
-    Write-Host "Stable $StableVersion installed."
+    Write-Host "Lanner $LannerVersion installed."
     Write-Host "LLVM/Clang $LLVMVersion installed side by side at $LlvmRoot"
-    Write-Host "Compiler wrapper: $(Join-Path $Prefix 'bin\stablec.cmd')"
-    Write-Host "Add $(Join-Path $Prefix 'bin') to PATH to use stablec."
+    Write-Host "Compiler wrapper: $(Join-Path $Prefix 'bin\lanner.cmd')"
+    Write-Host "Add $(Join-Path $Prefix 'bin') to PATH to use lanner."
 }
 finally {
     Remove-Item -Recurse -Force $Temp -ErrorAction SilentlyContinue

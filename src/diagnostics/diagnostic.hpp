@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace stable::diagnostics {
+namespace lanner::diagnostics {
 
 struct ParsedError {
     std::string phase = "compiler";
@@ -15,4 +15,4 @@ struct ParsedError {
 ParsedError parseErrorMessage(const std::string& raw);
 std::string render(const ParsedError& error, const std::string& path, const std::string& source);
 
-} // namespace stable::diagnostics
+} // namespace lanner::diagnostics

@@ -1,6 +1,6 @@
-# **Stable Roadmap**
+# **Lanner Roadmap**
 
-Stable 1.0.0 is the current implemented release. Systems/low-level, Web frontend, Backend/Cloud foundation, ML/AI core, Mobile targets, and Game Development core are implemented and regression-tested. The remaining items below are future language/ecosystem expansion rather than missing foundations for those domains.
+Lanner 1.0.0 is the current implemented release. Systems/low-level, Web frontend, Backend/Cloud foundation, ML/AI core, Mobile targets, and Game Development core are implemented and regression-tested. The remaining items below are future language/ecosystem expansion rather than missing foundations for those domains.
 
 ## **Language**
 
@@ -68,14 +68,14 @@ Still planned for later standard-library expansion:
 - **time/date**
 - **database, TLS, and gRPC client libraries**
 
-Future features should preserve Stable's core principles:
+Future features should preserve Lanner's core principles:
 
 > **safe by default, native performance, explicit costs, predictable ownership, and low cognitive overhead.**
 
 
 ## Web Frontend status
 
-Complete for the browser-oriented wasm32 core: `stablec --web`, generated ES-module loader, JS FFI imports, exported Stable functions, linear-memory services, DOM/event/timer/animation/microtask/Fetch primitives, browser-safe runtime boundaries, and regression tests.
+Complete for the browser-oriented wasm32 core: `lanner --web`, generated ES-module loader, JS FFI imports, exported Lanner functions, linear-memory services, DOM/event/timer/animation/microtask/Fetch primitives, browser-safe runtime boundaries, and regression tests.
 
 Remaining browser-ecosystem work is intentionally separated from the core target: first-class WebGPU bindings, WASI/component-model support, and language-level `async`/`await` lowering.
 
@@ -95,10 +95,10 @@ The 1.0 compiler supports native Android/iOS target triples, ARM64 object genera
 
 ## DevOps / scripting status
 
-The Step 7 core is complete: process arguments, environment variables, filesystem operations, path utilities, regex, shell execution/output, command lookup, and compiled script mode (`stablec --script file.st -- ...`) are implemented and regression-tested.
+The Step 7 core is complete: process arguments, environment variables, filesystem operations, path utilities, regex, shell execution/output, command lookup, and compiled script mode (`lanner --script file.st -- ...`) are implemented and regression-tested.
 
 Remaining DevOps ecosystem work is intentionally outside the core runtime: package management, richer archive/configuration formats, terminal UI libraries, service-manager/cloud-provider integrations, and shell-specific convenience packages.
 
 ## Bootstrap status
 
-The native Stable-written compiler has a recursive stage-1 -> stage-2 -> stage-3 fixed point for its supported bootstrap subset. It is **not yet feature-complete with the production compiler**. Full typed parsing, semantic analysis, language services, platform project generation, and the complete native LLVM surface still depend on the C++ production compiler. See [`docs/BOOTSTRAP_AUDIT.md`](docs/BOOTSTRAP_AUDIT.md).
+The native Lanner-written compiler has a recursive stage-1 -> stage-2 -> stage-3 fixed point for its supported bootstrap subset. It is **not yet feature-complete with the production compiler**. Full typed parsing, semantic analysis, language services, platform project generation, and the complete native LLVM surface still depend on the C++ production compiler. See [`docs/BOOTSTRAP_AUDIT.md`](docs/BOOTSTRAP_AUDIT.md).

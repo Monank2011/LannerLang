@@ -1,12 +1,12 @@
-# Stable engine runtime
+# Lanner engine runtime
 
-Stable 1.0 now exposes the small runtime surface needed by native engines while keeping the compiler in charge of types, ownership, and lowering.
+Lanner 1.0 now exposes the small runtime surface needed by native engines while keeping the compiler in charge of types, ownership, and lowering.
 
 ## Interactive stdin
 
 `Stdin.readLine()` blocks until a line is available and returns it without the trailing CR/LF. `Stdin.hasInput()` is a non-blocking readiness check suitable for a search loop that must also watch for `stop` or `quit`.
 
-```stable
+```lanner
 while running:
     line: string = Stdin.readLine()
     if line.equals("quit"):
@@ -15,7 +15,7 @@ while running:
 
 String helpers useful for protocol parsing are available as methods:
 
-```stable
+```lanner
 line.startsWith("go")
 line.equals("isready")
 value: u64 = line.parseU64At(3)
@@ -26,22 +26,22 @@ byte: u8 = line[0]
 
 Use `static` for module-wide storage. Initializers must be compile-time constants, so lookup tables have deterministic program startup and no hidden initialization function.
 
-```stable
+```lanner
 static PIECE_VALUES: [8]i32 = [100, 320, 330, 500, 900, 20000, 0, 0]
 static mut Nodes: Atomic[u64] = 0
 ```
 
-`static` is read-only by default. `static mut` permits writes. Indexed writes use the normal Stable bounds checks and ownership rules.
+`static` is read-only by default. `static mut` permits writes. Indexed writes use the normal Lanner bounds checks and ownership rules.
 
 ## C FFI
 
 Declare a C ABI symbol with `extern` and link any extra object/library through `--link`:
 
-```stable
-extern stable_ffi_add(a: i32, b: i32) i32
+```lanner
+extern lanner_ffi_add(a: i32, b: i32) i32
 
 main() i32:
-    return stable_ffi_add(40, 2)
+    return lanner_ffi_add(40, 2)
 ```
 
 Compiler-provided declarations are emitted once, so FFI declarations may also name common C runtime functions such as `strlen` without creating duplicate LLVM declarations.
@@ -49,8 +49,8 @@ Compiler-provided declarations are emitted once, so FFI declarations may also na
 Examples:
 
 ```text
-stablec examples/ffi.st --link path/to/object.o -o ffi_demo
-stablec examples/ffi.st --link -lm -o ffi_demo
+lanner examples/ffi.st --link path/to/object.o -o ffi_demo
+lanner examples/ffi.st --link -lm -o ffi_demo
 ```
 
 The extra link arguments are passed directly to the final Clang link step.
@@ -67,9 +67,9 @@ The `Cpu` namespace has explicit, opt-in engine primitives:
 - `Cpu.loadV128/256/512(&u64)` and matching stores
 - `Cpu.zeroV128/256/512()`
 
-Stable vectors are fixed-width value types:
+Lanner vectors are fixed-width value types:
 
-```stable
+```lanner
 v: v256 = Cpu.loadV256(&TABLE[0])
 w: v256 = v.xor(v)
 first: u64 = w.extractU64(0)
@@ -79,9 +79,9 @@ Feature probes are runtime checks. Code that calls an ISA-specific intrinsic sho
 
 ## Threads and atomics
 
-Stable provides a small native-thread API rather than hidden scheduling:
+Lanner provides a small native-thread API rather than hidden scheduling:
 
-```stable
+```lanner
 worker() void:
     Nodes.fetchAdd(1)
 
@@ -104,7 +104,7 @@ main() i32:
 
 The clock is monotonic, not wall-clock based:
 
-```stable
+```lanner
 deadline: u64 = Clock.deadlineAfterNanos(5000000)
 while !Clock.expired(deadline):
     searchIteration()
@@ -122,10 +122,10 @@ This is sufficient for iterative-deepening engines, aspiration/search budgets, a
 
 ## Runtime selection
 
-The native LLVM backend automatically links `src/runtime/stable_runtime.c`. Set `STABLE_RUNTIME` to override the runtime C source used by `stablec`, which is useful for packaged installs and custom runtime builds.
+The native LLVM backend automatically links `src/runtime/lanner_runtime.c`. Set `LANNER_RUNTIME` to override the runtime C source used by `lanner`, which is useful for packaged installs and custom runtime builds.
 
 ```text
-STABLE_RUNTIME=/path/to/stable_runtime.c stablec engine.st -O3 -o engine
+LANNER_RUNTIME=/path/to/lanner_runtime.c lanner engine.st -O3 -o engine
 ```
 
 The language primitives stay explicit in the source language. There is no hidden garbage collector, reference counting, or implicit thread pool behind this interface.

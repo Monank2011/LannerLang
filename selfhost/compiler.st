@@ -1377,7 +1377,7 @@ typedValidateAST(source: &[]u8, nodes: &[]AstNode, params: &[]TypedParamInfo, fi
         if lineIsTypedDeclaration(source, trimStart(source, nodes[i].start, nodes[i].end), trimEnd(source, trimStart(source, nodes[i].start, nodes[i].end), nodes[i].end)) && nodes[i].typeCode == 0:
             return false
         i = i + 1
-    # Stable parameter/field records must never carry unknown semantic types.
+    # Lanner parameter/field records must never carry unknown semantic types.
     i = 0
     while i < params.len():
         if params[i].typeCode == 0 || params[i].fnSymbolId == 0:
@@ -1550,7 +1550,7 @@ emitTypeName(src: &[]u8, start: usize, end: usize) void:
         emitRaw("std::string")
         return
     if startsWord(src, s, end, 38):
-        emitRaw("StableResult<")
+        emitRaw("LannerResult<")
         comma: usize = s + 7
         depth: usize = 0
         while comma < end:
@@ -1661,11 +1661,11 @@ emitExpr(src: &[]u8, start: usize, end: usize) void:
     if false:
         return
     # C++ warns (and -Werror rejects) `&&` mixed with `||` at the same nesting
-    # level without disambiguating parens, even though both Stable and C++
+    # level without disambiguating parens, even though both Lanner and C++
     # give `&&` higher precedence so the meaning is already unambiguous. Emit
     # each top-level `||`-separated segment individually, wrapping any segment
     # that itself contains a top-level `&&` in parens, so the generated C++
-    # matches Stable's semantics while satisfying the strict build.
+    # matches Lanner's semantics while satisfying the strict build.
     orPos: usize = findTopLevelOr(src, s, t)
     if orPos > 0:
         segStart: usize = s
@@ -1851,35 +1851,35 @@ emitExpr(src: &[]u8, start: usize, end: usize) void:
             i = j
             continue
         if i + 8 <= t && startsWord(src, i, t, 26):
-            emitRaw("stable_read_file")
+            emitRaw("lanner_read_file")
             i = i + 8
             continue
         if i + 6 <= t && startsWord(src, i, t, 27):
-            emitRaw("stable_get_env")
+            emitRaw("lanner_get_env")
             i = i + 6
             continue
         if i + 9 <= t && startsWord(src, i, t, 28):
-            emitRaw("stable_string_len")
+            emitRaw("lanner_string_len")
             i = i + 9
             continue
         if i + 8 <= t && startsWord(src, i, t, 29):
-            emitRaw("stable_write_raw")
+            emitRaw("lanner_write_raw")
             i = i + 8
             continue
         if i + 6 <= t && startsWord(src, i, t, 43):
-            emitRaw("stable_print")
+            emitRaw("lanner_print")
             i = i + 5
             continue
         if i + 8 <= t && startsWord(src, i, t, 30):
-            emitRaw("stable_print_int")
+            emitRaw("lanner_print_int")
             i = i + 8
             continue
         if i + 12 <= t && startsWord(src, i, t, 31):
-            emitRaw("stable_write_byte_raw")
+            emitRaw("lanner_write_byte_raw")
             i = i + 12
             continue
         if i + 11 <= t && startsWord(src, i, t, 32):
-            emitRaw("stable_write_raw")
+            emitRaw("lanner_write_raw")
             i = i + 11
             continue
         if src[i] == 46 && i + 5 <= t && startsWord(src, i + 1, t, 33):
@@ -2123,7 +2123,7 @@ emitStatement(src: &[]u8, start: usize, end: usize, level: usize, parentKind: i6
         # declared-before name lookup, which only makes sense for identifiers.
         isIndexOrFieldTarget: bool = hasByte(src, s, nameEnd, 91) || hasByte(src, s, nameEnd, 46)
         if isIndexOrFieldTarget:
-            # The LHS may itself contain Stable-only syntax (an `as` cast inside
+            # The LHS may itself contain Lanner-only syntax (an `as` cast inside
             # an index expression, for example), so it must go through emitExpr's
             # translation rather than a verbatim byte copy.
             emitExpr(src, s, nameEnd)
@@ -2150,16 +2150,16 @@ emitPreamble() void:
     emitRaw("#include <sstream>\n")
     emitRaw("#include <string>\n")
     emitRaw("#include <vector>\n\n")
-    emitRaw("template <typename T, typename E> struct StableResult { bool ok; T value; E error; };\n")
+    emitRaw("template <typename T, typename E> struct LannerResult { bool ok; T value; E error; };\n")
     emitRaw("struct AstNode { int64_t kind; size_t start; size_t end; size_t level; size_t childStart; size_t childCount; int64_t typeCode; int64_t typeBits; bool typeSigned; int64_t memoryKind; int64_t originKind; int64_t symbolId; };\n")
-    emitRaw("static std::vector<uint8_t> stable_read_file(const std::string& path) { std::ifstream in(path, std::ios::binary); if (!in) std::abort(); std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>()); data.push_back(0); return data; }\n")
-    emitRaw("static std::string stable_get_env(const std::string& name) { const char* p = std::getenv(name.c_str()); return p ? std::string(p) : std::string(); }\n")
-    emitRaw("static size_t stable_string_len(const std::string& s) { return s.size(); }\n")
-    emitRaw("static void stable_write_raw(const std::string& s) { std::cout << s; }\n")
-    emitRaw("static void stable_print_int(int64_t v) { std::cout << v << '\\n'; }\n")
-    emitRaw("template <typename T> [[maybe_unused]] static void stable_print(const T& v) { std::cout << v << '\\n'; }\n")
-    emitRaw("[[maybe_unused]] static void stable_print(bool v) { std::cout << (v ? \"true\" : \"false\") << '\\n'; }\n")
-    emitRaw("static void stable_write_byte_raw(int64_t v) { std::cout.put(static_cast<char>(v)); }\n")
+    emitRaw("static std::vector<uint8_t> lanner_read_file(const std::string& path) { std::ifstream in(path, std::ios::binary); if (!in) std::abort(); std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>()); data.push_back(0); return data; }\n")
+    emitRaw("static std::string lanner_get_env(const std::string& name) { const char* p = std::getenv(name.c_str()); return p ? std::string(p) : std::string(); }\n")
+    emitRaw("static size_t lanner_string_len(const std::string& s) { return s.size(); }\n")
+    emitRaw("static void lanner_write_raw(const std::string& s) { std::cout << s; }\n")
+    emitRaw("static void lanner_print_int(int64_t v) { std::cout << v << '\\n'; }\n")
+    emitRaw("template <typename T> [[maybe_unused]] static void lanner_print(const T& v) { std::cout << v << '\\n'; }\n")
+    emitRaw("[[maybe_unused]] static void lanner_print(bool v) { std::cout << (v ? \"true\" : \"false\") << '\\n'; }\n")
+    emitRaw("static void lanner_write_byte_raw(int64_t v) { std::cout.put(static_cast<char>(v)); }\n")
     emitRaw("static void emitTypeName(const std::vector<uint8_t>&, size_t, size_t);\nstatic void emitByte(uint8_t);\n\n")
 
 emitStructDefinition(src: &[]u8, start: usize, end: usize) void:
@@ -2392,7 +2392,7 @@ LLVMStructFieldInfo[nameStart: usize, nameEnd: usize, typeCode: i32, bits: i32, 
 # Dynamic arrays: type code 5, `bits` repurposed (same convention as structs)
 # to index into this registry, which records the ELEMENT type only -- every
 # dynamic array shares one physical layout regardless of element type
-# (mirrors the real C++ backend's %StableDynArray: data ptr, len, cap, arena
+# (mirrors the real C++ backend's %LannerDynArray: data ptr, len, cap, arena
 # ptr), so nothing else needs to vary per array type.
 LLVMArrayInfo[elemCode: i32, elemBits: i32, elemSigned: bool]
 # Fixed arrays: type code 11, bits indexes this registry. The element type is
@@ -3041,7 +3041,7 @@ llvmBindingMarkMoved(src: &[]u8, bindings: &mut []LLVMBinding, start: usize, end
     return true
 
 llvmNative3EmitDropCall(code: i32, bits: i32, src: &[]u8, addr: string) void:
-    emitRaw("  call void @__stable_drop_")
+    emitRaw("  call void @__lanner_drop_")
     if code == 4:
         emitRaw("struct_")
     else if code == 5:
@@ -3063,7 +3063,7 @@ llvmNative3EmitDropCall(code: i32, bits: i32, src: &[]u8, addr: string) void:
     emitRaw(")\n")
 
 llvmNative3EmitDropCallValue(code: i32, bits: i32, src: &[]u8, ctx: &mut LLVMNativeContext, value: usize) void:
-    emitRaw("  call void @__stable_drop_")
+    emitRaw("  call void @__lanner_drop_")
     if code == 4:
         emitRaw("struct_")
     else if code == 5:
@@ -3087,7 +3087,7 @@ llvmNative3EmitDropCallValue(code: i32, bits: i32, src: &[]u8, ctx: &mut LLVMNat
 llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMStructInfo, fields: &[]LLVMStructFieldInfo, arrays: &mut []LLVMArrayInfo, fixedArrays: &mut []LLVMFixedArrayInfo) bool:
     if !llvmNative3TypeOwnsResources(code, bits, structs, fields, arrays, fixedArrays):
         return true
-    emitRaw("define internal void @__stable_drop_")
+    emitRaw("define internal void @__lanner_drop_")
     if code == 4:
         emitRaw("struct_")
         llvmNativeNumber(bits as usize)
@@ -3109,7 +3109,7 @@ llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMSt
         return false
     emitRaw("(ptr %addr) {\nentry:\n")
     if code == 18:
-        emitRaw("  call void @__stable_arena_destroy(ptr %addr)\n  ret void\n}\n\n")
+        emitRaw("  call void @__lanner_arena_destroy(ptr %addr)\n  ret void\n}\n\n")
         return true
     if code == 5:
         if bits < 0:
@@ -3119,9 +3119,9 @@ llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMSt
             return false
         a: &LLVMArrayInfo = &arrays[arrayIndexBits]
         elemOwns: bool = llvmNative3TypeOwnsResources(a.elemCode, a.elemBits, structs, fields, arrays, fixedArrays)
-        emitRaw("  %arr = load %StableDynArray, ptr %addr\n")
-        emitRaw("  %data = extractvalue %StableDynArray %arr, 0\n")
-        emitRaw("  %len = extractvalue %StableDynArray %arr, 1\n")
+        emitRaw("  %arr = load %LannerDynArray, ptr %addr\n")
+        emitRaw("  %data = extractvalue %LannerDynArray %arr, 0\n")
+        emitRaw("  %len = extractvalue %LannerDynArray %arr, 1\n")
         if elemOwns:
             emitRaw("  %hasdata = icmp ne ptr %data, null\n  br i1 %hasdata, label %drop.loop, label %drop.after\n")
             emitRaw("drop.loop:\n  %idx = phi i64 [ 0, %entry ], [ %next, %drop.step ]\n  %active = icmp ult i64 %idx, %len\n  br i1 %active, label %drop.body, label %drop.after\n")
@@ -3132,7 +3132,7 @@ llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMSt
             emitRaw("  br label %drop.step\n")
             emitRaw("drop.step:\n  %next = add i64 %idx, 1\n  br label %drop.loop\n")
             emitRaw("drop.after:\n")
-        emitRaw("  call void @__stable_dyn_array_destroy(ptr %addr)\n  ret void\n}\n\n")
+        emitRaw("  call void @__lanner_dyn_array_destroy(ptr %addr)\n  ret void\n}\n\n")
         return true
     if code == 11:
         if bits < 0:
@@ -3222,7 +3222,7 @@ llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMSt
                     emitRaw(", ptr %addr, i64 0, i32 ")
                     llvmNativeNumber(fi)
                     emitRaw("\n")
-                    emitRaw("  call void @__stable_drop_")
+                    emitRaw("  call void @__lanner_drop_")
                     if f.typeCode == 4:
                         emitRaw("struct_")
                     else if f.typeCode == 5:
@@ -3286,7 +3286,7 @@ llvmNative3DropBinding(src: &[]u8, bindings: &mut []LLVMBinding, bindIndex: usiz
         return
     if b.typeCode != 4 && b.typeCode != 5 && b.typeCode != 11 && b.typeCode != 13 && b.typeCode != 14 && b.typeCode != 18:
         return
-    emitRaw("  call void @__stable_drop_")
+    emitRaw("  call void @__lanner_drop_")
     if b.typeCode == 4:
         emitRaw("struct_")
     else if b.typeCode == 5:
@@ -3938,7 +3938,7 @@ llvmResolveType(src: &[]u8, start: usize, end: usize, structs: &[]LLVMStructInfo
         resultIdx: usize = llvmInternResultPayloads(fixedArrays, okInfo.code, okInfo.bits, okInfo.isSigned, errInfo.code, errInfo.bits, errInfo.isSigned)
         return LLVMTypeInfo[code: 14, bits: resultIdx as i32, isSigned: false]
     if baseEndResult < t && src[baseEndResult] == 91 && src[t - 1] == 93:
-        # Views are ABI-stable {ptr, i64} pairs. Reuse the array registry for
+        # Views are ABI-lanner {ptr, i64} pairs. Reuse the array registry for
         # their element metadata so the bootstrap does not need another table.
         isViewType: bool = t - s >= 5 && src[s] == 86 && src[s + 1] == 105 && src[s + 2] == 101 && src[s + 3] == 119 && src[s + 4] == 91
         isEditViewType: bool = t - s >= 10 && src[s] == 69 && src[s + 1] == 100 && src[s + 2] == 105 && src[s + 3] == 116 && src[s + 4] == 86 && src[s + 5] == 105 && src[s + 6] == 101 && src[s + 7] == 119 && src[s + 8] == 91
@@ -4019,7 +4019,7 @@ llvmResolveType(src: &[]u8, start: usize, end: usize, structs: &[]LLVMStructInfo
     return LLVMTypeInfo[code: 0, bits: 0, isSigned: false]
 
 llvmEmitDynArrayTypeDecl() void:
-    emitRaw("%StableDynArray = type { ptr, i64, i64, ptr }\n\n")
+    emitRaw("%LannerDynArray = type { ptr, i64, i64, ptr }\n\n")
 
 llvmElemLLVMType(a: &LLVMArrayInfo) LLVMTypeInfo:
     return LLVMTypeInfo[code: a.elemCode, bits: a.elemBits, isSigned: a.elemSigned]
@@ -4144,12 +4144,12 @@ llvmNative3EmitDynamicArrayLiteral(src: &[]u8, start: usize, end: usize, arenaSt
         empty0: usize = llvmNative3New(ctx, 5, arrIdxEmpty as i32, false, false, 0, 0)
         emitRaw("%t")
         llvmNativeNumber(empty0)
-        emitRaw(" = insertvalue %StableDynArray zeroinitializer, ptr null, 0\n")
+        emitRaw(" = insertvalue %LannerDynArray zeroinitializer, ptr null, 0\n")
         if arenaStart != 0:
             empty1: usize = llvmNative3New(ctx, 5, arrIdxEmpty as i32, false, false, 0, 0)
             emitRaw("%t")
             llvmNativeNumber(empty1)
-            emitRaw(" = insertvalue %StableDynArray %t")
+            emitRaw(" = insertvalue %LannerDynArray %t")
             llvmNativeNumber(empty0)
             emitRaw(", ptr %arena.literal.addr")
             llvmNativeNumber(arenaAddrLabel)
@@ -4230,7 +4230,7 @@ llvmNative3EmitDynamicArrayLiteral(src: &[]u8, start: usize, end: usize, arenaSt
     emitRaw("  %array.literal.data")
     llvmNativeNumber(dataId)
     if arenaStart != 0:
-        emitRaw(" = call ptr @__stable_arena_alloc(ptr %arena.literal.addr")
+        emitRaw(" = call ptr @__lanner_arena_alloc(ptr %arena.literal.addr")
         llvmNativeNumber(arenaAddrLabel)
         emitRaw(", i64 ")
         llvmNativeNumber(totalBytes)
@@ -4284,13 +4284,13 @@ llvmNative3EmitDynamicArrayLiteral(src: &[]u8, start: usize, end: usize, arenaSt
     a0: usize = llvmNative3New(ctx, 5, arrIdx as i32, false, false, 0, 0)
     emitRaw("%t")
     llvmNativeNumber(a0)
-    emitRaw(" = insertvalue %StableDynArray zeroinitializer, ptr %array.literal.data")
+    emitRaw(" = insertvalue %LannerDynArray zeroinitializer, ptr %array.literal.data")
     llvmNativeNumber(dataId)
     emitRaw(", 0\n")
     a1: usize = llvmNative3New(ctx, 5, arrIdx as i32, false, false, 0, 0)
     emitRaw("%t")
     llvmNativeNumber(a1)
-    emitRaw(" = insertvalue %StableDynArray %t")
+    emitRaw(" = insertvalue %LannerDynArray %t")
     llvmNativeNumber(a0)
     emitRaw(", i64 ")
     llvmNativeNumber(count)
@@ -4298,7 +4298,7 @@ llvmNative3EmitDynamicArrayLiteral(src: &[]u8, start: usize, end: usize, arenaSt
     a2: usize = llvmNative3New(ctx, 5, arrIdx as i32, false, false, 0, 0)
     emitRaw("%t")
     llvmNativeNumber(a2)
-    emitRaw(" = insertvalue %StableDynArray %t")
+    emitRaw(" = insertvalue %LannerDynArray %t")
     llvmNativeNumber(a1)
     emitRaw(", i64 ")
     llvmNativeNumber(count)
@@ -4307,7 +4307,7 @@ llvmNative3EmitDynamicArrayLiteral(src: &[]u8, start: usize, end: usize, arenaSt
         a3: usize = llvmNative3New(ctx, 5, arrIdx as i32, false, false, 0, 0)
         emitRaw("%t")
         llvmNativeNumber(a3)
-        emitRaw(" = insertvalue %StableDynArray %t")
+        emitRaw(" = insertvalue %LannerDynArray %t")
         llvmNativeNumber(a2)
         emitRaw(", ptr %arena.literal.addr")
         llvmNativeNumber(arenaAddrLabel)
@@ -4424,7 +4424,7 @@ llvmEmitAllocaType(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMStructInfo,
         emitRaw("%")
         emitRawRange(src, structs[bits as usize].nameStart, structs[bits as usize].nameEnd)
     else if code == 5:
-        emitRaw("%StableDynArray")
+        emitRaw("%LannerDynArray")
     else if code == 6 || code == 7 || code == 9 || code == 12:
         emitRaw("ptr")
     else if code == 11:
@@ -4437,7 +4437,7 @@ llvmEmitAllocaType(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMStructInfo,
     else if code == 15 || code == 16:
         emitRaw("{ ptr, i64 }")
     else if code == 18:
-        emitRaw("%StableArena")
+        emitRaw("%LannerArena")
     else if code == 13:
         opt: &LLVMFixedArrayInfo = &fixedArrays[bits as usize]
         emitRaw("{ i1, ")
@@ -4998,7 +4998,7 @@ emitNativeStringGlobals(src: &[]u8) void:
             else:
                 i = i + 1
         decodedLen: usize = llvmStringDecodedLen(src, start, i)
-        emitRaw("@.stable.str.")
+        emitRaw("@.lanner.str.")
         llvmNativeNumber(id)
         emitRaw(" = private unnamed_addr constant [")
         llvmNativeNumber(decodedLen + 1)
@@ -5042,7 +5042,7 @@ llvmNative3EmitValue(src: &[]u8, ctx: &mut LLVMNativeContext, id: usize) void:
         decodedLen: usize = llvmStringDecodedLen(src, startList[0] as usize, endList[0] as usize)
         emitRaw("getelementptr inbounds ([")
         llvmNativeNumber(decodedLen + 1)
-        emitRaw(" x i8], ptr @.stable.str.")
+        emitRaw(" x i8], ptr @.lanner.str.")
         llvmNativeNumber(wanted)
         emitRaw(", i64 0, i64 0)")
         return
@@ -5069,7 +5069,7 @@ llvmNative3Type(ctx: &mut LLVMNativeContext, id: usize) void:
     else if llvmNative3Code(ctx, id) == 15 || llvmNative3Code(ctx, id) == 16:
         emitRaw("{ ptr, i64 }")
     else if llvmNative3Code(ctx, id) == 18:
-        emitRaw("%StableArena")
+        emitRaw("%LannerArena")
     else:
         emitRaw("i1")
 
@@ -5491,7 +5491,7 @@ llvmNative3EmitSlice(src: &[]u8, start: usize, end: usize, desiredCode: i32, des
     else if baseCode == 5:
         emitRaw("  %slice.limit")
         llvmNativeNumber(limitId)
-        emitRaw(" = extractvalue %StableDynArray ")
+        emitRaw(" = extractvalue %LannerDynArray ")
         llvmNative3EmitValue(src, ctx, base)
         emitRaw(", 1\n")
     else:
@@ -5584,7 +5584,7 @@ llvmNative3EmitSlice(src: &[]u8, start: usize, end: usize, desiredCode: i32, des
         emitRaw("  %slice.base")
         llvmNativeNumber(basePtrId)
         if baseCode == 5:
-            emitRaw(" = extractvalue %StableDynArray ")
+            emitRaw(" = extractvalue %LannerDynArray ")
         else:
             emitRaw(" = extractvalue { ptr, i64 } ")
         llvmNative3EmitValue(src, ctx, base)
@@ -5789,13 +5789,13 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
         ctx.nextLabel = ctx.nextLabel + 1
         emitRaw("  %arraylit.addr")
         llvmNativeNumber(litAddr)
-        emitRaw(" = alloca %StableDynArray\n  store %StableDynArray { ptr null, i64 0, i64 0, ptr null }, ptr %arraylit.addr")
+        emitRaw(" = alloca %LannerDynArray\n  store %LannerDynArray { ptr null, i64 0, i64 0, ptr null }, ptr %arraylit.addr")
         llvmNativeNumber(litAddr)
         emitRaw("\n")
         resultEmpty: usize = llvmNative3New(ctx, 5, arrIdxLit as i32, false, false, 0, 0)
         emitRaw("%t")
         llvmNativeNumber(resultEmpty)
-        emitRaw(" = load %StableDynArray, ptr %arraylit.addr")
+        emitRaw(" = load %LannerDynArray, ptr %arraylit.addr")
         llvmNativeNumber(litAddr)
         emitRaw("\n")
         return resultEmpty
@@ -5934,23 +5934,23 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
             arenaLit: usize = llvmNative3New(ctx, 18, 0, false, false, 0, 0)
             emitRaw("%t")
             llvmNativeNumber(arenaLit)
-            emitRaw(" = insertvalue %StableArena zeroinitializer, ptr null, 0\n")
+            emitRaw(" = insertvalue %LannerArena zeroinitializer, ptr null, 0\n")
             arena1: usize = llvmNative3New(ctx, 18, 0, false, false, 0, 0)
             emitRaw("  %t")
             llvmNativeNumber(arena1)
-            emitRaw(" = insertvalue %StableArena %t")
+            emitRaw(" = insertvalue %LannerArena %t")
             llvmNativeNumber(arenaLit)
             emitRaw(", ptr null, 1\n")
             arena2: usize = llvmNative3New(ctx, 18, 0, false, false, 0, 0)
             emitRaw("  %t")
             llvmNativeNumber(arena2)
-            emitRaw(" = insertvalue %StableArena %t")
+            emitRaw(" = insertvalue %LannerArena %t")
             llvmNativeNumber(arena1)
             emitRaw(", i64 0, 2\n")
             arena3: usize = llvmNative3New(ctx, 18, 0, false, false, 0, 0)
             emitRaw("  %t")
             llvmNativeNumber(arena3)
-            emitRaw(" = insertvalue %StableArena %t")
+            emitRaw(" = insertvalue %LannerArena %t")
             llvmNativeNumber(arena2)
             emitRaw(", i64 ")
             llvmNative3EmitValue(src, ctx, size64)
@@ -5966,7 +5966,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
             out: usize = llvmNative3New(ctx, 5, arrayInfo as i32, false, false, 0, 0)
             emitRaw("%t")
             llvmNativeNumber(out)
-            emitRaw(" = call %StableDynArray @__stable_read_file(ptr ")
+            emitRaw(" = call %LannerDynArray @__lanner_read_file(ptr ")
             llvmNative3EmitValue(src, ctx, arg)
             emitRaw(")\n")
             return out
@@ -5994,7 +5994,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
             llvmNativeNumber(safeEnvId)
             emitRaw(" = select i1 %envnull")
             llvmNativeNumber(envNullId)
-            emitRaw(", ptr getelementptr inbounds ([1 x i8], ptr @.stable.empty, i64 0, i64 0), ptr %t")
+            emitRaw(", ptr getelementptr inbounds ([1 x i8], ptr @.lanner.empty, i64 0, i64 0), ptr %t")
             llvmNativeNumber(out2)
             emitRaw("\n")
             return safeEnvId
@@ -6060,7 +6060,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                 return 0
             argPC: i32 = llvmNative3Code(ctx, argPV)
             if argPC == 9:
-                emitRaw("  call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([3 x i8], ptr @.stable.print_str, i64 0, i64 0), ptr ")
+                emitRaw("  call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([3 x i8], ptr @.lanner.print_str, i64 0, i64 0), ptr ")
                 llvmNative3EmitValue(src, ctx, argPV)
                 emitRaw(")\n")
                 return llvmNative3New(ctx, 2, 1, false, false, 0, 0)
@@ -6070,8 +6070,8 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                 llvmNativeNumber(boolPtr)
                 emitRaw(" = select i1 ")
                 llvmNative3EmitValue(src, ctx, argPV)
-                emitRaw(", ptr getelementptr inbounds ([5 x i8], ptr @.stable.true, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.stable.false, i64 0, i64 0)\n")
-                emitRaw("  call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([4 x i8], ptr @.stable.print_bool, i64 0, i64 0), ptr ")
+                emitRaw(", ptr getelementptr inbounds ([5 x i8], ptr @.lanner.true, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.lanner.false, i64 0, i64 0)\n")
+                emitRaw("  call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([4 x i8], ptr @.lanner.print_bool, i64 0, i64 0), ptr ")
                 emitRaw("%t")
                 llvmNativeNumber(boolPtr)
                 emitRaw(")\n")
@@ -6083,7 +6083,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     intPrint = llvmNative3Cast(src, ctx, argPV, &intPrintInfo)
                     if intPrint == 0:
                         return 0
-                emitRaw("  call i32 (ptr, ...) @printf(ptr @.stable.print_i64, i64 ")
+                emitRaw("  call i32 (ptr, ...) @printf(ptr @.lanner.print_i64, i64 ")
                 llvmNative3EmitValue(src, ctx, intPrint)
                 emitRaw(")\n")
                 return llvmNative3New(ctx, 2, 1, false, false, 0, 0)
@@ -6095,7 +6095,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     emitRaw(" = fpext float ")
                     llvmNative3EmitValue(src, ctx, argPV)
                     emitRaw(" to double\n")
-                    # Use the existing value id as the stable numbering seed
+                    # Use the existing value id as the lanner numbering seed
                     # only for the emitted temporary name; create a distinct
                     # IR value record for subsequent uses.
                     floatPrint64: usize = llvmNative3New(ctx, 3, 64, true, false, 0, 0)
@@ -6105,7 +6105,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     llvmNative3EmitValue(src, ctx, argPV)
                     emitRaw(" to double\n")
                     floatPrint = floatPrint64
-                emitRaw("  call i32 (ptr, ...) @printf(ptr @.stable.print_f64, double ")
+                emitRaw("  call i32 (ptr, ...) @printf(ptr @.lanner.print_f64, double ")
                 llvmNative3EmitValue(src, ctx, floatPrint)
                 emitRaw(")\n")
                 return llvmNative3New(ctx, 2, 1, false, false, 0, 0)
@@ -6121,7 +6121,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                 print32 = llvmNative3Cast(src, ctx, arg6, &widened)
                 if print32 == 0:
                     return 0
-            emitRaw("  call i32 (ptr, ...) @printf(ptr @.stable.print_i64, i64 ")
+            emitRaw("  call i32 (ptr, ...) @printf(ptr @.lanner.print_i64, i64 ")
             llvmNative3EmitValue(src, ctx, print32)
             emitRaw(")\n")
             return llvmNative3New(ctx, 2, 1, false, false, 0, 0)
@@ -6307,13 +6307,13 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
             emitRaw("%")
             emitRawRange(src, structs[b.bits as usize].nameStart, structs[b.bits as usize].nameEnd)
         else if b.typeCode == 5:
-            emitRaw("%StableDynArray")
+            emitRaw("%LannerDynArray")
         else if b.typeCode == 9 || b.typeCode == 12:
             emitRaw("ptr")
         else if b.typeCode == 15 || b.typeCode == 16:
             emitRaw("{ ptr, i64 }")
         else if b.typeCode == 18:
-            emitRaw("%StableArena")
+            emitRaw("%LannerArena")
         else if b.typeCode == 11 || b.typeCode == 13 || b.typeCode == 14:
             llvmEmitAllocaType(b.typeCode, b.bits, src, structs, arrays, fixedArrays)
         else:
@@ -6358,7 +6358,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     lenResult: usize = llvmNative3New(ctx, 1, 64, false, false, 0, 0)
                     emitRaw("%t")
                     llvmNativeNumber(lenResult)
-                    emitRaw(" = extractvalue %StableDynArray ")
+                    emitRaw(" = extractvalue %LannerDynArray ")
                     llvmNative3EmitValue(src, ctx, targetVal)
                     emitRaw(", 1\n")
                     return lenResult
@@ -6373,7 +6373,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     if llvmNative3Code(ctx, targetVal2) == 15 || llvmNative3Code(ctx, targetVal2) == 16:
                         emitRaw(" = extractvalue { ptr, i64 } ")
                     else:
-                        emitRaw(" = extractvalue %StableDynArray ")
+                        emitRaw(" = extractvalue %LannerDynArray ")
                     llvmNative3EmitValue(src, ctx, targetVal2)
                     emitRaw(", 1\n")
                     emptyResult: usize = llvmNative3New(ctx, 2, 1, false, false, 0, 0)
@@ -6413,35 +6413,35 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.cur")
                     llvmNativeNumber(cur)
-                    emitRaw(" = load %StableDynArray, ptr %push.addr")
+                    emitRaw(" = load %LannerDynArray, ptr %push.addr")
                     llvmNativeNumber(pushAddr)
                     emitRaw("\n")
                     dataId: usize = ctx.nextLabel
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.data")
                     llvmNativeNumber(dataId)
-                    emitRaw(" = extractvalue %StableDynArray %push.cur")
+                    emitRaw(" = extractvalue %LannerDynArray %push.cur")
                     llvmNativeNumber(cur)
                     emitRaw(", 0\n")
                     lenId: usize = ctx.nextLabel
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.len")
                     llvmNativeNumber(lenId)
-                    emitRaw(" = extractvalue %StableDynArray %push.cur")
+                    emitRaw(" = extractvalue %LannerDynArray %push.cur")
                     llvmNativeNumber(cur)
                     emitRaw(", 1\n")
                     capId: usize = ctx.nextLabel
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.cap")
                     llvmNativeNumber(capId)
-                    emitRaw(" = extractvalue %StableDynArray %push.cur")
+                    emitRaw(" = extractvalue %LannerDynArray %push.cur")
                     llvmNativeNumber(cur)
                     emitRaw(", 2\n")
                     arenaId: usize = ctx.nextLabel
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.arena")
                     llvmNativeNumber(arenaId)
-                    emitRaw(" = extractvalue %StableDynArray %push.cur")
+                    emitRaw(" = extractvalue %LannerDynArray %push.cur")
                     llvmNativeNumber(cur)
                     emitRaw(", 3\n")
                     newLenId: usize = ctx.nextLabel
@@ -6583,7 +6583,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.growndata.arena")
                     llvmNativeNumber(arenaNewData)
-                    emitRaw(" = call ptr @__stable_arena_alloc(ptr %push.arena")
+                    emitRaw(" = call ptr @__lanner_arena_alloc(ptr %push.arena")
                     llvmNativeNumber(arenaId)
                     emitRaw(", i64 %push.bytes.value")
                     llvmNativeNumber(bytesValueId)
@@ -6752,7 +6752,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.s1")
                     llvmNativeNumber(s1)
-                    emitRaw(" = insertvalue %StableDynArray %push.cur")
+                    emitRaw(" = insertvalue %LannerDynArray %push.cur")
                     llvmNativeNumber(cur)
                     emitRaw(", ptr %push.newdata")
                     llvmNativeNumber(newDataId)
@@ -6761,7 +6761,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.s2")
                     llvmNativeNumber(s2)
-                    emitRaw(" = insertvalue %StableDynArray %push.s1")
+                    emitRaw(" = insertvalue %LannerDynArray %push.s1")
                     llvmNativeNumber(s1)
                     emitRaw(", i64 %push.newlen")
                     llvmNativeNumber(newLenId)
@@ -6770,11 +6770,11 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
                     ctx.nextLabel = ctx.nextLabel + 1
                     emitRaw("  %push.s3")
                     llvmNativeNumber(s3)
-                    emitRaw(" = insertvalue %StableDynArray %push.s2")
+                    emitRaw(" = insertvalue %LannerDynArray %push.s2")
                     llvmNativeNumber(s2)
                     emitRaw(", i64 %push.newcap")
                     llvmNativeNumber(newCapId)
-                    emitRaw(", 2\n  store %StableDynArray %push.s3")
+                    emitRaw(", 2\n  store %LannerDynArray %push.s3")
                     llvmNativeNumber(s3)
                     emitRaw(", ptr %push.addr")
                     llvmNativeNumber(pushAddr)
@@ -6946,7 +6946,7 @@ llvmNative3Expr(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNativeContex
             ctx.nextLabel = ctx.nextLabel + 1
             emitRaw("  %idx.data")
             llvmNativeNumber(dataPtr)
-            emitRaw(" = extractvalue %StableDynArray ")
+            emitRaw(" = extractvalue %LannerDynArray ")
             llvmNative3EmitValue(src, ctx, targetIdx)
             emitRaw(", 0\n")
             elemAddr2: usize = ctx.nextLabel
@@ -7359,7 +7359,7 @@ llvmNative3LValueAddress(src: &[]u8, start: usize, end: usize, ctx: &mut LLVMNat
         ctx.nextLabel = ctx.nextLabel + 1
         emitRaw("  %lvalue.data")
         llvmNativeNumber(dataId)
-        emitRaw(" = extractvalue %StableDynArray ")
+        emitRaw(" = extractvalue %LannerDynArray ")
         llvmNative3EmitValue(src, ctx, baseVal)
         emitRaw(", 0\n")
         addrId4: usize = llvmNative3New(ctx, 8, 0, false, false, 0, 0)
@@ -7478,9 +7478,9 @@ llvmNative3EmitStore(src: &[]u8, ctx: &mut LLVMNativeContext, b: &LLVMBinding, v
         emitRaw("%")
         emitRawRange(src, structs[b.bits as usize].nameStart, structs[b.bits as usize].nameEnd)
     else if b.typeCode == 5:
-        emitRaw("%StableDynArray")
+        emitRaw("%LannerDynArray")
     else if b.typeCode == 18:
-        emitRaw("%StableArena")
+        emitRaw("%LannerArena")
     else if b.typeCode == 6 || b.typeCode == 7 || b.typeCode == 9:
         emitRaw("ptr")
     else if b.typeCode == 12:
@@ -7713,14 +7713,14 @@ llvmNative3EmitBlock(src: &[]u8, nodes: &[]AstNode, start: usize, end: usize, pa
                 ctx.nextLabel = ctx.nextLabel + 1
                 emitRaw("  %for.len")
                 llvmNativeNumber(lenFor)
-                emitRaw(" = extractvalue %StableDynArray ")
+                emitRaw(" = extractvalue %LannerDynArray ")
                 llvmNative3EmitValue(src, ctx, iterableFor)
                 emitRaw(", 1\n")
                 baseAddrFor = ctx.nextLabel
                 ctx.nextLabel = ctx.nextLabel + 1
                 emitRaw("  %for.base")
                 llvmNativeNumber(baseAddrFor)
-                emitRaw(" = extractvalue %StableDynArray ")
+                emitRaw(" = extractvalue %LannerDynArray ")
                 llvmNative3EmitValue(src, ctx, iterableFor)
                 emitRaw(", 0\n")
             else if iterCodeFor == 11:
@@ -7734,7 +7734,7 @@ llvmNative3EmitBlock(src: &[]u8, nodes: &[]AstNode, start: usize, end: usize, pa
                 llvmNativeNumber(lenFor)
                 emitRaw(" = add i64 0, ")
                 llvmNativeNumber(metaFixedFor.count)
-                # Materialize a stable address for the first-class fixed-array value.
+                # Materialize a lanner address for the first-class fixed-array value.
                 fixedAddrFor: usize = ctx.nextLabel
                 ctx.nextLabel = ctx.nextLabel + 1
                 emitRaw("  %for.fixed.addr")
@@ -8424,8 +8424,8 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
         i = i + 1
     if mainIndex < 0:
         return false
-    emitRaw("; Stable native LLVM replacement layer\n")
-    emitRaw("source_filename = \"stable-selfhost\"\n\n")
+    emitRaw("; Lanner native LLVM replacement layer\n")
+    emitRaw("source_filename = \"lanner-selfhost\"\n\n")
     emitRaw("declare void @llvm.trap()\n")
     emitRaw("declare ptr @realloc(ptr, i64)\n")
     emitRaw("declare ptr @malloc(i64)\n")
@@ -8443,26 +8443,26 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
     emitRaw("@stdout = external global ptr\n")
     emitRaw("declare i32 @putchar(i32)\n")
     emitRaw("declare i32 @printf(ptr, ...)\n")
-    emitRaw("@.stable.rb = private unnamed_addr constant [3 x i8] c\"rb\\00\"\n")
-    emitRaw("@.stable.print_i64 = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n")
-    emitRaw("@.stable.print_f64 = private unnamed_addr constant [4 x i8] c\"%g\\0A\\00\"\n")
-    emitRaw("@.stable.print_str = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"\n")
-    emitRaw("@.stable.print_bool = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"\n")
-    emitRaw("@.stable.true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n")
-    emitRaw("@.stable.false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n")
-    emitRaw("@.stable.empty = private unnamed_addr constant [1 x i8] c\"\\00\"\n")
+    emitRaw("@.lanner.rb = private unnamed_addr constant [3 x i8] c\"rb\\00\"\n")
+    emitRaw("@.lanner.print_i64 = private unnamed_addr constant [5 x i8] c\"%ld\\0A\\00\"\n")
+    emitRaw("@.lanner.print_f64 = private unnamed_addr constant [4 x i8] c\"%g\\0A\\00\"\n")
+    emitRaw("@.lanner.print_str = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"\n")
+    emitRaw("@.lanner.print_bool = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"\n")
+    emitRaw("@.lanner.true = private unnamed_addr constant [5 x i8] c\"true\\00\"\n")
+    emitRaw("@.lanner.false = private unnamed_addr constant [6 x i8] c\"false\\00\"\n")
+    emitRaw("@.lanner.empty = private unnamed_addr constant [1 x i8] c\"\\00\"\n")
     emitRaw("\n")
     emitNativeStringGlobals(source)
     llvmEmitStructTypeDecls(source, &structs, &fields, &mut arrays, &mut fixedArrays)
     llvmEmitDynArrayTypeDecl()
-    emitRaw("%StableArena = type { ptr, ptr, i64, i64 }\n")
-    emitRaw("%StableArenaNode = type { ptr, i8 }\n\n")
-    emitRaw("define internal ptr @__stable_arena_alloc(ptr %arena, i64 %bytes) {\n")
+    emitRaw("%LannerArena = type { ptr, ptr, i64, i64 }\n")
+    emitRaw("%LannerArenaNode = type { ptr, i8 }\n\n")
+    emitRaw("define internal ptr @__lanner_arena_alloc(ptr %arena, i64 %bytes) {\n")
     emitRaw("entry:\n")
-    emitRaw("  %rem.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 2\n")
-    emitRaw("  %cur.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 1\n")
-    emitRaw("  %head.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 0\n")
-    emitRaw("  %chunk.addr = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 3\n")
+    emitRaw("  %rem.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 2\n")
+    emitRaw("  %cur.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 1\n")
+    emitRaw("  %head.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 0\n")
+    emitRaw("  %chunk.addr = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 3\n")
     emitRaw("  %remaining = load i64, ptr %rem.addr\n")
     emitRaw("  %current = load ptr, ptr %cur.addr\n")
     emitRaw("  %sum = add i64 %bytes, 7\n")
@@ -8501,7 +8501,7 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
     emitRaw("  %head = load ptr, ptr %head.addr\n")
     emitRaw("  store ptr %head, ptr %mem\n")
     emitRaw("  store ptr %mem, ptr %head.addr\n")
-    emitRaw("  %payload = getelementptr inbounds %StableArenaNode, ptr %mem, i32 0, i32 1\n")
+    emitRaw("  %payload = getelementptr inbounds %LannerArenaNode, ptr %mem, i32 0, i32 1\n")
     emitRaw("  store ptr %payload, ptr %cur.addr\n")
     emitRaw("  store i64 %cap, ptr %rem.addr\n")
     emitRaw("  store i64 %cap, ptr %chunk.addr\n")
@@ -8517,19 +8517,19 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
     emitRaw("oom:\n")
     emitRaw("  call void @llvm.trap()\n  unreachable\n")
     emitRaw("}\n\n")
-    emitRaw("define internal void @__stable_arena_destroy(ptr %arena) {\n")
+    emitRaw("define internal void @__lanner_arena_destroy(ptr %arena) {\n")
     emitRaw("entry:\n  %first = load ptr, ptr %arena\n  br label %loop\n")
     emitRaw("loop:\n  %node = phi ptr [ %first, %entry ], [ %next, %step ]\n  %has = icmp ne ptr %node, null\n  br i1 %has, label %free, label %done\n")
     emitRaw("free:\n  %next = load ptr, ptr %node\n  call void @free(ptr %node)\n  br label %step\n")
     emitRaw("step:\n  br label %loop\n")
-    emitRaw("done:\n  store ptr null, ptr %arena\n  %cur0 = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 1\n  %rem0 = getelementptr inbounds %StableArena, ptr %arena, i32 0, i32 2\n  store ptr null, ptr %cur0\n  store i64 0, ptr %rem0\n  ret void\n}\n\n")
-    emitRaw("define internal void @__stable_dyn_array_destroy(ptr %array) {\n")
-    emitRaw("entry:\n  %data.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 0\n  %arena.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 3\n  %data = load ptr, ptr %data.addr\n  %arena = load ptr, ptr %arena.addr\n  %has = icmp ne ptr %arena, null\n  %freeptr = select i1 %has, ptr null, ptr %data\n  %nonnull = icmp ne ptr %freeptr, null\n  br i1 %nonnull, label %free, label %done\n")
+    emitRaw("done:\n  store ptr null, ptr %arena\n  %cur0 = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 1\n  %rem0 = getelementptr inbounds %LannerArena, ptr %arena, i32 0, i32 2\n  store ptr null, ptr %cur0\n  store i64 0, ptr %rem0\n  ret void\n}\n\n")
+    emitRaw("define internal void @__lanner_dyn_array_destroy(ptr %array) {\n")
+    emitRaw("entry:\n  %data.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 0\n  %arena.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 3\n  %data = load ptr, ptr %data.addr\n  %arena = load ptr, ptr %arena.addr\n  %has = icmp ne ptr %arena, null\n  %freeptr = select i1 %has, ptr null, ptr %data\n  %nonnull = icmp ne ptr %freeptr, null\n  br i1 %nonnull, label %free, label %done\n")
     emitRaw("free:\n  call void @free(ptr %freeptr)\n  br label %done\n")
-    emitRaw("done:\n  store ptr null, ptr %data.addr\n  %len.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 1\n  %cap.addr = getelementptr inbounds %StableDynArray, ptr %array, i32 0, i32 2\n  store i64 0, ptr %len.addr\n  store i64 0, ptr %cap.addr\n  ret void\n}\n\n")
-    emitRaw("define internal %StableDynArray @__stable_read_file(ptr %path) {\n")
+    emitRaw("done:\n  store ptr null, ptr %data.addr\n  %len.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 1\n  %cap.addr = getelementptr inbounds %LannerDynArray, ptr %array, i32 0, i32 2\n  store i64 0, ptr %len.addr\n  store i64 0, ptr %cap.addr\n  ret void\n}\n\n")
+    emitRaw("define internal %LannerDynArray @__lanner_read_file(ptr %path) {\n")
     emitRaw("entry:\n")
-    emitRaw("  %f = call ptr @fopen(ptr %path, ptr @.stable.rb)\n")
+    emitRaw("  %f = call ptr @fopen(ptr %path, ptr @.lanner.rb)\n")
     emitRaw("  %missing = icmp eq ptr %f, null\n")
     emitRaw("  br i1 %missing, label %fail, label %seek\n")
     emitRaw("seek:\n")
@@ -8560,10 +8560,10 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
     emitRaw("  %nul = getelementptr inbounds i8, ptr %data, i64 %fsize\n")
     emitRaw("  store i8 0, ptr %nul\n")
     emitRaw("  %close = call i32 @fclose(ptr %f)\n")
-    emitRaw("  %a0 = insertvalue %StableDynArray { ptr null, i64 0, i64 0, ptr null }, ptr %data, 0\n")
-    emitRaw("  %a1 = insertvalue %StableDynArray %a0, i64 %fsize, 1\n")
-    emitRaw("  %a2 = insertvalue %StableDynArray %a1, i64 %fsize, 2\n")
-    emitRaw("  ret %StableDynArray %a2\n")
+    emitRaw("  %a0 = insertvalue %LannerDynArray { ptr null, i64 0, i64 0, ptr null }, ptr %data, 0\n")
+    emitRaw("  %a1 = insertvalue %LannerDynArray %a0, i64 %fsize, 1\n")
+    emitRaw("  %a2 = insertvalue %LannerDynArray %a1, i64 %fsize, 2\n")
+    emitRaw("  ret %LannerDynArray %a2\n")
     emitRaw("freefail:\n")
     emitRaw("  call void @free(ptr %data)\n")
     emitRaw("  br label %closefail\n")
@@ -8585,7 +8585,7 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
     return true
 
 main() i32:
-    path: string = getEnv("STABLE_SELFHOST_INPUT")
+    path: string = getEnv("LANNER_SELFHOST_INPUT")
     if stringLen(path) == 0:
         path = "examples/selfhost_input.st"
     source: []u8 = readFile(path)
@@ -8606,7 +8606,7 @@ main() i32:
     if typedHIR.len() != nodes.len():
         printInt(1)
         return 1
-    referenceMode: string = getEnv("STABLE_SELFHOST_REFERENCE")
+    referenceMode: string = getEnv("LANNER_SELFHOST_REFERENCE")
     if stringLen(referenceMode) == 0:
         if emitNativeLLVM3(&source, &nodes, &typedParams, &typedFields):
             return 0

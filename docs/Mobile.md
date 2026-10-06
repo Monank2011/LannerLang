@@ -1,6 +1,6 @@
-# Stable Mobile
+# Lanner Mobile
 
-Stable can target Android and iOS as native ARM code while keeping the application core in Stable and using the platform's native application boundary for UI and device integration.
+Lanner can target Android and iOS as native ARM code while keeping the application core in Lanner and using the platform's native application boundary for UI and device integration.
 
 ## Compiler targets
 
@@ -19,9 +19,9 @@ Apple:
 Examples:
 
 ```text
-stablec examples/mobile_app.st --target=arm64-apple-ios16.0 --emit-object -o app.o
-stablec examples/mobile_app.st --target=arm64-apple-ios16.0-simulator --emit-object -o app-sim.o
-stablec examples/mobile_app.st --target=aarch64-linux-android24 --emit-object -o app.o
+lanner examples/mobile_app.st --target=arm64-apple-ios16.0 --emit-object -o app.o
+lanner examples/mobile_app.st --target=arm64-apple-ios16.0-simulator --emit-object -o app-sim.o
+lanner examples/mobile_app.st --target=aarch64-linux-android24 --emit-object -o app.o
 ```
 
 ## Project generation
@@ -29,26 +29,26 @@ stablec examples/mobile_app.st --target=aarch64-linux-android24 --emit-object -o
 Android:
 
 ```text
-stablec examples/mobile_app.st --android-project MyAndroidApp \
+lanner examples/mobile_app.st --android-project MyAndroidApp \
   --android-abi arm64-v8a --deployment 24 \
-  --mobile-name StableMobile --bundle-id com.example.stablemobile
+  --mobile-name LannerMobile --bundle-id com.example.lannermobile
 ```
 
-The generated project contains a Gradle/NDK/CMake native library, JNI bridge, Stable source, and a native Activity UI. Android's official NDK workflow supports packaging native libraries built with CMake and using JNI for application-layer interoperation.
+The generated project contains a Gradle/NDK/CMake native library, JNI bridge, Lanner source, and a native Activity UI. Android's official NDK workflow supports packaging native libraries built with CMake and using JNI for application-layer interoperation.
 
 iOS:
 
 ```text
-stablec examples/mobile_app.st --ios-project MyIOSApp \
-  --deployment 16.0 --mobile-name StableMobile \
-  --bundle-id com.example.stablemobile
+lanner examples/mobile_app.st --ios-project MyIOSApp \
+  --deployment 16.0 --mobile-name LannerMobile \
+  --bundle-id com.example.lannermobile
 ```
 
-Add `--ios-simulator` to target arm64 Simulator code. The generated Xcode project contains SwiftUI application UI, an Objective-C bridge, the Stable native object build phase, and platform framework linkage.
+Add `--ios-simulator` to target arm64 Simulator code. The generated Xcode project contains SwiftUI application UI, an Objective-C bridge, the Lanner native object build phase, and platform framework linkage.
 
 ## Mobile namespace
 
-Stable's core mobile API is intentionally small and platform-neutral:
+Lanner's core mobile API is intentionally small and platform-neutral:
 
 ```text
 Mobile.log(message)
@@ -79,10 +79,10 @@ Mobile.bluetoothAvailable()
 
 ## Architecture
 
-Stable does not replace Android's JVM or Apple's Objective-C/Swift UI framework. Instead, the generated project makes the interop boundary explicit:
+Lanner does not replace Android's JVM or Apple's Objective-C/Swift UI framework. Instead, the generated project makes the interop boundary explicit:
 
 ```text
-Stable native core
+Lanner native core
        |
        +-- Android: C/JNI -> Kotlin Activity -> Android APIs
        |

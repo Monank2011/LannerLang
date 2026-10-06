@@ -1,6 +1,6 @@
-# **Stable 1.0.0 Memory Model**
+# **Lanner 1.0.0 Memory Model**
 
-Stable's memory model is built around **ownership**, **exclusive access**, **non-owning views**, **storage origins**, and **regions**.
+Lanner's memory model is built around **ownership**, **exclusive access**, **non-owning views**, **storage origins**, and **regions**.
 
 The central rule is simple:
 
@@ -101,7 +101,7 @@ A shared borrow conflicts with an exclusive mutable access over overlapping stor
 
 Example:
 
-```stable
+```lanner
 inc(v: &mut i64) void:
     v = v + 1
 ```
@@ -114,7 +114,7 @@ The borrow itself does not acquire ownership.
 
 ## **8. Borrow lifetime inference**
 
-Stable does not require explicit lifetime parameter syntax.
+Lanner does not require explicit lifetime parameter syntax.
 
 The compiler determines when a borrow is needed and can end it after its last relevant use.
 
@@ -166,7 +166,7 @@ allocation/region ownership information
 
 A growth operation may need to relocate the backing storage.
 
-Therefore Stable prevents potentially relocating mutation while a conflicting reference or view remains live.
+Therefore Lanner prevents potentially relocating mutation while a conflicting reference or view remains live.
 
 A valid optimization may avoid the actual relocation when capacity is sufficient, but **safety is determined semantically**, not by hoping an optimization happens to preserve an address.
 
@@ -191,7 +191,7 @@ Invalid runtime indexing traps deterministically.
 
 ## **12. Storage origins**
 
-Stable tracks the provenance of storage for lifetime/escape checking.
+Lanner tracks the provenance of storage for lifetime/escape checking.
 
 Relevant origins include storage associated with:
 
@@ -244,7 +244,7 @@ Arena
 
 Arenas are useful when many objects share one lifetime boundary.
 
-The implementation uses a native region allocator and maintains stable addresses for existing allocations when the region grows by obtaining additional storage.
+The implementation uses a native region allocator and maintains lanner addresses for existing allocations when the region grows by obtaining additional storage.
 
 ---
 
@@ -258,7 +258,7 @@ The same rule applies recursively to aggregate values containing arena-backed st
 
 ## **16. Destruction**
 
-Stable uses **deterministic, ownership-driven destruction** rather than a tracing collector for ordinary ownership.
+Lanner uses **deterministic, ownership-driven destruction** rather than a tracing collector for ordinary ownership.
 
 Nested cleanup is tracked for supported owning structures including:
 
@@ -313,7 +313,7 @@ This information is useful for both **safety** and **optimization**.
 
 ## **20. No tracing GC requirement**
 
-Ordinary Stable ownership does not require tracing garbage collection.
+Ordinary Lanner ownership does not require tracing garbage collection.
 
 Objects are released according to ownership and region lifetimes.
 
@@ -321,7 +321,7 @@ Objects are released according to ownership and region lifetimes.
 
 ## **21. No hidden reference counting**
 
-Stable does not silently make every ordinary object reference-counted.
+Lanner does not silently make every ordinary object reference-counted.
 
 This avoids imposing reference-count bookkeeping and synchronization costs on code that does not request shared ownership semantics.
 
@@ -363,7 +363,7 @@ The implementation aims to preserve these invariants:
 
 A memory-safe language design does not make a compiler mathematically infallible.
 
-Stable therefore relies on multiple layers of validation:
+Lanner therefore relies on multiple layers of validation:
 
 - semantic regression tests
 - backend tests

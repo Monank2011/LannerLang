@@ -1,5 +1,5 @@
 main() i32:
-    Mobile.log("Stable mobile core started")
+    Mobile.log("Lanner mobile core started")
     const w: i32 = Mobile.screenWidth()
     const h: i32 = Mobile.screenHeight()
     const d: f64 = Mobile.deviceScale()

@@ -1,7 +1,7 @@
 #include "driver/compiler_driver.hpp"
 #include "codegen/llvm_codegen.hpp"
 #include "diagnostics/diagnostic.hpp"
-#if STABLE_ENABLE_LEGACY_HIR
+#if LANNER_ENABLE_LEGACY_HIR
 #include "ir/hir.hpp"
 #include "ir/hir_lowerer.hpp"
 #include "ir/hir_llvm_codegen.hpp"
@@ -19,18 +19,18 @@
 
 static void usage() {
     std::cerr
-        << "Stable compiler\n"
-        << "usage: stablec <file.st> [options]\n\n"
+        << "Lanner compiler\n"
+        << "usage: lanner <file.st> [options]\n\n"
         << "build/run:\n"
-        << "  stablec file.st                 build executable (default)\n"
-        << "  stablec file.st -o app          choose executable path\n"
-        << "  stablec file.st --run            build temporarily and launch it\n"
-        << "  stablec file.st --script         compile and execute as a script; use -- to pass script arguments\n"
-        << "  stablec file.st --check          type-check only\n"
-        << "  stablec file.st --emit-llvm      print LLVM IR\n"
-        << "  stablec file.st --emit-llvm -o x.ll\n"
-        << "  stablec file.st --emit-object -o x.o\n"
-        << "  stablec file.st --emit-asm -o x.s\n"
+        << "  lanner file.st                 build executable (default)\n"
+        << "  lanner file.st -o app          choose executable path\n"
+        << "  lanner file.st --run            build temporarily and launch it\n"
+        << "  lanner file.st --script         compile and execute as a script; use -- to pass script arguments\n"
+        << "  lanner file.st --check          type-check only\n"
+        << "  lanner file.st --emit-llvm      print LLVM IR\n"
+        << "  lanner file.st --emit-llvm -o x.ll\n"
+        << "  lanner file.st --emit-object -o x.o\n"
+        << "  lanner file.st --emit-asm -o x.s\n"
         << "\nsystems/targets:\n"
         << "  --target=<triple>               LLVM target triple for native/cross builds\n"
         << "  --sysroot <path>                target sysroot/root for toolchain and linker\n"
@@ -38,8 +38,8 @@ static void usage() {
         << "  --features <f1,f2,...>          target feature flags\n"
         << "  --linker <name>                 select linker (e.g. lld, mold)\n"
         << "  --linker-script <path>          pass a custom linker script\n"
-        << "  --freestanding                  no Stable runtime, no hosted startup/libs\n"
-        << "  --no-runtime                    omit the Stable hosted runtime only\n"
+        << "  --freestanding                  no Lanner runtime, no hosted startup/libs\n"
+        << "  --no-runtime                    omit the Lanner hosted runtime only\n"
         << "  --entry <symbol>                entry symbol for freestanding links\n"
         << "  --web                           build a browser-ready WebAssembly module + JS loader\n"
         << "  --android-project <dir>         generate an Android Studio + NDK project\n"
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (std::string(argv[1]) == "--version") {
-        std::cout << "Stable 1.0.0 (native LLVM production backend; C++ bootstrap frontend)\n";
+        std::cout << "Lanner 1.0.0 (native LLVM production backend; C++ bootstrap frontend)\n";
         return 0;
     }
 
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
         }
         if (arg == "-o") {
             if (i + 1 >= argc) {
-                std::cerr << "stablec: -o requires a path\n";
+                std::cerr << "lanner: -o requires a path\n";
                 return 2;
             }
             options.outputPath = argv[++i];
@@ -131,29 +131,29 @@ int main(int argc, char** argv) {
         }
         if (parseOptimization(arg, options.optimizationLevel)) continue;
         if (arg == "--android-project") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --android-project requires a directory\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --android-project requires a directory\n"; return 2; }
             options.mobilePlatform = "android"; options.mobileProjectPath = argv[++i]; options.mode = BuildMode::GenerateAndroidProject;
             options.noRuntime = true; if (options.targetTriple.empty()) options.targetTriple = "aarch64-linux-android21"; continue;
         }
         if (arg == "--ios-project") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --ios-project requires a directory\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --ios-project requires a directory\n"; return 2; }
             options.mobilePlatform = "ios"; options.mobileProjectPath = argv[++i]; options.mode = BuildMode::GenerateIOSProject;
             options.noRuntime = true; if (options.targetTriple.empty()) options.targetTriple = "arm64-apple-ios16.0"; continue;
         }
         if (arg == "--game-project") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --game-project requires a directory\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --game-project requires a directory\n"; return 2; }
             options.gameProjectPath = argv[++i]; options.mode = BuildMode::GenerateGameProject; continue;
         }
         if (arg == "--game-name") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --game-name requires a name\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --game-name requires a name\n"; return 2; }
             options.gameAppName = argv[++i]; continue;
         }
         if (arg == "--game-backend") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --game-backend requires a backend name\n"; return 2; }
-            options.gameBackend = argv[++i]; if (options.gameBackend != "sdl2") { std::cerr << "stablec: unsupported game backend '" << options.gameBackend << "' (currently supported: sdl2)\n"; return 2; } continue;
+            if (i + 1 >= argc) { std::cerr << "lanner: --game-backend requires a backend name\n"; return 2; }
+            options.gameBackend = argv[++i]; if (options.gameBackend != "sdl2") { std::cerr << "lanner: unsupported game backend '" << options.gameBackend << "' (currently supported: sdl2)\n"; return 2; } continue;
         }
         if (arg == "--android-abi") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --android-abi requires an ABI\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --android-abi requires an ABI\n"; return 2; }
             options.mobilePlatform = "android"; options.mobileAbi = argv[++i]; options.noRuntime = true; continue;
         }
         if (arg == "--ios-simulator") {
@@ -162,15 +162,15 @@ int main(int argc, char** argv) {
             continue;
         }
         if (arg == "--mobile-name") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --mobile-name requires a name\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --mobile-name requires a name\n"; return 2; }
             options.mobileAppName = argv[++i]; continue;
         }
         if (arg == "--bundle-id") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --bundle-id requires an identifier\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --bundle-id requires an identifier\n"; return 2; }
             options.mobileBundleId = argv[++i]; continue;
         }
         if (arg == "--deployment") {
-            if (i + 1 >= argc) { std::cerr << "stablec: --deployment requires a version\n"; return 2; }
+            if (i + 1 >= argc) { std::cerr << "lanner: --deployment requires a version\n"; return 2; }
             options.mobileDeployment = argv[++i]; continue;
         }
         if (arg == "--freestanding") { options.freestanding = true; options.noRuntime = true; continue; }
@@ -182,17 +182,17 @@ int main(int argc, char** argv) {
             continue;
         }
         if (arg == "--no-runtime") { options.noRuntime = true; continue; }
-        if (arg.rfind("--target=", 0) == 0) { options.targetTriple = arg.substr(9); explicitTarget = true; if (options.targetTriple.empty()) { std::cerr << "stablec: --target requires a triple\n"; return 2; } continue; }
-        if (arg == "--target") { if (i + 1 >= argc) { std::cerr << "stablec: --target requires a triple\n"; return 2; } options.targetTriple = argv[++i]; explicitTarget = true; continue; }
-        if (arg == "--sysroot") { if (i + 1 >= argc) { std::cerr << "stablec: --sysroot requires a path\n"; return 2; } options.sysroot = argv[++i]; continue; }
-        if (arg == "--linker") { if (i + 1 >= argc) { std::cerr << "stablec: --linker requires a linker name\n"; return 2; } options.linker = argv[++i]; continue; }
-        if (arg == "--linker-script") { if (i + 1 >= argc) { std::cerr << "stablec: --linker-script requires a path\n"; return 2; } options.linkerScript = argv[++i]; continue; }
-        if (arg == "--cpu") { if (i + 1 >= argc) { std::cerr << "stablec: --cpu requires a CPU name\n"; return 2; } options.cpu = argv[++i]; continue; }
-        if (arg == "--features") { if (i + 1 >= argc) { std::cerr << "stablec: --features requires a comma-separated feature list\n"; return 2; } options.features = argv[++i]; continue; }
-        if (arg == "--entry") { if (i + 1 >= argc) { std::cerr << "stablec: --entry requires a symbol\n"; return 2; } options.entryPoint = argv[++i]; continue; }
+        if (arg.rfind("--target=", 0) == 0) { options.targetTriple = arg.substr(9); explicitTarget = true; if (options.targetTriple.empty()) { std::cerr << "lanner: --target requires a triple\n"; return 2; } continue; }
+        if (arg == "--target") { if (i + 1 >= argc) { std::cerr << "lanner: --target requires a triple\n"; return 2; } options.targetTriple = argv[++i]; explicitTarget = true; continue; }
+        if (arg == "--sysroot") { if (i + 1 >= argc) { std::cerr << "lanner: --sysroot requires a path\n"; return 2; } options.sysroot = argv[++i]; continue; }
+        if (arg == "--linker") { if (i + 1 >= argc) { std::cerr << "lanner: --linker requires a linker name\n"; return 2; } options.linker = argv[++i]; continue; }
+        if (arg == "--linker-script") { if (i + 1 >= argc) { std::cerr << "lanner: --linker-script requires a path\n"; return 2; } options.linkerScript = argv[++i]; continue; }
+        if (arg == "--cpu") { if (i + 1 >= argc) { std::cerr << "lanner: --cpu requires a CPU name\n"; return 2; } options.cpu = argv[++i]; continue; }
+        if (arg == "--features") { if (i + 1 >= argc) { std::cerr << "lanner: --features requires a comma-separated feature list\n"; return 2; } options.features = argv[++i]; continue; }
+        if (arg == "--entry") { if (i + 1 >= argc) { std::cerr << "lanner: --entry requires a symbol\n"; return 2; } options.entryPoint = argv[++i]; continue; }
         if (arg == "--link") {
             if (i + 1 >= argc) {
-                std::cerr << "stablec: --link requires an argument\n";
+                std::cerr << "lanner: --link requires an argument\n";
                 return 2;
             }
             options.linkArgs.push_back(argv[++i]);
@@ -201,13 +201,13 @@ int main(int argc, char** argv) {
         if (parseBackend(arg, options.backend)) continue;
         if (looksLikeMode(arg)) {
             if (!modeName.empty() && modeName != "build") {
-                std::cerr << "stablec: choose only one compilation mode\n";
+                std::cerr << "lanner: choose only one compilation mode\n";
                 return 2;
             }
             modeName = arg;
             continue;
         }
-        std::cerr << "stablec: unknown option '" << arg << "'\n";
+        std::cerr << "lanner: unknown option '" << arg << "'\n";
         usage();
         return 2;
     }
@@ -245,22 +245,22 @@ int main(int argc, char** argv) {
         TypeChecker checker(symbols);
         checker.checkProgram(program);
 
-#if STABLE_ENABLE_LEGACY_HIR
-        stable::hir::Lowerer lowerer;
-        stable::hir::Module module = lowerer.lowerProgram(program);
+#if LANNER_ENABLE_LEGACY_HIR
+        lanner::hir::Lowerer lowerer;
+        lanner::hir::Module module = lowerer.lowerProgram(program);
         const bool optimized = modeName == "--emit-opt-hir" || modeName == "--emit-opt-llvm-hir";
-        if (optimized) stable::hir::optimize(module, stable::hir::OptimizationLevel::O2);
+        if (optimized) lanner::hir::optimize(module, lanner::hir::OptimizationLevel::O2);
 
         if (modeName == "--emit-hir" || modeName == "--emit-opt-hir") {
-            std::cout << stable::hir::print(module);
+            std::cout << lanner::hir::print(module);
         } else {
-            stable::hir::LLVMCodegen codegen;
+            lanner::hir::LLVMCodegen codegen;
             std::cout << codegen.generate(module);
         }
         return 0;
 #else
         if (modeName == "--emit-hir" || modeName == "--emit-opt-hir" || modeName == "--emit-llvm-hir" || modeName == "--emit-opt-llvm-hir") {
-            std::cerr << "legacy HIR inspection is disabled in the production compiler; rebuild with STABLE_ENABLE_LEGACY_HIR=ON" << std::endl;
+            std::cerr << "legacy HIR inspection is disabled in the production compiler; rebuild with LANNER_ENABLE_LEGACY_HIR=ON" << std::endl;
             return 2;
         }
         LLVMCodeGenerator codegen;
@@ -272,8 +272,8 @@ int main(int argc, char** argv) {
             try { return readFile(options.inputPath); }
             catch (...) { return std::string{}; }
         }();
-        const auto parsed = stable::diagnostics::parseErrorMessage(e.what());
-        std::cerr << stable::diagnostics::render(parsed, options.inputPath, source);
+        const auto parsed = lanner::diagnostics::parseErrorMessage(e.what());
+        std::cerr << lanner::diagnostics::render(parsed, options.inputPath, source);
         return 1;
     }
 }

@@ -47,11 +47,11 @@ main() i32:
 
     jsonOk: bool = Json.validate("{\"ok\":true,\"n\":42}")
     jsonBad: bool = Json.validate("{\"x\":\"\\q\"}")
-    quoted: Buffer = Json.quote("stable")
+    quoted: Buffer = Json.quote("lanner")
     number: Buffer = Json.int(42)
     flag: Buffer = Json.bool(true)
     nul: Buffer = Json.nullValue()
-    quotedOk: bool = quoted.cstr().equals("\"stable\"")
+    quotedOk: bool = quoted.cstr().equals("\"lanner\"")
     numberOk: bool = number.cstr().equals("42")
     flagOk: bool = flag.cstr().equals("true")
     nullOk: bool = nul.cstr().equals("null")
@@ -68,8 +68,8 @@ main() i32:
     if !outputOk:
         return 5
 
-    envOk: bool = Process.setEnv("STABLE_BACKEND_TEST", "ok")
-    env: string = getEnv("STABLE_BACKEND_TEST")
+    envOk: bool = Process.setEnv("LANNER_BACKEND_TEST", "ok")
+    env: string = getEnv("LANNER_BACKEND_TEST")
     if !envOk || !env.equals("ok"):
         return 6
 

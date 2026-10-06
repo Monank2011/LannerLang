@@ -4,8 +4,8 @@ This bootstrap tree now uses the canonical memory model in `docs/MEMORY_MODEL.md
 
 ## Semantic core
 
-- `Symbol` ownership/borrow state is consolidated in `stable::memory::BindingState`.
-- Stable binding identities allow borrow tokens to follow moves and shadowed bindings safely.
+- `Symbol` ownership/borrow state is consolidated in `lanner::memory::BindingState`.
+- Lanner binding identities allow borrow tokens to follow moves and shadowed bindings safely.
 - `TypeNode::origin` is the single provenance field for local, parameter, arena, heap, and global storage origins.
 - Borrow modes are shared or exclusive and apply uniformly to `&T`, `&mut T`, `View[T]`, and `EditView[T]`.
 - Borrow expiry is compiler-inferred using last-use analysis. An unused borrow ends after its defining statement; a borrow used later remains active until its final use.

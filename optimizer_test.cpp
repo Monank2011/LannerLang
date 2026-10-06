@@ -3,7 +3,7 @@
 #include <iostream>
 #include <cmath>
 
-using namespace stable::hir;
+using namespace lanner::hir;
 
 int main() {
     Function f;

@@ -1,6 +1,6 @@
-# **Stable Changelog**
+# **Lanner Changelog**
 
-Stable was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
+Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
 
 ## **1.0.0 — Initial packaged release**
 
@@ -10,11 +10,11 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 - Added optional `GITHUB_TOKEN` support for GitHub API rate-limit resilience.
 - Added Linux and Windows installers that download official LLVM/Clang **23.1.2**.
 - Pinned and verified the Linux and Windows archive SHA-256 checksums.
-- Installs LLVM side by side under Stable's own versioned directory.
-- Configures the Stable compiler wrapper through `STABLE_CLANG` without replacing system LLVM.
+- Installs LLVM side by side under Lanner's own versioned directory.
+- Configures the Lanner compiler wrapper through `LANNER_CLANG` without replacing system LLVM.
 
 
-- Published the complete Stable compiler and language source tree.
+- Published the complete Lanner compiler and language source tree.
 - Added bold, release-focused README presentation and direct binary download links.
 - Added Linux x86_64 and Windows x86_64 compiler packages.
 - Added package installation notes under `docs/release/`.
@@ -65,7 +65,7 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 
 ## 0.6.0-dev bootstrap step 21
 
-- Hardened LLVM toolchain portability after the scalar benchmark: the native driver now discovers the selected Clang/LLVM major version, supports `STABLE_CLANG` and `LLVM_CC`, rejects pre-LLVM-15 toolchains with an explicit opaque-pointer diagnostic, and adds a reusable LLVM compatibility smoke-test. Floating-point literals remain emitted in LLVM's exact 16-digit hexadecimal IEEE-754 form so non-exact decimal source literals are preserved across the supported modern LLVM range.
+- Hardened LLVM toolchain portability after the scalar benchmark: the native driver now discovers the selected Clang/LLVM major version, supports `LANNER_CLANG` and `LLVM_CC`, rejects pre-LLVM-15 toolchains with an explicit opaque-pointer diagnostic, and adds a reusable LLVM compatibility smoke-test. Floating-point literals remain emitted in LLVM's exact 16-digit hexadecimal IEEE-754 form so non-exact decimal source literals are preserved across the supported modern LLVM range.
 - Completed the current implemented-language parity pass across production and native self-hosted LLVM paths.
 - Promoted local `comptime` declarations to production semantic/codegen support and added comptime-sized fixed-array coverage.
 - Extended typed-HIR constant folding to `f32`/`f64`, including arithmetic, ordered comparisons, unary operations, and safe scalar casts.
@@ -76,24 +76,24 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 
 ## 0.6.0-dev bootstrap step 20
 
-- Added the official Stable logo as a transparent high-resolution editor asset.
+- Added the official Lanner logo as a transparent high-resolution editor asset.
 - Expanded the self-hosted native LLVM path with typed `f32`/`f64` function signatures, arithmetic, comparisons, locals, arrays, `.push()`, `for` iteration, and float printing.
 - Added native `for` lowering for dynamic/fixed arrays and `View`/`EditView`, including typed scalar loop bindings and correct `break`/`continue` targets.
 - Added native compile-time value handling for `comptime` declarations, including integer expression evaluation and runtime use of comptime bool/float/string values; local comptime-sized fixed arrays are supported as a native extension.
 - Fixed native `print(bool)` LLVM emission to use an SSA `select` instruction instead of an obsolete constant-expression `select` embedded inside a call argument.
 - Added regression coverage for `else if`, binary/hex integer literals, unary/bitwise operators, floats, `for`, `print`, and comptime behavior.
 - Native self-host regression coverage is now **58/58 passing**.
-- Added `tools/stable-vscode/`, a VS Code extension contribution for the `stable` language and `.st` files.
-- Added a `Stable File Icons` theme that maps `.st` files and the `stable` language ID directly to the Stable logo.
-- Added the Stable logo to the language contribution so compatible file icon themes can use it as the language default icon.
+- Added `tools/lanner-vscode/`, a VS Code extension contribution for the `lanner` language and `.st` files.
+- Added a `Lanner File Icons` theme that maps `.st` files and the `lanner` language ID directly to the Lanner logo.
+- Added the Lanner logo to the language contribution so compatible file icon themes can use it as the language default icon.
 - Added editor-branding documentation and the canonical logo asset under `docs/assets/`.
 
 ## 0.6.0-dev bootstrap step 19
 
 - Promoted the typed AST/module -> typed-HIR -> native LLVM pipeline to the unconditional production path of `selfhost/compiler.st`.
-- Native self-hosting no longer requires `STABLE_SELFHOST_NATIVE_LLVM`; a fresh Stable-written compiler invocation emits native LLVM by default.
+- Native self-hosting no longer requires `LANNER_SELFHOST_NATIVE_LLVM`; a fresh Lanner-written compiler invocation emits native LLVM by default.
 - Expanded typed declaration registries so native LLVM consumes typed function parameters and struct fields directly instead of reparsing declaration lists from source text.
-- Completed the production boundary for the self-hosted compiler: the old semantic/C++/HIR bridge remains only behind explicit `STABLE_SELFHOST_REFERENCE=1` for differential/reference validation.
+- Completed the production boundary for the self-hosted compiler: the old semantic/C++/HIR bridge remains only behind explicit `LANNER_SELFHOST_REFERENCE=1` for differential/reference validation.
 - Added the typed-front-end verifier and kept aggregate type/provenance rejection coverage in the authoritative native bootstrap.
 - Native fixed-point validation: stage-2/stage-3 LLVM is byte-identical.
 - Production CTest: **29/29**.
@@ -117,7 +117,7 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 - Preserved scalar field/index extraction from aggregates without propagating irrelevant borrow provenance.
 - Distinguished local arenas from caller-owned arena parameters, allowing safe region-carrying returns when the region itself comes from the caller.
 - Added HIR and memory-model regressions for nested View escape, nested arena escape, scalar projection, and parameter-owned Arena returns.
-- Verified the bootstrap fixed point and native self-host path remain stable after the provenance migration.
+- Verified the bootstrap fixed point and native self-host path remain lanner after the provenance migration.
 
 ## 0.6.0-dev bootstrap step 16
 
@@ -125,7 +125,7 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 - Added deep ownership classification for nested aggregates and propagated ownership moves through calls, returns, constructors, assignments, Result/Optional guards, and owning-element `push()`.
 - Hoisted owning locals now begin in an inert zero-initialized state, so function-level cleanup is safe even when initialization occurs only on a branch.
 - Hardened cleanup dispatch to fail closed for non-owning or unknown type codes instead of emitting an unrelated destructor.
-- Fixed native arena creation/allocation and arena-aware dynamic-array growth while preserving stable addresses.
+- Fixed native arena creation/allocation and arena-aware dynamic-array growth while preserving lanner addresses.
 - Added native regressions for nested destruction, nested assignment replacement, owning `push()`, arena allocation, and Result ownership.
 - Native selfhost suite: **45/45 passing**. AddressSanitizer ownership stress cases are clean.
 - Verified recursive native stage-1 -> stage-2 -> stage-3 compilation with **byte-identical stage-2/stage-3 LLVM and object artifacts**.
@@ -167,7 +167,7 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 
 - Hardened the self-hosted semantic keyword matcher so `returnX`, `breakfast`, and `continueX` are not misclassified as control-flow keywords; this allows `compiler.st` to self-parse through its own semantic gate.
 - Lowered enum members inside real C++ `enum class` definitions instead of emitting them as unrelated local assignments; the bootstrap Result/enum stress program now compiles and preserves enum references such as `ErrorCode.Empty`.
-- Made the CTest self-hosting checks inherit `STABLE_BUILD_DIR` from the active build tree, so the bootstrap scripts work from non-default build directories too.
+- Made the CTest self-hosting checks inherit `LANNER_BUILD_DIR` from the active build tree, so the bootstrap scripts work from non-default build directories too.
 - Corrected the C++ bootstrap struct-field `.len()` adaptation to use `size_t`, matching `usize` fields such as `LLVMFunctionSig.paramStart`.
 - Verified the complete legacy compatibility suite at 47/47, the stage-1 -> stage-2 -> stage-3 bootstrap with byte-identical compiler artifacts, and the native LLVM replacement probe.
 
@@ -178,16 +178,16 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 - Enforced `EditView` exclusivity for ordinary owner reads as well as mutations, while preserving normal `&mut` reference behavior.
 - Fixed HIR constant-folded signed widening so printing negative narrow integers matches the direct LLVM backend.
 - Added the built-in `print(...)` statement for strings, booleans, all built-in integer types, and `f32`/`f64`, with newline output on both LLVM backends and in the self-hosted C++ bootstrap path.
-- Updated `examples/hello.st` to the canonical `print("Hello, STABLE!")` first-program example and added memory/optimizer regression coverage.
+- Updated `examples/hello.st` to the canonical `print("Hello, LANNER!")` first-program example and added memory/optimizer regression coverage.
 - Full legacy-HIR compatibility suite passes 47/47 tests, including stage-2/stage-3 bootstrap and native LLVM replacement checks.
 
 ## 0.5.0-dev
 
-- Added the first real Stable-in-Stable compiler pipeline: Stable-written semantic validation, compact typed HIR lowering, safe unreachable-tail optimization, and a C++17 bootstrap backend.
+- Added the first real Lanner-in-Lanner compiler pipeline: Lanner-written semantic validation, compact typed HIR lowering, safe unreachable-tail optimization, and a C++17 bootstrap backend.
 - Added reproducible stage-1 -> stage-2 -> stage-3 bootstrap comparison, including byte-identical compiler artifacts and generated probe artifacts.
 - Added stage-0 behavioral comparison and a deliberate borrow-escape semantic rejection regression.
 - Hardened the self-hosted bootstrap HIR record layout to carry six fields: opcode, source span, indentation, liveness, and semantic type-class metadata.
-- Started the native backend replacement track with a Stable-written LLVM emitter for scalar integer/bool functions, direct calls, explicit casts, assignment, `if`, and `while`.
+- Started the native backend replacement track with a Lanner-written LLVM emitter for scalar integer/bool functions, direct calls, explicit casts, assignment, `if`, and `while`.
 - Reworked native expression results to scalar IDs with per-function SSA numbering, eliminating large aggregate-return dependence in the bootstrap path.
 - Added deterministic native LLVM replacement regression coverage that stage-1 emits, Clang validates, and executes successfully.
 
@@ -206,7 +206,7 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 ## 0.4-dev
 
 - Added the native compiler driver: source -> type checking -> LLVM IR -> Clang -> executable.
-- Added `stablec file.st` executable builds and `stablec file.st --run`.
+- Added `lanner file.st` executable builds and `lanner file.st --run`.
 - Added `-O0` through `-O3` driver options.
 - Added `-o` output selection and LLVM IR file output.
 - Added `--version` and updated project version metadata.
@@ -226,21 +226,21 @@ Stable was created and is developed by **Monank Gohil**, who began developing th
 
 ### Self-hosting bootstrap
 
-- Added a real Stable-written arena-backed AST frontend at `selfhost/compiler.st`.
-- Added configurable bootstrap input through `getEnv("STABLE_SELFHOST_INPUT")` with a deterministic default.
+- Added a real Lanner-written arena-backed AST frontend at `selfhost/compiler.st`.
+- Added configurable bootstrap input through `getEnv("LANNER_SELFHOST_INPUT")` with a deterministic default.
 - Added a representative self-hosting stress program covering enums, nested owning arrays, `Result`, `Ok`, `Err`, and guards.
 - Added the stage-0 -> stage-1 bootstrap harness at `tools/bootstrap_selfhost.sh`.
 - Added CTest coverage for default frontend execution, stress parsing, and parsing the compiler's own source.
 - Fixed direct LLVM `getEnv` emission and corrected nullable empty-string IR spelling.
-- Fixed Stable parser slice recognition and `else if` parsing in the self-hosted frontend.
+- Fixed Lanner parser slice recognition and `else if` parsing in the self-hosted frontend.
 
 ## 0.5.0-dev replacement phase: production backend split
 
 - Native/direct LLVM is now the production `auto` backend; it no longer silently falls back to HIR.
-- Legacy HIR is compile-time gated behind `STABLE_ENABLE_LEGACY_HIR=ON` and is excluded from the default production `stablec` build.
+- Legacy HIR is compile-time gated behind `LANNER_ENABLE_LEGACY_HIR=ON` and is excluded from the default production `lanner` build.
 - HIR sources are linked only for the explicitly enabled legacy/bootstrap configuration.
-- Direct LLVM builtin dispatch now includes `writeRaw`, `writeIntRaw`, and `writeByteRaw`, restoring parity needed by the Stable-written compiler.
-- Self-host bootstrap verification remains on the legacy HIR configuration until the Stable-written native LLVM emitter reaches aggregate/runtime feature parity. This is intentional: the old path is now bootstrap infrastructure, not the production backend.
+- Direct LLVM builtin dispatch now includes `writeRaw`, `writeIntRaw`, and `writeByteRaw`, restoring parity needed by the Lanner-written compiler.
+- Self-host bootstrap verification remains on the legacy HIR configuration until the Lanner-written native LLVM emitter reaches aggregate/runtime feature parity. This is intentional: the old path is now bootstrap infrastructure, not the production backend.
 
 ## Step 12: native fixed-array parity boundary
 
@@ -273,14 +273,14 @@ replacement verification pass.
 - Added real CBLAS FFI regression coverage using `--link -lblas`.
 - Added ML examples and documentation.
 
-## Stable 1.0.0 Mobile
+## Lanner 1.0.0 Mobile
 
 Added native Android/iOS compilation targets, project generators, platform bridges, Mobile APIs, native UI shells, and mobile regression coverage.
 
 
-## Stable 1.0.0 Game Development
+## Lanner 1.0.0 Game Development
 
 - Added native `Game` and `Graphics` APIs for SDL2 windows, events, input, 2D rendering, textures, audio and frame timing.
 - Added dynamic native graphics-procedure loading for Vulkan, OpenGL and platform graphics APIs, with explicit unsafe boundaries for low-level calls.
-- Added cross-platform `--game-project` generation with CMake, embedded Stable runtime source and asset layout.
+- Added cross-platform `--game-project` generation with CMake, embedded Lanner runtime source and asset layout.
 - Added a complete native game-loop regression using SDL dummy video/audio drivers.

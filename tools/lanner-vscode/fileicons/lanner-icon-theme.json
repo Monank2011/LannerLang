@@ -1,15 +1,15 @@
 {
   "$schema": "vscode://schemas/icon-theme",
   "iconDefinitions": {
-    "_stable": {
-      "iconPath": "../icons/stable.png"
+    "_lanner": {
+      "iconPath": "../icons/lanner.png"
     }
   },
   "fileExtensions": {
-    "st": "_stable"
+    "st": "_lanner"
   },
   "languageIds": {
-    "stable": "_stable"
+    "lanner": "_lanner"
   },
   "showLanguageModeIcons": true
 }

@@ -1,4 +1,4 @@
-static message: string = "Stable is running in the browser"
+static message: string = "Lanner is running in the browser"
 
 onTick() void:
     Web.log("timer callback fired")
@@ -7,7 +7,7 @@ onFrame(t: f64) void:
     Web.log("animation frame")
 
 onClick() void:
-    Web.setText("#status", "Button clicked from Stable")
+    Web.setText("#status", "Button clicked from Lanner")
 
 onFetch(status: i32, data: *mut u8, len: usize) void:
     Web.log("fetch callback fired")
@@ -17,8 +17,8 @@ onFetch(status: i32, data: *mut u8, len: usize) void:
 main() i32:
     Web.log(message)
     Web.setText("#status", message)
-    Web.setAttribute("#status", "data-language", "stable")
-    Web.addClass("#status", "stable-ready")
+    Web.setAttribute("#status", "data-language", "lanner")
+    Web.addClass("#status", "lanner-ready")
     Web.addEventListener("#run", "click", "onClick")
     Web.setTimeout("onTick", 50)
     Web.requestAnimationFrame("onFrame")

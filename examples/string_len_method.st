@@ -1,3 +1,3 @@
 main() i32:
-    s: string = "stable"
+    s: string = "lanner"
     return s.len() as i32

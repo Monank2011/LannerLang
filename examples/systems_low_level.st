@@ -1,5 +1,5 @@
 packed PackedPair[a:u8, b:u32]
-static align(64) section ".stable.rodata" Words:[4]u64=[1,2,4,8]
+static align(64) section ".lanner.rodata" Words:[4]u64=[1,2,4,8]
 
 unsafe increment(p:*mut i32) i32:
     *p=*p+1

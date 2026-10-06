@@ -14,7 +14,7 @@
 #include <string>
 #include <utility>
 
-namespace stable::hir {
+namespace lanner::hir {
 
 namespace {
 
@@ -158,7 +158,7 @@ Type Lowerer::lowerType(const TypeNode* type) const {
     }
 
     if (type->name == "Arena") {
-        return annotateMemory({ScalarKind::Aggregate, 0, false, "Arena", "%StableArena", {}, 0}, type);
+        return annotateMemory({ScalarKind::Aggregate, 0, false, "Arena", "%LannerArena", {}, 0}, type);
     }
 
     if ((type->name == "View" || type->name == "EditView") && type->generics.size() == 1) {
@@ -173,7 +173,7 @@ Type Lowerer::lowerType(const TypeNode* type) const {
             return annotateMemory({ScalarKind::Aggregate, 0, false, "array", "[" + std::to_string(*type->fixedArraySize) +
                     " x " + elementType.llvmName + "]", {elementType}, *type->fixedArraySize}, type);
         }
-        return annotateMemory({ScalarKind::Aggregate, 0, false, "array", "%StableDynArray", {elementType}, 0}, type);
+        return annotateMemory({ScalarKind::Aggregate, 0, false, "array", "%LannerDynArray", {elementType}, 0}, type);
     }
 
     if (type->name == "string") {
@@ -514,7 +514,7 @@ void Lowerer::cleanupLocal(const std::string& slot, const Type& type) {
 }
 
 void Lowerer::emitDestroyAt(const std::string& address, const Type& type) {
-    const bool owning = type.llvmName == "%StableDynArray" || type.llvmName == "%StableArena" ||
+    const bool owning = type.llvmName == "%LannerDynArray" || type.llvmName == "%LannerArena" ||
         (!type.members.empty() && type.sourceName != "View" && type.sourceName != "EditView" &&
          (type.sourceName == "Result" || type.sourceName.back() == '?' || type.sourceName == "array" ||
           type.sourceName == "struct" || type.sourceName.find('%') == std::string::npos));
@@ -556,28 +556,28 @@ std::string Lowerer::lowerCall(const Expr* expr) {
         const auto* targetType = field->target->checkedType.get();
         if (field->target->kind == ExprKind::Identifier && field->target->strValue == "Mobile") {
             static const std::unordered_map<std::string, std::string> mobileCalls = {
-                {"log", "__stable_mobile_log"},
-                {"platform", "__stable_mobile_platform"},
-                {"osVersion", "__stable_mobile_os_version"},
-                {"isSimulator", "__stable_mobile_is_simulator"},
-                {"screenWidth", "__stable_mobile_screen_width"},
-                {"screenHeight", "__stable_mobile_screen_height"},
-                {"deviceScale", "__stable_mobile_device_scale"},
-                {"safeAreaTop", "__stable_mobile_safe_top"},
-                {"safeAreaBottom", "__stable_mobile_safe_bottom"},
-                {"safeAreaLeft", "__stable_mobile_safe_left"},
-                {"safeAreaRight", "__stable_mobile_safe_right"},
-                {"openUrl", "__stable_mobile_open_url"},
-                {"vibrate", "__stable_mobile_vibrate"},
-                {"requestPermission", "__stable_mobile_request_permission"},
-                {"clipboardSet", "__stable_mobile_clipboard_set"},
-                {"clipboardGet", "__stable_mobile_clipboard_get"},
-                {"cameraAvailable", "__stable_mobile_camera_available"},
-                {"locationAvailable", "__stable_mobile_location_available"},
-                {"bluetoothAvailable", "__stable_mobile_bluetooth_available"},
-                {"appDataPath", "__stable_mobile_app_data_path"},
-                {"documentsPath", "__stable_mobile_documents_path"},
-                {"cachePath", "__stable_mobile_cache_path"}
+                {"log", "__lanner_mobile_log"},
+                {"platform", "__lanner_mobile_platform"},
+                {"osVersion", "__lanner_mobile_os_version"},
+                {"isSimulator", "__lanner_mobile_is_simulator"},
+                {"screenWidth", "__lanner_mobile_screen_width"},
+                {"screenHeight", "__lanner_mobile_screen_height"},
+                {"deviceScale", "__lanner_mobile_device_scale"},
+                {"safeAreaTop", "__lanner_mobile_safe_top"},
+                {"safeAreaBottom", "__lanner_mobile_safe_bottom"},
+                {"safeAreaLeft", "__lanner_mobile_safe_left"},
+                {"safeAreaRight", "__lanner_mobile_safe_right"},
+                {"openUrl", "__lanner_mobile_open_url"},
+                {"vibrate", "__lanner_mobile_vibrate"},
+                {"requestPermission", "__lanner_mobile_request_permission"},
+                {"clipboardSet", "__lanner_mobile_clipboard_set"},
+                {"clipboardGet", "__lanner_mobile_clipboard_get"},
+                {"cameraAvailable", "__lanner_mobile_camera_available"},
+                {"locationAvailable", "__lanner_mobile_location_available"},
+                {"bluetoothAvailable", "__lanner_mobile_bluetooth_available"},
+                {"appDataPath", "__lanner_mobile_app_data_path"},
+                {"documentsPath", "__lanner_mobile_documents_path"},
+                {"cachePath", "__lanner_mobile_cache_path"}
             };
             const auto it = mobileCalls.find(field->field);
             if (it == mobileCalls.end()) unsupported("unknown Mobile method '" + field->field + "'", expr->line);
@@ -605,7 +605,7 @@ std::string Lowerer::lowerCall(const Expr* expr) {
         if (field->field == "len" && targetType->name == "string" && !targetType->isArray) {
             Instruction call;
             call.op = Opcode::Call;
-            call.callee = "__stable_string_len";
+            call.callee = "__lanner_string_len";
             call.type = exprType(expr);
             call.result = newTemp();
             auto value = lowerExpr(field->target.get());
@@ -745,13 +745,13 @@ std::string Lowerer::lowerCall(const Expr* expr) {
         call.op = Opcode::Call;
         call.type = {ScalarKind::Void, 0, false, "void", "void"};
         if (sourceType.kind == ScalarKind::String) {
-            call.callee = "__stable_print_string";
+            call.callee = "__lanner_print_string";
             call.args.push_back(lowerExpr(argExpr));
         } else if (sourceType.kind == ScalarKind::Bool) {
-            call.callee = "__stable_print_bool";
+            call.callee = "__lanner_print_bool";
             call.args.push_back(lowerExpr(argExpr));
         } else if (sourceType.kind == ScalarKind::Float) {
-            call.callee = "__stable_print_f64";
+            call.callee = "__lanner_print_f64";
             auto value = lowerExpr(argExpr);
             if (sourceType.bits != 64) {
                 Instruction cast;
@@ -765,7 +765,7 @@ std::string Lowerer::lowerCall(const Expr* expr) {
             }
             call.args.push_back(value);
         } else if (sourceType.kind == ScalarKind::Int) {
-            call.callee = sourceType.isSigned ? "__stable_print_i64" : "__stable_print_u64";
+            call.callee = sourceType.isSigned ? "__lanner_print_i64" : "__lanner_print_u64";
             auto value = lowerExpr(argExpr);
             if (sourceType.bits != 64) {
                 Instruction cast;
@@ -787,15 +787,15 @@ std::string Lowerer::lowerCall(const Expr* expr) {
     if (name == "readFile" || name == "writeStdout" || name == "writeRaw" || name == "writeIntRaw" || name == "writeByteRaw" || name == "printInt" || name == "stringLen" || name == "getEnv") {
         Instruction call;
         call.op = Opcode::Call;
-        call.callee = "__stable_" + name;
-        if (name == "readFile") call.callee = "__stable_read_file";
-        if (name == "writeStdout") call.callee = "__stable_write_stdout";
-        if (name == "writeRaw") call.callee = "__stable_write_raw";
-        if (name == "writeIntRaw") call.callee = "__stable_write_i64_raw";
-        if (name == "writeByteRaw") call.callee = "__stable_write_byte_raw";
-        if (name == "printInt") call.callee = "__stable_print_i64";
-        if (name == "stringLen") call.callee = "__stable_string_len";
-        if (name == "getEnv") call.callee = "__stable_getenv";
+        call.callee = "__lanner_" + name;
+        if (name == "readFile") call.callee = "__lanner_read_file";
+        if (name == "writeStdout") call.callee = "__lanner_write_stdout";
+        if (name == "writeRaw") call.callee = "__lanner_write_raw";
+        if (name == "writeIntRaw") call.callee = "__lanner_write_i64_raw";
+        if (name == "writeByteRaw") call.callee = "__lanner_write_byte_raw";
+        if (name == "printInt") call.callee = "__lanner_print_i64";
+        if (name == "stringLen") call.callee = "__lanner_string_len";
+        if (name == "getEnv") call.callee = "__lanner_getenv";
         call.type = exprType(expr);
         if (call.type.kind != ScalarKind::Void) call.result = newTemp();
         for (const auto& arg : expr->args) call.args.push_back(lowerExpr(arg.get()));
@@ -1073,7 +1073,7 @@ std::string Lowerer::lowerExpr(const Expr* expr) {
         case ExprKind::BinaryOp: {
             if (expr->op == "&&" || expr->op == "||") {
                 const std::string lhs = lowerExpr(expr->left.get());
-                const std::string slot = "__stable_sc_" + std::to_string(++tempCounter);
+                const std::string slot = "__lanner_sc_" + std::to_string(++tempCounter);
                 current.locals.emplace(slot, Type{ScalarKind::Bool, 1, false, "bool", "i1"});
 
                 const std::string rhsLabel = newBlockLabel(expr->op == "&&" ? "sc_rhs" : "sc_false");
@@ -1458,7 +1458,7 @@ void Lowerer::lowerStmt(const Stmt* stmt) {
             if (match->left->kind == ExprKind::Identifier) {
                 resultAddress = lowerLValueAddress(match->left.get());
             } else {
-                const std::string tempSlot = "__stable_match_result." + std::to_string(++tempCounter);
+                const std::string tempSlot = "__lanner_match_result." + std::to_string(++tempCounter);
                 const Type resultType = exprType(match->left.get());
                 current.locals[tempSlot] = resultType;
                 localScopes.back()[tempSlot] = tempSlot;
@@ -1572,7 +1572,7 @@ void Lowerer::lowerStmt(const Stmt* stmt) {
             if (fixed) {
                 // fixed base is address of whole array; AggregateIndex handles the GEP.
             }
-            const std::string idxSlot = "__stable_for_idx." + std::to_string(++tempCounter);
+            const std::string idxSlot = "__lanner_for_idx." + std::to_string(++tempCounter);
             current.locals[idxSlot] = Type{ScalarKind::Int,64,false,"usize","i64"};
             localScopes.back()[idxSlot] = idxSlot;
             scopeOrder.back().push_back(idxSlot);
@@ -1643,4 +1643,4 @@ void Lowerer::lowerStmt(const Stmt* stmt) {
     throw std::runtime_error("HIR lowerer at line " + std::to_string(line) + ": " + message);
 }
 
-} // namespace stable::hir
+} // namespace lanner::hir

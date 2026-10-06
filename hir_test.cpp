@@ -20,7 +20,7 @@ static Program parseAndCheck(const std::string& source) {
 static bool expectLower(const std::string& label, const std::string& source, bool shouldPass) {
     try {
         Program program = parseAndCheck(source);
-        stable::hir::Lowerer lowerer;
+        lanner::hir::Lowerer lowerer;
         auto module = lowerer.lowerProgram(program);
         if (!shouldPass) {
             std::cerr << "FAIL: " << label << " expected HIR rejection\n";
@@ -105,7 +105,7 @@ int main() {
             "    return h.x\n";
         try {
             Program program = parseAndCheck(source);
-            stable::hir::Lowerer lowerer;
+            lanner::hir::Lowerer lowerer;
             auto module = lowerer.lowerProgram(program);
             if (module.functions.empty()) {
                 std::cerr << "FAIL: HIR preserves nested provenance: no functions\n";

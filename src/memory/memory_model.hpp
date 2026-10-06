@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-namespace stable::memory {
+namespace lanner::memory {
 
 enum class OwnershipState : std::uint8_t {
     Live,
@@ -105,4 +105,4 @@ inline const char* originName(StorageOriginKind kind) {
     return "unknown";
 }
 
-} // namespace stable::memory
+} // namespace lanner::memory

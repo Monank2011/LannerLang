@@ -2,7 +2,7 @@
 
 #include "hir.hpp"
 
-namespace stable::hir {
+namespace lanner::hir {
 
 enum class OptimizationLevel { O0, O1, O2 };
 
@@ -12,4 +12,4 @@ enum class OptimizationLevel { O0, O1, O2 };
 // blocks, and eliminates unused pure instructions.
 void optimize(Module& module, OptimizationLevel level = OptimizationLevel::O2);
 
-} // namespace stable::hir
+} // namespace lanner::hir

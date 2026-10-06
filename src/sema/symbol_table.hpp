@@ -12,7 +12,7 @@ struct Symbol {
     std::uint64_t bindingId = 0;
     std::string name;
     TypeNode* type = nullptr;
-    stable::memory::BindingState memory;
+    lanner::memory::BindingState memory;
     bool isConst = false;
     bool isComptime = false;
     bool isParameter = false;

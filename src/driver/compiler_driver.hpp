@@ -44,11 +44,11 @@ struct CompilerOptions {
     std::string mobileProjectPath;
     std::string mobileAbi = "arm64-v8a";
     std::string mobileDeployment = "21";
-    std::string mobileBundleId = "com.example.stableapp";
-    std::string mobileAppName = "StableApp";
+    std::string mobileBundleId = "com.example.lannerapp";
+    std::string mobileAppName = "LannerApp";
     bool iosSimulator = false;
     std::string gameProjectPath;
-    std::string gameAppName = "StableGame";
+    std::string gameAppName = "LannerGame";
     std::string gameBackend = "sdl2";
 };
 
@@ -69,5 +69,5 @@ private:
     static int generateIOSProject(const CompilerOptions& options, const std::string& source);
     static int generateGameProject(const CompilerOptions& options, const std::string& source);
     static std::string mobileAbiTriple(const CompilerOptions& options);
-    static std::string makeMobileHeader(const Program& program, const std::string& symbol = "stable_app_main");
+    static std::string makeMobileHeader(const Program& program, const std::string& symbol = "lanner_app_main");
 };

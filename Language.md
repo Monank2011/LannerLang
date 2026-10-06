@@ -1,14 +1,14 @@
-# **Stable 1.0.0 Language Reference**
+# **Lanner 1.0.0 Language Reference**
 
-This document describes the currently implemented Stable language surface.
+This document describes the currently implemented Lanner language surface.
 
 ## **1. Syntax**
 
-Stable uses **indentation-based blocks**.
+Lanner uses **indentation-based blocks**.
 
-```stable
+```lanner
 main() i32:
-    print("Hello, STABLE!")
+    print("Hello, LANNER!")
     return 0
 ```
 
@@ -37,7 +37,7 @@ Arena
 
 ## **4. Functions**
 
-```stable
+```lanner
 add(a: i32, b: i32) i32:
     return a + b
 ```
@@ -48,25 +48,25 @@ Function declarations are resolved independently of textual ordering in the supp
 
 Inference:
 
-```stable
+```lanner
 x = 42
 ```
 
 Explicit typing:
 
-```stable
+```lanner
 x: i64 = 42
 ```
 
 Constants:
 
-```stable
+```lanner
 const x = 42
 ```
 
 Compile-time values:
 
-```stable
+```lanner
 comptime N = 4
 ```
 
@@ -83,7 +83,7 @@ Supported forms include:
 true
 false
 none
-"Stable"
+"Lanner"
 ```
 
 Numeric context is preserved through unary `+` and `-`.
@@ -114,14 +114,14 @@ Numeric context is preserved through unary `+` and `-`.
 
 ## **11. Casts**
 
-```stable
+```lanner
 x as i64
 x as f64
 ```
 
 ## **12. Conditionals**
 
-```stable
+```lanner
 if x > 0:
     ...
 else if x == 0:
@@ -132,12 +132,12 @@ else:
 
 ## **13. Loops**
 
-```stable
+```lanner
 while condition:
     ...
 ```
 
-```stable
+```lanner
 for item in xs:
     ...
 ```
@@ -146,7 +146,7 @@ for item in xs:
 
 ## **14. Structs**
 
-```stable
+```lanner
 Point[x: i32, y: i32]
 
 main() i32:
@@ -158,7 +158,7 @@ Struct fields participate in ownership and borrow checking.
 
 ## **15. Enums**
 
-```stable
+```lanner
 enum ErrorCode:
     Empty
     Invalid = 7
@@ -166,7 +166,7 @@ enum ErrorCode:
 
 ## **16. Optionals**
 
-```stable
+```lanner
 x: i32? = none
 ```
 
@@ -174,7 +174,7 @@ Optional payloads obey ordinary ownership rules.
 
 ## **17. Results**
 
-```stable
+```lanner
 Result[i32, ErrorCode]
 ```
 
@@ -187,14 +187,14 @@ Err(error)
 
 Guards:
 
-```stable
+```lanner
 r is Ok(v) -> return v
 r is Err(e) -> return 1
 ```
 
 ## **18. Fixed arrays**
 
-```stable
+```lanner
 comptime N = 4
 xs: [N]i32 = [1, 2, 3, 4]
 ```
@@ -203,7 +203,7 @@ Supported operations include construction, indexing, mutation, parameter passing
 
 ## **19. Dynamic arrays**
 
-```stable
+```lanner
 xs = [1, 2, 3]
 xs.push(4)
 print(xs.len())
@@ -232,14 +232,14 @@ A **shared, read-only, non-owning** reference.
 
 An **exclusive, mutable, non-owning** reference.
 
-```stable
+```lanner
 inc(v: &mut i64) void:
     v = v + 1
 ```
 
 ## **21. Views**
 
-```stable
+```lanner
 view: View[i32] = xs[0:3]
 ```
 
@@ -249,7 +249,7 @@ An `EditView[T]` is **mutable**, **exclusive**, and **non-owning**.
 
 ## **22. Arenas**
 
-```stable
+```lanner
 arena = Arena.create(256)
 ```
 
@@ -257,9 +257,9 @@ Arena-backed values share the lifetime of their region and remain subject to **e
 
 ## **23. Comptime**
 
-Stable currently evaluates **integer, floating-point, boolean, and string** compile-time expressions.
+Lanner currently evaluates **integer, floating-point, boolean, and string** compile-time expressions.
 
-```stable
+```lanner
 comptime N = 2 + 2
 xs: [N]i32 = [10, 20, 30, 40]
 ```
@@ -272,7 +272,7 @@ The current runtime/compiler-known surface includes file/environment operations,
 
 Examples:
 
-```stable
+```lanner
 print("hello")
 print(42)
 print(true)
@@ -291,7 +291,7 @@ A successful ownership transfer invalidates the previous owner for ownership-sen
 
 ## **27. Memory safety**
 
-Stable prevents or checks for:
+Lanner prevents or checks for:
 
 - **use-after-move**
 - **double destruction**
@@ -309,13 +309,13 @@ See **`Memory_Model.md`** for the full semantics.
 The production backend emits **opaque-pointer LLVM IR** and uses a selected Clang/LLVM installation.
 
 ```sh
-STABLE_CLANG=/path/to/clang stablec program.st
+LANNER_CLANG=/path/to/clang lanner program.st
 ```
 
 or:
 
 ```sh
-LLVM_CC=/path/to/clang stablec program.st
+LLVM_CC=/path/to/clang lanner program.st
 ```
 
 LLVM/Clang **15+** is the supported modern IR family.
@@ -323,11 +323,11 @@ LLVM/Clang **15+** is the supported modern IR family.
 ## **29. CLI**
 
 ```sh
-stablec program.st
-stablec program.st -o app
-stablec program.st --run
-stablec program.st --check
-stablec program.st --emit-llvm
+lanner program.st
+lanner program.st -o app
+lanner program.st --run
+lanner program.st --check
+lanner program.st --emit-llvm
 ```
 
 
@@ -336,15 +336,15 @@ stablec program.st --emit-llvm
 The production LLVM backend has a browser WebAssembly mode:
 
 ```text
-stablec app.st --web -O3 -o app.wasm
+lanner app.st --web -O3 -o app.wasm
 ```
 
-`Web.*` primitives are browser host calls. `extern` declarations become WebAssembly imports, while exported Stable functions can be invoked from JavaScript. Browser callbacks use named Stable functions with statically checked signatures.
+`Web.*` primitives are browser host calls. `extern` declarations become WebAssembly imports, while exported Lanner functions can be invoked from JavaScript. Browser callbacks use named Lanner functions with statically checked signatures.
 
 
 ## ML / AI
 
-Stable provides a native `Tensor` handle for f32/f64 rank-1..8 numerical workloads, explicit shape/stride queries, element access, reshape/transpose/slice, elementwise arithmetic, activations, softmax, reductions, dot products, matrix multiplication, and a CPU NCHW convolution kernel. `GradTape` provides explicit reverse-mode autodiff for the bundled operations. `Accel` reports CUDA, ROCm, Metal, and BLAS availability. Optimized BLAS/LAPACK/CUDA/HIP/oneDNN-style libraries are intentionally bound through the same explicit C ABI FFI rather than hidden runtime dependencies.
+Lanner provides a native `Tensor` handle for f32/f64 rank-1..8 numerical workloads, explicit shape/stride queries, element access, reshape/transpose/slice, elementwise arithmetic, activations, softmax, reductions, dot products, matrix multiplication, and a CPU NCHW convolution kernel. `GradTape` provides explicit reverse-mode autodiff for the bundled operations. `Accel` reports CUDA, ROCm, Metal, and BLAS availability. Optimized BLAS/LAPACK/CUDA/HIP/oneDNN-style libraries are intentionally bound through the same explicit C ABI FFI rather than hidden runtime dependencies.
 ## Runtime domain APIs
 
-Stable 1.0.0 includes hosted domain namespaces layered on the native compiler: `Game`/`Graphics` for native game windows, input, 2D rendering, textures, audio, frame timing and low-level graphics procedure access; `Tensor`/`GradTape` for native ML workloads; `Web` for browser Wasm integration; `Mobile` for Android/iOS platform services; and `Socket`/`Poller`/`Process` for hosted backend software. These APIs are explicit runtime/library boundaries and do not alter Stable's ownership model.
+Lanner 1.0.0 includes hosted domain namespaces layered on the native compiler: `Game`/`Graphics` for native game windows, input, 2D rendering, textures, audio, frame timing and low-level graphics procedure access; `Tensor`/`GradTape` for native ML workloads; `Web` for browser Wasm integration; `Mobile` for Android/iOS platform services; and `Socket`/`Poller`/`Process` for hosted backend software. These APIs are explicit runtime/library boundaries and do not alter Lanner's ownership model.

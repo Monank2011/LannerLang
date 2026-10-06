@@ -13,7 +13,7 @@ searchWorker() void:
 
 main() i32:
     running: bool = true
-    writeRaw("id name Stable\nid author Stable\n")
+    writeRaw("id name Lanner\nid author Lanner\n")
 
     while running:
         line: string = Stdin.readLine()

@@ -1,9 +1,9 @@
 {
-  "name": "stable-language-support",
-  "displayName": "Stable Language Support",
-  "description": "Stable language identification and the official Stable logo for .st files.",
+  "name": "lanner-language-support",
+  "displayName": "Lanner Language Support",
+  "description": "Lanner language identification and the official Lanner logo for .st files.",
   "version": "1.0.0",
-  "publisher": "stable-lang",
+  "publisher": "lanner-lang",
   "license": "MIT",
   "engines": {
     "vscode": "^1.74.0"
@@ -12,29 +12,29 @@
     "Programming Languages",
     "Themes"
   ],
-  "icon": "./icons/stable.png",
+  "icon": "./icons/lanner.png",
   "contributes": {
     "languages": [
       {
-        "id": "stable",
+        "id": "lanner",
         "aliases": [
-          "Stable",
-          "stable"
+          "Lanner",
+          "lanner"
         ],
         "extensions": [
           ".st"
         ],
         "icon": {
-          "light": "./icons/stable.png",
-          "dark": "./icons/stable.png"
+          "light": "./icons/lanner.png",
+          "dark": "./icons/lanner.png"
         }
       }
     ],
     "iconThemes": [
       {
-        "id": "stable-file-icons",
-        "label": "Stable File Icons",
-        "path": "./fileicons/stable-icon-theme.json"
+        "id": "lanner-file-icons",
+        "label": "Lanner File Icons",
+        "path": "./fileicons/lanner-icon-theme.json"
       }
     ]
   }

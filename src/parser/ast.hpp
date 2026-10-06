@@ -30,8 +30,8 @@ struct TypeNode {
     // conservatively records short-lived storage/borrow origins captured inside
     // aggregate payloads. It is semantic metadata and is ignored for nominal type
     // equality.
-    stable::memory::StorageOrigin origin;
-    std::vector<stable::memory::StorageOrigin> nestedOrigins;
+    lanner::memory::StorageOrigin origin;
+    std::vector<lanner::memory::StorageOrigin> nestedOrigins;
 };
 
 enum class ExprKind {
