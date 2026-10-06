@@ -5,7 +5,7 @@ Lanner can target browser WebAssembly with `lanner --web`.
 ## Build
 
 ```text
-lanner app.st --web -O3 -o app.wasm
+lanner app.lan --web -O3 -o app.wasm
 ```
 
 This produces:

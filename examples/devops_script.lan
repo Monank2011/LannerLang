@@ -30,7 +30,7 @@ main() i32:
         return 9
 
     data: Buffer = FS.read(path)
-    if !data.cstr().startsWith("Lanner"):
+    if !data.cstr().lanartsWith("Lanner"):
         return 10
     if data.cstr().find("42") < 0:
         return 11

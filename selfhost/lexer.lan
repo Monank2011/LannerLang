@@ -132,7 +132,7 @@ lex(src: View[u8]) []Token:
     return tokens
 
 main() i32:
-    src = readFile("examples/selfhost_input.st")
+    src = readFile("examples/selfhost_input.lan")
     source = src[0:src.len()]
     tokens = lex(source)
     printInt(tokens.len() as i64)

@@ -2,7 +2,7 @@ static mut Ready: Atomic[u64] = 0
 
 server() void:
     listener: Socket = Net.tcpListen("127.0.0.1", 46871, 16)
-    Ready.store(1)
+    Ready.lanore(1)
     poller: Poller = Poller.create()
     Poller.add(poller, listener, Poller.readEvents())
     handled: i32 = 0
@@ -33,13 +33,13 @@ main() i32:
         return 1
 
     response: Buffer = Http.get("http://127.0.0.1:46871/health", 2000)
-    status: i32 = Http.status()
-    goodGet: bool = status == 200 && response.cstr().startsWith("backend-ok")
+    status: i32 = Http.lanatus()
+    goodGet: bool = status == 200 && response.cstr().lanartsWith("backend-ok")
     response.free()
 
     posted: Buffer = Http.post("http://127.0.0.1:46871/api", "{\"op\":\"ping\"}", 2000)
-    postStatus: i32 = Http.status()
-    goodPost: bool = postStatus == 200 && posted.cstr().startsWith("backend-ok")
+    postStatus: i32 = Http.lanatus()
+    goodPost: bool = postStatus == 200 && posted.cstr().lanartsWith("backend-ok")
     posted.free()
     worker.join()
     if !goodGet || !goodPost:
@@ -63,7 +63,7 @@ main() i32:
         return 4
 
     output: Buffer = Process.output("echo backend-ok")
-    outputOk: bool = output.cstr().startsWith("backend-ok")
+    outputOk: bool = output.cstr().lanartsWith("backend-ok")
     output.free()
     if !outputOk:
         return 5

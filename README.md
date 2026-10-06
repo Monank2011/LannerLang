@@ -7,13 +7,13 @@ Lanner is a general-purpose systems programming language built around a simple g
 
 Lanner uses **indentation-based syntax**, **static typing**, **ownership and borrowing**, **non-owning views**, **region/arena allocation**, and **LLVM** for native code generation.
 
-The native engine stack includes interactive stdin, compile-time static/global tables, explicit C FFI, CPU/SIMD intrinsics, OS threads and atomics, a monotonic engine clock, and a systems/low-level layer for raw pointers, allocation, inline assembly, volatile memory, ABI/layout control, and freestanding cross-target builds. See [`docs/ENGINE_RUNTIME.md`](docs/ENGINE_RUNTIME.md), [`docs/SYSTEMS.md`](docs/SYSTEMS.md), and [`examples/uci_engine.st`](examples/uci_engine.st).
+The native engine stack includes interactive stdin, compile-time static/global tables, explicit C FFI, CPU/SIMD intrinsics, OS threads and atomics, a monotonic engine clock, and a systems/low-level layer for raw pointers, allocation, inline assembly, volatile memory, ABI/layout control, and freestanding cross-target builds. See [`docs/ENGINE_RUNTIME.md`](docs/ENGINE_RUNTIME.md), [`docs/SYSTEMS.md`](docs/SYSTEMS.md), and [`examples/uci_engine.lan`](examples/uci_engine.lan).
 
-The hosted backend/cloud runtime adds TCP/UDP sockets, scalable readiness polling, synchronization primitives, child processes, HTTP/1.1 client operations, JSON serialization/validation, and owned byte buffers. See [`docs/BACKEND_CLOUD.md`](docs/BACKEND_CLOUD.md) and the `examples/backend_*.st` programs.
+The hosted backend/cloud runtime adds TCP/UDP sockets, scalable readiness polling, synchronization primitives, child processes, HTTP/1.1 client operations, JSON serialization/validation, and owned byte buffers. See [`docs/BACKEND_CLOUD.md`](docs/BACKEND_CLOUD.md) and the `examples/backend_*.lan` programs.
 
-The DevOps/scripting runtime adds process arguments, environment management, filesystem and path APIs, lightweight regex, shell command/output helpers, executable lookup, and compiled-script execution through `lanner --script ... -- args`. See [`docs/DEVOPS_SCRIPTING.md`](docs/DEVOPS_SCRIPTING.md) and [`examples/devops_script.st`](examples/devops_script.st).
+The DevOps/scripting runtime adds process arguments, environment management, filesystem and path APIs, lightweight regex, shell command/output helpers, executable lookup, and compiled-script execution through `lanner --script ... -- args`. See [`docs/DEVOPS_SCRIPTING.md`](docs/DEVOPS_SCRIPTING.md) and [`examples/devops_script.lan`](examples/devops_script.lan).
 
-The Version 1 native engine readiness audit now verifies that Lanner can compile and execute representative chess bitboard/search code, the UCI runtime, and a representative 45,192 → 16 → 32 → 1 quantized NNUE inference path entirely from Lanner source. See [`docs/CHESS_NNUE_AUDIT.md`](docs/CHESS_NNUE_AUDIT.md), [`examples/chess_engine_kernel_audit.st`](examples/chess_engine_kernel_audit.st), and [`examples/nnue_host_audit.st`](examples/nnue_host_audit.st).
+The Version 1 native engine readiness audit now verifies that Lanner can compile and execute representative chess bitboard/search code, the UCI runtime, and a representative 45,192 → 16 → 32 → 1 quantized NNUE inference path entirely from Lanner source. See [`docs/CHESS_NNUE_AUDIT.md`](docs/CHESS_NNUE_AUDIT.md), [`examples/chess_engine_kernel_audit.lan`](examples/chess_engine_kernel_audit.lan), and [`examples/nnue_host_audit.lan`](examples/nnue_host_audit.lan).
 
 The compiler is designed so the source-level memory rules are authoritative. Backend lowering must preserve those rules rather than inventing a separate safety convention.
 
@@ -139,7 +139,7 @@ main() i32:
 Build:
 
 ```sh
-lanner hello.st
+lanner hello.lan
 ```
 
 Run:
@@ -404,8 +404,8 @@ Lanner diagnostics include **file, line, column, highlighted source**, and repai
 Example:
 
 ```text
-file.st:4:7: error: cannot modify an owner while it is borrowed
-  --> file.st:4:7
+file.lan:4:7: error: cannot modify an owner while it is borrowed
+  --> file.lan:4:7
     |
   4 |     xs[0] = 9
     |       ^~~~~
@@ -423,13 +423,13 @@ The production compiler lowers Lanner to **LLVM IR**, then invokes the selected 
 Toolchain selection:
 
 ```sh
-LANNER_CLANG=/path/to/clang lanner hello.st
+LANNER_CLANG=/path/to/clang lanner hello.lan
 ```
 
 or:
 
 ```sh
-LLVM_CC=/path/to/clang lanner hello.st
+LLVM_CC=/path/to/clang lanner hello.lan
 ```
 
 If neither is set, the compiler uses `clang` from the environment.
@@ -538,19 +538,19 @@ cmake -S . -B build \
 ## **Command-line interface**
 
 ```sh
-lanner program.st
-lanner program.st -o program
-lanner program.st --run
-lanner program.st --check
-lanner program.st --emit-llvm
+lanner program.lan
+lanner program.lan -o program
+lanner program.lan --run
+lanner program.lan --check
+lanner program.lan --emit-llvm
 ```
 
 Backend selection:
 
 ```sh
-lanner program.st --backend=auto
-lanner program.st --backend=llvm
-lanner program.st --backend=hir
+lanner program.lan --backend=auto
+lanner program.lan --backend=llvm
+lanner program.lan --backend=hir
 ```
 
 `auto` selects the production native LLVM path. `hir` is the optional legacy/bootstrap path.

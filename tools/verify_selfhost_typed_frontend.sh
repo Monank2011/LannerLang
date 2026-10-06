@@ -18,12 +18,12 @@ trap 'rm -rf "$WORK"' EXIT
 STAGE1="$WORK/stage1"
 
 printf '[1/4] stage-0 -> typed self-host compiler\n'
-"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.st" --backend=llvm -o "$STAGE1"
+"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.lan" --backend=llvm -o "$STAGE1"
 
 printf '[2/4] typed aggregate registry path\n'
 (
   cd "$ROOT_DIR"
-  LANNER_SELFHOST_INPUT=examples/native_selfhost/fn_struct_return.st "$STAGE1" > "$WORK/aggregate.ll"
+  LANNER_SELFHOST_INPUT=examples/native_selfhost/fn_struct_return.lan "$STAGE1" > "$WORK/aggregate.ll"
 )
 "$CLANG" "$WORK/aggregate.ll" -o "$WORK/aggregate" >/dev/null 2>&1
 set +e
@@ -33,7 +33,7 @@ set -e
 [[ "$rc" -eq 42 ]]
 
 printf '[3/4] typed unknown nominal rejection\n'
-cat > "$WORK/unknown_type.st" <<'EOF'
+cat > "$WORK/unknown_type.lan" <<'EOF'
 main() i32:
     x: DefinitelyNotAType = 1
     return x
@@ -41,7 +41,7 @@ EOF
 set +e
 (
   cd "$ROOT_DIR"
-  LANNER_SELFHOST_INPUT="$WORK/unknown_type.st" "$STAGE1" > "$WORK/unknown.ll"
+  LANNER_SELFHOST_INPUT="$WORK/unknown_type.lan" "$STAGE1" > "$WORK/unknown.ll"
 )
 rc=$?
 set -e
@@ -51,7 +51,7 @@ printf '[4/4] nested borrow rejection remains enforced\n'
 set +e
 (
   cd "$ROOT_DIR"
-  LANNER_SELFHOST_INPUT=examples/selfhost_semantic_invalid.st "$STAGE1" > "$WORK/borrow.ll"
+  LANNER_SELFHOST_INPUT=examples/selfhost_semantic_invalid.lan "$STAGE1" > "$WORK/borrow.ll"
 )
 rc=$?
 set -e

@@ -6,7 +6,7 @@ Lanner's native ML layer is designed around explicit tensor ownership, predictab
 
 `Tensor` supports f32/f64 data, ranks 1-8, shape/stride queries, element access, reshape, transpose, slicing, cloning, reductions, elementwise arithmetic, scaling, ReLU, sigmoid, tanh, softmax, dot products, argmax, matrix multiplication, and a CPU NCHW convolution kernel. `Tensor.slice()` returns an owned tensor copy; it does not introduce hidden reference counting. `Tensor.argmax(axis)` is currently a scalar reduction for rank-1 tensors with axis 0.
 
-Examples: `examples/ml_tensor.st` and `examples/ml_autodiff.st`.
+Examples: `examples/ml_tensor.lan` and `examples/ml_autodiff.lan`.
 
 ## Autodiff
 

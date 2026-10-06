@@ -32,11 +32,11 @@ main() i32:
     print("Hello, Lanner!")
     return 0
 
-Save as hello.st.
+Save as hello.lan.
 
 Build:
 
-    lanner hello.st -o hello
+    lanner hello.lan -o hello
 
 Run:
 
@@ -44,15 +44,15 @@ Run:
 
 You can also run a temporary executable with:
 
-    lanner hello.st --run
+    lanner hello.lan --run
 
 Check types without producing a normal executable:
 
-    lanner hello.st --check
+    lanner hello.lan --check
 
 Print LLVM IR:
 
-    lanner hello.st --emit-llvm
+    lanner hello.lan --emit-llvm
 
 ## **3. BASIC SYNTAX**
 
@@ -519,7 +519,7 @@ static mut Nodes: Atomic[u64] = 0
 
 Nodes.fetchAdd(1)
 count = Nodes.load()
-Nodes.store(0)
+Nodes.lanore(0)
 Nodes.compareExchange(expected, desired)
 
 Atomic load/store/fetch/CAS calls accept optional memory-order strings such as relaxed, acquire, release, acq_rel, and seq_cst where valid for the operation. Lanner also provides atomic and compiler fences.
@@ -546,8 +546,8 @@ main() i32:
 
 Link additional libraries or objects with:
 
-lanner ffi.st --link path/to/object.o -o ffi
-lanner ffi.st --link -lm -o ffi
+lanner ffi.lan --link path/to/object.o -o ffi
+lanner ffi.lan --link -lm -o ffi
 
 The V1 FFI supports C-compatible scalar, pointer, string-pointer, function-pointer forms, and external globals. Complex by-value C aggregates are intentionally restricted; use an explicit pointer-based ABI or C wrapper when the native ABI needs platform-specific aggregate coercions.
 
@@ -613,7 +613,7 @@ while running:
     if line.equals("quit"):
         running = false
 
-The repository contains examples/uci_engine.st and chess/NNUE audit fixtures.
+The repository contains examples/uci_engine.lan and chess/NNUE audit fixtures.
 
 ## **15. BACKEND AND CLOUD PROGRAMMING**
 
@@ -695,7 +695,7 @@ Process.arg
 
 Http.get
 Http.post
-Http.status
+Http.lanatus
 
 The V1 client handles bounded HTTP/1.1 operations including Content-Length, connection-close responses, and chunked response decoding.
 
@@ -733,7 +733,7 @@ Lanner can be used for command-line tools and compiled scripts.
 
 Script execution:
 
-lanner tool.st --script -- arg1 arg2
+lanner tool.lan --script -- arg1 arg2
 
 The arguments after -- become the script's process arguments.
 
@@ -805,7 +805,7 @@ Use Process APIs when you need explicit process lifecycle management rather than
 
 Build a browser-oriented WebAssembly module with:
 
-lanner app.st --web -O3 -o app.wasm
+lanner app.lan --web -O3 -o app.wasm
 
 The compiler produces:
 
@@ -868,11 +868,11 @@ x86
 
 Example:
 
-lanner app.st --target=aarch64-linux-android24 --emit-object -o app.o
+lanner app.lan --target=aarch64-linux-android24 --emit-object -o app.o
 
 Project generation:
 
-lanner app.st --android-project MyAndroidApp --android-abi arm64-v8a --deployment 24 --mobile-name LannerMobile --bundle-id com.example.lannermobile
+lanner app.lan --android-project MyAndroidApp --android-abi arm64-v8a --deployment 24 --mobile-name LannerMobile --bundle-id com.example.lannermobile
 
 ### **18.2 iOS targets**
 
@@ -881,7 +881,7 @@ aarm64 Simulator
 
 Project generation:
 
-lanner app.st --ios-project MyIOSApp --deployment 16.0 --mobile-name LannerMobile --bundle-id com.example.lannermobile
+lanner app.lan --ios-project MyIOSApp --deployment 16.0 --mobile-name LannerMobile --bundle-id com.example.lannermobile
 
 Use --ios-simulator for the arm64 Simulator.
 
@@ -1028,7 +1028,7 @@ The low-level Graphics boundary can dynamically load native graphics procedures.
 
 ### **19.3 Game project generation**
 
-lanner main.st --game-project MyGame --game-name MyGame
+lanner main.lan --game-project MyGame --game-name MyGame
 
 The generated project includes a CMake build, the Lanner source, runtime source, and an assets directory.
 
@@ -1138,14 +1138,14 @@ This is useful for:
 
 Basic:
 
-lanner file.st
-lanner file.st -o program
-lanner file.st --check
-lanner file.st --run
-lanner file.st --script
-lanner file.st --emit-llvm
-lanner file.st --emit-object
-lanner file.st --emit-asm
+lanner file.lan
+lanner file.lan -o program
+lanner file.lan --check
+lanner file.lan --run
+lanner file.lan --script
+lanner file.lan --emit-llvm
+lanner file.lan --emit-object
+lanner file.lan --emit-asm
 
 Targets and toolchain:
 
@@ -1181,11 +1181,11 @@ Debug/inspection compatibility options also include HIR emission modes and the b
 
 LLVM toolchain selection can use environment variables such as:
 
-LANNER_CLANG=/path/to/clang lanner file.st
+LANNER_CLANG=/path/to/clang lanner file.lan
 
 or:
 
-LLVM_CC=/path/to/clang lanner file.st
+LLVM_CC=/path/to/clang lanner file.lan
 
 The modern opaque-pointer LLVM IR path is supported with LLVM/Clang 15+ as documented by the project.
 
@@ -1276,27 +1276,27 @@ Start in the safe subset. Reach for unsafe only when the algorithm or platform i
 
 The V1 source tree contains representative programs, including:
 
-examples/hello.st
-examples/bitboard.st
-examples/uci_engine.st
-examples/nnue_host_audit.st
-examples/chess_engine_kernel_audit.st
-examples/systems_low_level.st
-examples/ffi.st
-examples/atomic_threads.st
-examples/backend_cloud.st
-examples/backend_network.st
-examples/backend_poller.st
-examples/ml_tensor.st
-examples/ml_autodiff.st
-examples/ml_ffi_cblas.st
-examples/web_frontend.st
-examples/web_ffi.st
-examples/mobile_app.st
-examples/mobile_full.st
-examples/game_full.st
-examples/game_graphics.st
-examples/devops_script.st
+examples/hello.lan
+examples/bitboard.lan
+examples/uci_engine.lan
+examples/nnue_host_audit.lan
+examples/chess_engine_kernel_audit.lan
+examples/systems_low_level.lan
+examples/ffi.lan
+examples/atomic_threads.lan
+examples/backend_cloud.lan
+examples/backend_network.lan
+examples/backend_poller.lan
+examples/ml_tensor.lan
+examples/ml_autodiff.lan
+examples/ml_ffi_cblas.lan
+examples/web_frontend.lan
+examples/web_ffi.lan
+examples/mobile_app.lan
+examples/mobile_full.lan
+examples/game_full.lan
+examples/game_graphics.lan
+examples/devops_script.lan
 
 Use these as executable reference material. The compiler source and docs are also part of the repository.
 

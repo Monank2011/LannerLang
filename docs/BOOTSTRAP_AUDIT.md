@@ -51,13 +51,13 @@ The stage-1 native selfhost compiler was invoked on these representative complet
 
 | Domain | Probe | Result under selfhost stage 1 |
 | --- | --- | --- |
-| Systems | `examples/systems_low_level.st` | Not yet supported |
-| Web | `examples/web_frontend.st` | Not yet supported |
-| Backend/Cloud | `examples/backend_poller.st` | Not yet supported |
-| ML/AI | `examples/ml_tensor.st` | Not yet supported |
-| Mobile | `examples/mobile_full.st` | Not yet supported |
-| Game | `examples/game_full.st` | Not yet supported |
-| DevOps | `examples/devops_script.st` | Not yet supported |
+| Systems | `examples/systems_low_level.lan` | Not yet supported |
+| Web | `examples/web_frontend.lan` | Not yet supported |
+| Backend/Cloud | `examples/backend_poller.lan` | Not yet supported |
+| ML/AI | `examples/ml_tensor.lan` | Not yet supported |
+| Mobile | `examples/mobile_full.lan` | Not yet supported |
+| Game | `examples/game_full.lan` | Not yet supported |
+| DevOps | `examples/devops_script.lan` | Not yet supported |
 
 These results do not invalidate the production implementations. They identify the gap between the production compiler and the self-hosted compiler.
 

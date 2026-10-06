@@ -1159,7 +1159,7 @@ typedRangeKnownNominal(src: &[]u8, nodes: &mut []AstNode, start: usize, end: usi
     i: usize = 0
     while i < nodes.len():
         if nodes[i].level == 0 && (nodes[i].kind == 10 || nodes[i].kind == 11):
-            ns: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            ns: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             nt: usize = trimEnd(src, ns, nodes[i].end)
             nameEnd: usize = ns + 4
             if nodes[i].kind == 11:
@@ -1236,7 +1236,7 @@ typedAnnotateAST(source: &[]u8, nodes: &mut []AstNode, params: &mut []TypedParam
                 nodes[i].symbolId = nextSymbol
                 nextSymbol = nextSymbol + 1
                 if nodes[i].kind == 1:
-                    s0: usize = trimStart(source, nodes[i].start, nodes[i].end)
+                    s0: usize = trimStart(source, nodes[i].lanart, nodes[i].end)
                     t0: usize = trimEnd(source, s0, nodes[i].end)
                     open0: usize = s0
                     while open0 < t0 && source[open0] != 40:
@@ -1297,7 +1297,7 @@ typedAnnotateAST(source: &[]u8, nodes: &mut []AstNode, params: &mut []TypedParam
                         p0 = q0 + 1
                 else if nodes[i].kind == 11:
                     # Struct fields are also typed once here, before backend layout.
-                    s1: usize = trimStart(source, nodes[i].start, nodes[i].end)
+                    s1: usize = trimStart(source, nodes[i].lanart, nodes[i].end)
                     t1: usize = trimEnd(source, s1, nodes[i].end)
                     open1: usize = s1
                     while open1 < t1 && source[open1] != 91:
@@ -1331,7 +1331,7 @@ typedAnnotateAST(source: &[]u8, nodes: &mut []AstNode, params: &mut []TypedParam
     # Second pass: annotate executable declarations and control-flow constructs.
     i = 0
     while i < nodes.len():
-        s: usize = trimStart(source, nodes[i].start, nodes[i].end)
+        s: usize = trimStart(source, nodes[i].lanart, nodes[i].end)
         t: usize = trimEnd(source, s, nodes[i].end)
         if lineIsTypedDeclaration(source, s, t):
             nameEnd: usize = lineDeclarationNameEnd(source, s, t)
@@ -1368,13 +1368,13 @@ typedValidateAST(source: &[]u8, nodes: &[]AstNode, params: &[]TypedParamInfo, fi
     sawMain: bool = false
     while i < nodes.len():
         if nodes[i].symbolId > 0 && nodes[i].level == 0 && nodes[i].kind == 1:
-            s: usize = trimStart(source, nodes[i].start, nodes[i].end)
+            s: usize = trimStart(source, nodes[i].lanart, nodes[i].end)
             t: usize = trimEnd(source, s, nodes[i].end)
             if t - s >= 4 && source[s] == 109 && source[s + 1] == 97 && source[s + 2] == 105 && source[s + 3] == 110:
                 sawMain = true
             if nodes[i].typeCode == 0:
                 return false
-        if lineIsTypedDeclaration(source, trimStart(source, nodes[i].start, nodes[i].end), trimEnd(source, trimStart(source, nodes[i].start, nodes[i].end), nodes[i].end)) && nodes[i].typeCode == 0:
+        if lineIsTypedDeclaration(source, trimStart(source, nodes[i].lanart, nodes[i].end), trimEnd(source, trimStart(source, nodes[i].lanart, nodes[i].end), nodes[i].end)) && nodes[i].typeCode == 0:
             return false
         i = i + 1
     # Lanner parameter/field records must never carry unknown semantic types.
@@ -1393,7 +1393,7 @@ typedValidateAST(source: &[]u8, nodes: &[]AstNode, params: &[]TypedParamInfo, fi
 lowerTypedHIR(source: &[]u8, nodes: &[]AstNode, hir: &mut []TypedHIR) void:
     i: usize = 0
     while i < nodes.len():
-        hir.push(TypedHIR[op: nodes[i].kind, start: nodes[i].start, end: nodes[i].end, level: nodes[i].level, typeCode: nodes[i].typeCode, typeBits: nodes[i].typeBits, memoryKind: nodes[i].memoryKind, originKind: nodes[i].originKind, symbolId: nodes[i].symbolId])
+        hir.push(TypedHIR[op: nodes[i].kind, start: nodes[i].lanart, end: nodes[i].end, level: nodes[i].level, typeCode: nodes[i].typeCode, typeBits: nodes[i].typeBits, memoryKind: nodes[i].memoryKind, originKind: nodes[i].originKind, symbolId: nodes[i].symbolId])
         i = i + 1
 
 
@@ -1429,7 +1429,7 @@ buildAST(source: &[]u8, nodes: &mut []AstNode, children: &mut []i64) void:
 lowerToHIR(source: &[]u8, nodes: &[]AstNode, hir: &mut []i64) void:
     n: usize = 0
     while n < nodes.len():
-        nodeStart: usize = nodes[n].start
+        nodeStart: usize = nodes[n].lanart
         nodeEnd: usize = nodes[n].end
         nodeLevel: usize = nodes[n].level
         nodeKind: i64 = nodes[n].kind
@@ -3124,13 +3124,13 @@ llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMSt
         emitRaw("  %len = extractvalue %LannerDynArray %arr, 1\n")
         if elemOwns:
             emitRaw("  %hasdata = icmp ne ptr %data, null\n  br i1 %hasdata, label %drop.loop, label %drop.after\n")
-            emitRaw("drop.loop:\n  %idx = phi i64 [ 0, %entry ], [ %next, %drop.step ]\n  %active = icmp ult i64 %idx, %len\n  br i1 %active, label %drop.body, label %drop.after\n")
+            emitRaw("drop.loop:\n  %idx = phi i64 [ 0, %entry ], [ %next, %drop.lanep ]\n  %active = icmp ult i64 %idx, %len\n  br i1 %active, label %drop.body, label %drop.after\n")
             emitRaw("drop.body:\n  %elem = getelementptr inbounds ")
             llvmEmitAllocaType(a.elemCode, a.elemBits, src, structs, arrays, fixedArrays)
             emitRaw(", ptr %data, i64 %idx\n")
             llvmNative3EmitDropCall(a.elemCode, a.elemBits, src, "%elem")
-            emitRaw("  br label %drop.step\n")
-            emitRaw("drop.step:\n  %next = add i64 %idx, 1\n  br label %drop.loop\n")
+            emitRaw("  br label %drop.lanep\n")
+            emitRaw("drop.lanep:\n  %next = add i64 %idx, 1\n  br label %drop.loop\n")
             emitRaw("drop.after:\n")
         emitRaw("  call void @__lanner_dyn_array_destroy(ptr %addr)\n  ret void\n}\n\n")
         return true
@@ -3144,15 +3144,15 @@ llvmNative3EmitDropFunction(code: i32, bits: i32, src: &[]u8, structs: &[]LLVMSt
         if !llvmNative3TypeOwnsResources(fa.elemCode, fa.elemBits, structs, fields, arrays, fixedArrays):
             return false
         emitRaw("  br label %drop.loop\n")
-        emitRaw("drop.loop:\n  %idx = phi i64 [ 0, %entry ], [ %next, %drop.step ]\n  %active = icmp ult i64 %idx, ")
+        emitRaw("drop.loop:\n  %idx = phi i64 [ 0, %entry ], [ %next, %drop.lanep ]\n  %active = icmp ult i64 %idx, ")
         llvmNativeNumber(fa.count)
         emitRaw("\n  br i1 %active, label %drop.body, label %drop.done\n")
         emitRaw("drop.body:\n  %elem = getelementptr inbounds ")
         llvmEmitAllocaType(11, bits, src, structs, arrays, fixedArrays)
         emitRaw(", ptr %addr, i64 0, i64 %idx\n")
         llvmNative3EmitDropCall(fa.elemCode, fa.elemBits, src, "%elem")
-        emitRaw("  br label %drop.step\n")
-        emitRaw("drop.step:\n  %next = add i64 %idx, 1\n  br label %drop.loop\n")
+        emitRaw("  br label %drop.lanep\n")
+        emitRaw("drop.lanep:\n  %next = add i64 %idx, 1\n  br label %drop.loop\n")
         emitRaw("drop.done:\n  ret void\n}\n\n")
         return true
     if code == 13:
@@ -3352,7 +3352,7 @@ llvmEmitSequence(src: &[]u8, nodes: &[]AstNode, children: &[]i64, childStart: us
     while i < childCount && !terminated:
         nodeId: usize = children[childStart + i] as usize
         kind: i64 = nodes[nodeId].kind
-        s: usize = trimStart(src, nodes[nodeId].start, nodes[nodeId].end)
+        s: usize = trimStart(src, nodes[nodeId].lanart, nodes[nodeId].end)
         t: usize = trimEnd(src, s, nodes[nodeId].end)
         if kind == 3:
             cond: LLVMValueInfo = llvmEmitExpr(src, s + 3, t - 1, bindings, funcs, params)
@@ -3548,7 +3548,7 @@ llvmBuildStructRegistry(src: &[]u8, nodes: &[]AstNode, structs: &mut []LLVMStruc
     i: usize = 0
     while i < nodes.len():
         if nodes[i].level == 0 && nodes[i].kind == 11:
-            s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             t: usize = trimEnd(src, s, nodes[i].end)
             open: usize = s
             while open < t && src[open] != 91:
@@ -3562,7 +3562,7 @@ llvmBuildStructRegistry(src: &[]u8, nodes: &[]AstNode, structs: &mut []LLVMStruc
     i = 0
     while i < nodes.len():
         if nodes[i].level == 0 && nodes[i].kind == 11:
-            s2: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            s2: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             t2: usize = trimEnd(src, s2, nodes[i].end)
             open2: usize = s2
             while open2 < t2 && src[open2] != 91:
@@ -4473,7 +4473,7 @@ llvmBuildTypedStructRegistry(src: &[]u8, nodes: &[]AstNode, typedFields: &[]Type
     i: usize = 0
     while i < nodes.len():
         if nodes[i].level == 0 && nodes[i].kind == 11:
-            s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             t: usize = trimEnd(src, s, nodes[i].end)
             open: usize = s
             while open < t && src[open] != 91:
@@ -4506,7 +4506,7 @@ llvmBuildTypedFunctionSigs(src: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedP
     i: usize = 0
     while i < nodes.len():
         if nodes[i].level == 0 && nodes[i].kind == 1:
-            s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             t: usize = trimEnd(src, s, nodes[i].end)
             open: usize = s
             while open < t && src[open] != 40:
@@ -4551,7 +4551,7 @@ llvmBuildFunctionSigs(src: &[]u8, nodes: &[]AstNode, funcs: &mut []LLVMFunctionS
     i: usize = 0
     while i < nodes.len():
         if nodes[i].level == 0 && nodes[i].kind == 1:
-            s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             t: usize = trimEnd(src, s, nodes[i].end)
             open: usize = s
             while open < t && src[open] != 40:
@@ -4613,7 +4613,7 @@ llvmBuildFunctionSigs(src: &[]u8, nodes: &[]AstNode, funcs: &mut []LLVMFunctionS
     return funcs.len() > 0
 
 emitLLVMFunction(src: &[]u8, nodes: &[]AstNode, children: &[]i64, fnNode: usize, funcs: &[]LLVMFunctionSig, params: &[]LLVMParamInfo) bool:
-    s: usize = trimStart(src, nodes[fnNode].start, nodes[fnNode].end)
+    s: usize = trimStart(src, nodes[fnNode].lanart, nodes[fnNode].end)
     t: usize = trimEnd(src, s, nodes[fnNode].end)
     open: usize = s
     while open < t && src[open] != 40:
@@ -7502,7 +7502,7 @@ llvmNativeBlockExplicitTerminator(src: &[]u8, nodes: &[]AstNode, start: usize, e
         i = i - 1
         if nodes[i].level <= parentLevel:
             return false
-        s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+        s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
         t: usize = trimEnd(src, s, nodes[i].end)
         if startsWord(src, s, t, 5) || startsWord(src, s, t, 6) || startsWord(src, s, t, 7):
             return true
@@ -7519,7 +7519,7 @@ llvmNative3EmitBlock(src: &[]u8, nodes: &[]AstNode, start: usize, end: usize, pa
             i = i + 1
             continue
         kind: i64 = nodes[i].kind
-        s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+        s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
         t: usize = trimEnd(src, s, nodes[i].end)
         if startsWord(src, s, t, 3):
             kind = 3
@@ -7571,7 +7571,7 @@ llvmNative3EmitBlock(src: &[]u8, nodes: &[]AstNode, start: usize, end: usize, pa
                 if !chainFirst:
                     llvmNativeEmitLabelDef("if.chain", chainLabel)
                 chainFirst = false
-                elseStart: usize = trimStart(src, nodes[chainNode].start, nodes[chainNode].end)
+                elseStart: usize = trimStart(src, nodes[chainNode].lanart, nodes[chainNode].end)
                 elseEndLine: usize = trimEnd(src, elseStart, nodes[chainNode].end)
                 bodyEnd: usize = llvmNativeSubtreeEnd(nodes, chainNode, end)
                 isElseIf: bool = elseEndLine - elseStart >= 8 && src[elseStart] == 101 && src[elseStart + 1] == 108 && src[elseStart + 2] == 115 && src[elseStart + 3] == 101 && src[elseStart + 4] == 32 && src[elseStart + 5] == 105 && src[elseStart + 6] == 102 && src[elseStart + 7] == 32
@@ -8284,7 +8284,7 @@ llvmNative3HoistLocals(src: &[]u8, nodes: &[]AstNode, start: usize, end: usize, 
     i: usize = start
     while i < end:
         if nodes[i].level > functionLevel && nodes[i].kind == 2:
-            s: usize = trimStart(src, nodes[i].start, nodes[i].end)
+            s: usize = trimStart(src, nodes[i].lanart, nodes[i].end)
             t: usize = trimEnd(src, s, nodes[i].end)
             colon: []i64 = []i64
             eq: []i64 = []i64
@@ -8308,7 +8308,7 @@ llvmNative3HoistLocals(src: &[]u8, nodes: &[]AstNode, start: usize, end: usize, 
     return true
 
 llvmNative3EmitFunction(src: &[]u8, nodes: &[]AstNode, fnNode: usize, funcs: &[]LLVMFunctionSig, params: &[]LLVMParamInfo, structs: &[]LLVMStructInfo, fields: &[]LLVMStructFieldInfo, arrays: &mut []LLVMArrayInfo, fixedArrays: &mut []LLVMFixedArrayInfo) bool:
-    s: usize = trimStart(src, nodes[fnNode].start, nodes[fnNode].end)
+    s: usize = trimStart(src, nodes[fnNode].lanart, nodes[fnNode].end)
     t: usize = trimEnd(src, s, nodes[fnNode].end)
     open: usize = s
     while open < t && src[open] != 40:
@@ -8587,7 +8587,7 @@ emitNativeLLVM3(source: &[]u8, nodes: &[]AstNode, typedParams: &[]TypedParamInfo
 main() i32:
     path: string = getEnv("LANNER_SELFHOST_INPUT")
     if stringLen(path) == 0:
-        path = "examples/selfhost_input.st"
+        path = "examples/selfhost_input.lan"
     source: []u8 = readFile(path)
     # Self-hosted compiler pipeline: AST -> semantic analysis -> HIR -> optimization -> backend.
     nodes: []AstNode = []AstNode

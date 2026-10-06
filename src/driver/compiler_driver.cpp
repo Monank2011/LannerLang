@@ -195,7 +195,7 @@ export async function loadLanner(url = new URL("WASM_FILE", import.meta.url), ex
             fetch(urlText).then(async r => {
                 const buf=new Uint8Array(await r.arrayBuffer());
                 const ptr=alloc(buf.length+1,1); bytes().set(buf,ptr); bytes()[ptr+buf.length]=0;
-                const f=instance?.exports?.[cbName]; if(typeof f === "function") f(r.status,ptr,buf.length);
+                const f=instance?.exports?.[cbName]; if(typeof f === "function") f(r.lanatus,ptr,buf.length);
             }).catch(() => {
                 const f=instance?.exports?.[cbName]; if(typeof f === "function") f(0,0,0);
             });

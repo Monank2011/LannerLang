@@ -56,7 +56,7 @@ int CompilerDriver::generateGameProject(const CompilerOptions& options, const st
         }
     };
 
-    write("src/main.st", source);
+    write("src/main.lan", source);
     write("src/lanner_runtime.c", readFile((root / "src/runtime/lanner_runtime.c").string()));
     write("assets/.gitkeep", "");
 
@@ -69,7 +69,7 @@ int CompilerDriver::generateGameProject(const CompilerOptions& options, const st
           << "if(NOT DEFINED LANNERC_EXECUTABLE)\n"
           << "  find_program(LANNERC_EXECUTABLE lanner REQUIRED)\n"
           << "endif()\n\n"
-          << "set(LANNER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/main.st)\n"
+          << "set(LANNER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/main.lan)\n"
           << "set(LANNER_OBJECT ${CMAKE_CURRENT_BINARY_DIR}/lanner_game.o)\n"
           << "add_custom_command(OUTPUT ${LANNER_OBJECT}\n"
           << "  COMMAND ${LANNERC_EXECUTABLE} ${LANNER_SOURCE} --backend=llvm --no-runtime --emit-object -O3 -o ${LANNER_OBJECT}\n"

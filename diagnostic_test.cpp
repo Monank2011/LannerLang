@@ -12,8 +12,8 @@ int main() {
     if (parsed.phase != "type checking" || parsed.line != 2 || parsed.column != 12) return 1;
     if (parsed.hint.empty()) return 2;
 
-    const std::string rendered = lanner::diagnostics::render(parsed, "demo.st", source);
-    if (rendered.find("demo.st:2:12: error:") == std::string::npos) return 3;
+    const std::string rendered = lanner::diagnostics::render(parsed, "demo.lan", source);
+    if (rendered.find("demo.lan:2:12: error:") == std::string::npos) return 3;
     if (rendered.find("2 |     return a + b") == std::string::npos) return 4;
     if (rendered.find("= help:") == std::string::npos) return 5;
 

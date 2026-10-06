@@ -23,17 +23,17 @@ STAGE3_LL="$BUILD_DIR/stage3-native-selfhost.ll"
 STAGE1_OBJ="$BUILD_DIR/stage1-native-selfhost.o"
 STAGE2_OBJ="$BUILD_DIR/stage2-native-selfhost.o"
 STAGE3_OBJ="$BUILD_DIR/stage3-native-selfhost.o"
-INPUT="examples/selfhost_native_llvm_replacement.st"
-NULL_ENV_INPUT="examples/selfhost_native_llvm_getenv_null.st"
+INPUT="examples/selfhost_native_llvm_replacement.lan"
+NULL_ENV_INPUT="examples/selfhost_native_llvm_getenv_null.lan"
 NULL_ENV_NAME="LANNER_NATIVE_LLVM_TEST_MUST_BE_UNSET_7F9C2A"
 
 printf '[1/8] stage 0 -> native stage 1 compiler\n'
-"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.st" --backend=llvm -o "$STAGE1"
+"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.lan" --backend=llvm -o "$STAGE1"
 
 printf '[2/8] native stage 1 -> stage 2 LLVM\n'
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_INPUT=selfhost/compiler.st "$STAGE1" > "$STAGE2_LL"
+    LANNER_SELFHOST_INPUT=selfhost/compiler.lan "$STAGE1" > "$STAGE2_LL"
 )
 "$CLANG" -c "$STAGE2_LL" -o "$STAGE2_OBJ"
 "$CLANG" "$STAGE2_OBJ" -o "$STAGE2" >/dev/null 2>&1
@@ -41,7 +41,7 @@ printf '[2/8] native stage 1 -> stage 2 LLVM\n'
 printf '[3/8] native stage 2 -> stage 3 LLVM\n'
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_INPUT=selfhost/compiler.st "$STAGE2" > "$STAGE3_LL"
+    LANNER_SELFHOST_INPUT=selfhost/compiler.lan "$STAGE2" > "$STAGE3_LL"
 )
 "$CLANG" -c "$STAGE3_LL" -o "$STAGE3_OBJ"
 "$CLANG" "$STAGE3_OBJ" -o "$STAGE3" >/dev/null 2>&1

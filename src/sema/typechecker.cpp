@@ -2198,7 +2198,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
         if (ns == "Http") {
             if (member=="get") { if(expr->args.size()!=2) error(expr,"Http.get requires url and timeout_ms"); checkExpr(expr->args[0].get(),makeType("string").get()); checkExpr(expr->args[1].get(),makeType("i32").get()); return makeType("Buffer"); }
             if (member=="post") { if(expr->args.size()!=3) error(expr,"Http.post requires url, body, and timeout_ms"); checkExpr(expr->args[0].get(),makeType("string").get()); checkExpr(expr->args[1].get(),makeType("string").get()); checkExpr(expr->args[2].get(),makeType("i32").get()); return makeType("Buffer"); }
-            if (member=="status") { if(!expr->args.empty()) error(expr,"Http.status takes no arguments"); return makeType("i32"); }
+            if (member=="status") { if(!expr->args.empty()) error(expr,"Http.lanatus takes no arguments"); return makeType("i32"); }
             error(expr,"unknown Http method '"+member+"'");
         }
         if (ns == "Json") {
@@ -2328,7 +2328,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
                 if (order == "release" || order == "acq_rel") error(expr, "Atomic.load cannot use release ordering");
                 return cloneType(target->generics[0].get());
             }
-            if (member == "store") { if (expr->args.size() < 1 || expr->args.size() > 2) error(expr, "Atomic.store() takes a value and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); const auto order=checkOrder(1,"Atomic.store"); if (order=="acquire" || order=="acq_rel") error(expr,"Atomic.store cannot use acquire-only ordering"); return makeType("void"); }
+            if (member == "store") { if (expr->args.size() < 1 || expr->args.size() > 2) error(expr, "Atomic.lanore() takes a value and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); const auto order=checkOrder(1,"Atomic.lanore"); if (order=="acquire" || order=="acq_rel") error(expr,"Atomic.lanore cannot use acquire-only ordering"); return makeType("void"); }
             if (member == "fetchAdd" || member == "fetchSub") { if (expr->args.size() < 1 || expr->args.size() > 2) error(expr, "atomic fetch operation takes a value and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); checkOrder(1,"atomic fetch"); return cloneType(target->generics[0].get()); }
             if (member == "compareExchange") { if (expr->args.size() < 2 || expr->args.size() > 3) error(expr, "Atomic.compareExchange() takes expected, desired, and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); checkExpr(expr->args[1].get(), target->generics[0].get()); checkOrder(2,"Atomic.compareExchange"); return makeType("bool"); }
             error(expr, "unknown Atomic method '" + member + "'");

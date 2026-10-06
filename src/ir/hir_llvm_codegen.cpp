@@ -152,7 +152,7 @@ void LLVMCodegen::emitFunction(const Module& module, const Function& fn, std::st
                     const std::string hasData = "%drop_hasdata_" + std::to_string(internalCounter++);
                     const std::string loop = "hir.drop.array.loop." + std::to_string(internalCounter++);
                     const std::string body = "hir.drop.array.body." + std::to_string(internalCounter++);
-                    const std::string step = "hir.drop.array.step." + std::to_string(internalCounter++);
+                    const std::string step = "hir.drop.array.lanep." + std::to_string(internalCounter++);
                     text += "  " + hasData + " = icmp ne ptr " + data + ", null\n";
                     text += "  br i1 " + hasData + ", label %" + loop + ", label %" + done + "\n";
                     text += loop + ":\n";

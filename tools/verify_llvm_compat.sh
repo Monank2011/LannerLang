@@ -23,7 +23,7 @@ for clang in "$@"; do
 
   tmp=$(mktemp "${TMPDIR:-/tmp}/lanner-llvm-compat.XXXXXX")
   trap 'rm -f "$tmp" "$tmp.exe"' EXIT INT TERM
-  LANNER_CLANG="$clang" "$LANNERC" "$ROOT/examples/f32_numeric_literals.st" --backend=llvm --emit-llvm -o "$tmp"
+  LANNER_CLANG="$clang" "$LANNERC" "$ROOT/examples/f32_numeric_literals.lan" --backend=llvm --emit-llvm -o "$tmp"
   "$clang" -x ir "$tmp" -O2 -Wno-override-module -o "$tmp.exe"
   set +e
   "$tmp.exe" >/dev/null
@@ -31,7 +31,7 @@ for clang in "$@"; do
   set -e
   [ "$rc" -eq 42 ] || { echo "FAIL: f32 literal regression under $clang: expected 42, got $rc" >&2; exit 1; }
 
-  LANNER_CLANG="$clang" "$LANNERC" "$ROOT/examples/llvm_portable_fp.st" --backend=llvm --emit-llvm -o "$tmp"
+  LANNER_CLANG="$clang" "$LANNERC" "$ROOT/examples/llvm_portable_fp.lan" --backend=llvm --emit-llvm -o "$tmp"
   "$clang" -x ir "$tmp" -O2 -Wno-override-module -o "$tmp.exe"
   set +e
   "$tmp.exe" >/dev/null

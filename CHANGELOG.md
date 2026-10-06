@@ -83,14 +83,14 @@ Lanner was created and is developed by **Monank Gohil**, who began developing th
 - Fixed native `print(bool)` LLVM emission to use an SSA `select` instruction instead of an obsolete constant-expression `select` embedded inside a call argument.
 - Added regression coverage for `else if`, binary/hex integer literals, unary/bitwise operators, floats, `for`, `print`, and comptime behavior.
 - Native self-host regression coverage is now **58/58 passing**.
-- Added `tools/lanner-vscode/`, a VS Code extension contribution for the `lanner` language and `.st` files.
-- Added a `Lanner File Icons` theme that maps `.st` files and the `lanner` language ID directly to the Lanner logo.
+- Added `tools/lanner-vscode/`, a VS Code extension contribution for the `lanner` language and `.lan` files.
+- Added a `Lanner File Icons` theme that maps `.lan` files and the `lanner` language ID directly to the Lanner logo.
 - Added the Lanner logo to the language contribution so compatible file icon themes can use it as the language default icon.
 - Added editor-branding documentation and the canonical logo asset under `docs/assets/`.
 
 ## 0.6.0-dev bootstrap step 19
 
-- Promoted the typed AST/module -> typed-HIR -> native LLVM pipeline to the unconditional production path of `selfhost/compiler.st`.
+- Promoted the typed AST/module -> typed-HIR -> native LLVM pipeline to the unconditional production path of `selfhost/compiler.lan`.
 - Native self-hosting no longer requires `LANNER_SELFHOST_NATIVE_LLVM`; a fresh Lanner-written compiler invocation emits native LLVM by default.
 - Expanded typed declaration registries so native LLVM consumes typed function parameters and struct fields directly instead of reparsing declaration lists from source text.
 - Completed the production boundary for the self-hosted compiler: the old semantic/C++/HIR bridge remains only behind explicit `LANNER_SELFHOST_REFERENCE=1` for differential/reference validation.
@@ -165,7 +165,7 @@ Lanner was created and is developed by **Monank Gohil**, who began developing th
 
 ## 0.6.0-dev bootstrap step 5
 
-- Hardened the self-hosted semantic keyword matcher so `returnX`, `breakfast`, and `continueX` are not misclassified as control-flow keywords; this allows `compiler.st` to self-parse through its own semantic gate.
+- Hardened the self-hosted semantic keyword matcher so `returnX`, `breakfast`, and `continueX` are not misclassified as control-flow keywords; this allows `compiler.lan` to self-parse through its own semantic gate.
 - Lowered enum members inside real C++ `enum class` definitions instead of emitting them as unrelated local assignments; the bootstrap Result/enum stress program now compiles and preserves enum references such as `ErrorCode.Empty`.
 - Made the CTest self-hosting checks inherit `LANNER_BUILD_DIR` from the active build tree, so the bootstrap scripts work from non-default build directories too.
 - Corrected the C++ bootstrap struct-field `.len()` adaptation to use `size_t`, matching `usize` fields such as `LLVMFunctionSig.paramStart`.
@@ -178,7 +178,7 @@ Lanner was created and is developed by **Monank Gohil**, who began developing th
 - Enforced `EditView` exclusivity for ordinary owner reads as well as mutations, while preserving normal `&mut` reference behavior.
 - Fixed HIR constant-folded signed widening so printing negative narrow integers matches the direct LLVM backend.
 - Added the built-in `print(...)` statement for strings, booleans, all built-in integer types, and `f32`/`f64`, with newline output on both LLVM backends and in the self-hosted C++ bootstrap path.
-- Updated `examples/hello.st` to the canonical `print("Hello, LANNER!")` first-program example and added memory/optimizer regression coverage.
+- Updated `examples/hello.lan` to the canonical `print("Hello, LANNER!")` first-program example and added memory/optimizer regression coverage.
 - Full legacy-HIR compatibility suite passes 47/47 tests, including stage-2/stage-3 bootstrap and native LLVM replacement checks.
 
 ## 0.5.0-dev
@@ -206,7 +206,7 @@ Lanner was created and is developed by **Monank Gohil**, who began developing th
 ## 0.4-dev
 
 - Added the native compiler driver: source -> type checking -> LLVM IR -> Clang -> executable.
-- Added `lanner file.st` executable builds and `lanner file.st --run`.
+- Added `lanner file.lan` executable builds and `lanner file.lan --run`.
 - Added `-O0` through `-O3` driver options.
 - Added `-o` output selection and LLVM IR file output.
 - Added `--version` and updated project version metadata.
@@ -226,7 +226,7 @@ Lanner was created and is developed by **Monank Gohil**, who began developing th
 
 ### Self-hosting bootstrap
 
-- Added a real Lanner-written arena-backed AST frontend at `selfhost/compiler.st`.
+- Added a real Lanner-written arena-backed AST frontend at `selfhost/compiler.lan`.
 - Added configurable bootstrap input through `getEnv("LANNER_SELFHOST_INPUT")` with a deterministic default.
 - Added a representative self-hosting stress program covering enums, nested owning arrays, `Result`, `Ok`, `Err`, and guards.
 - Added the stage-0 -> stage-1 bootstrap harness at `tools/bootstrap_selfhost.sh`.

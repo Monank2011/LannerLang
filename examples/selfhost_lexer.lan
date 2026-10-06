@@ -27,7 +27,7 @@ scanTokens(src: []u8) i64:
     return tokens
 
 main() i32:
-    src = readFile("examples/selfhost_input.st")
+    src = readFile("examples/selfhost_input.lan")
     count = scanTokens(src)
     printInt(count)
     return count as i32

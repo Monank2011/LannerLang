@@ -95,7 +95,7 @@ The 1.0 compiler supports native Android/iOS target triples, ARM64 object genera
 
 ## DevOps / scripting status
 
-The Step 7 core is complete: process arguments, environment variables, filesystem operations, path utilities, regex, shell execution/output, command lookup, and compiled script mode (`lanner --script file.st -- ...`) are implemented and regression-tested.
+The Step 7 core is complete: process arguments, environment variables, filesystem operations, path utilities, regex, shell execution/output, command lookup, and compiled script mode (`lanner --script file.lan -- ...`) are implemented and regression-tested.
 
 Remaining DevOps ecosystem work is intentionally outside the core runtime: package management, richer archive/configuration formats, terminal UI libraries, service-manager/cloud-provider integrations, and shell-specific convenience packages.
 

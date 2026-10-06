@@ -16,7 +16,7 @@ while running:
 String helpers useful for protocol parsing are available as methods:
 
 ```lanner
-line.startsWith("go")
+line.lanartsWith("go")
 line.equals("isready")
 value: u64 = line.parseU64At(3)
 byte: u8 = line[0]
@@ -49,8 +49,8 @@ Compiler-provided declarations are emitted once, so FFI declarations may also na
 Examples:
 
 ```text
-lanner examples/ffi.st --link path/to/object.o -o ffi_demo
-lanner examples/ffi.st --link -lm -o ffi_demo
+lanner examples/ffi.lan --link path/to/object.o -o ffi_demo
+lanner examples/ffi.lan --link -lm -o ffi_demo
 ```
 
 The extra link arguments are passed directly to the final Clang link step.
@@ -125,7 +125,7 @@ This is sufficient for iterative-deepening engines, aspiration/search budgets, a
 The native LLVM backend automatically links `src/runtime/lanner_runtime.c`. Set `LANNER_RUNTIME` to override the runtime C source used by `lanner`, which is useful for packaged installs and custom runtime builds.
 
 ```text
-LANNER_RUNTIME=/path/to/lanner_runtime.c lanner engine.st -O3 -o engine
+LANNER_RUNTIME=/path/to/lanner_runtime.c lanner engine.lan -O3 -o engine
 ```
 
 The language primitives stay explicit in the source language. There is no hidden garbage collector, reference counting, or implicit thread pool behind this interface.

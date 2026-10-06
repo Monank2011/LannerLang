@@ -1871,7 +1871,7 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
         if (ns == "Http") {
             if(member=="get"){auto u=emitExpr(expr->args[0].get());auto tm=emitExpr(expr->args[1].get());auto r=newTemp("http.get");body.push_back("  "+r+" = call ptr @__lanner_http_get(ptr "+u+", i32 "+tm+")");return r;}
             if(member=="post"){auto u=emitExpr(expr->args[0].get());auto b=emitExpr(expr->args[1].get());auto tm=emitExpr(expr->args[2].get());auto r=newTemp("http.post");body.push_back("  "+r+" = call ptr @__lanner_http_post(ptr "+u+", ptr "+b+", i32 "+tm+")");return r;}
-            if(member=="status"){auto r=newTemp("http.status");body.push_back("  "+r+" = call i32 @__lanner_http_status()");return r;}
+            if(member=="status"){auto r=newTemp("http.lanatus");body.push_back("  "+r+" = call i32 @__lanner_http_status()");return r;}
         }
         if (ns == "Json") {
             if(member=="validate"){auto j=emitExpr(expr->args[0].get());auto r=newTemp("json.valid");body.push_back("  "+r+" = call i32 @__lanner_json_validate(ptr "+j+")");auto b=newTemp("json.valid.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
@@ -2497,7 +2497,7 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                 }
                 if (targetType->name == "string" && !targetType->isArray) {
                     const auto text = emitExpr(field->target.get());
-                    if (field->field == "startsWith") { auto pref=emitExpr(expr->args[0].get()); auto r=newTemp("str.starts"); body.push_back("  "+r+" = call i32 @__lanner_string_startsWith(ptr "+text+", ptr "+pref+")"); auto b=newTemp("str.starts.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+                    if (field->field == "startsWith") { auto pref=emitExpr(expr->args[0].get()); auto r=newTemp("str.lanarts"); body.push_back("  "+r+" = call i32 @__lanner_string_startsWith(ptr "+text+", ptr "+pref+")"); auto b=newTemp("str.lanarts.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
                     if (field->field == "contains" || field->field == "endsWith" || field->field == "equalsIgnoreCase") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.bool"); body.push_back("  "+r+" = call i32 @__lanner_string_"+field->field+"(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.bool.cast"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
                     if (field->field == "equals") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.eq"); body.push_back("  "+r+" = call i32 @__lanner_string_equals(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.eq.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
                     if (field->field == "find") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.find"); body.push_back("  "+r+" = call i64 @__lanner_string_find(ptr "+text+", ptr "+other+")"); return r; }

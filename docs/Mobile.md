@@ -19,9 +19,9 @@ Apple:
 Examples:
 
 ```text
-lanner examples/mobile_app.st --target=arm64-apple-ios16.0 --emit-object -o app.o
-lanner examples/mobile_app.st --target=arm64-apple-ios16.0-simulator --emit-object -o app-sim.o
-lanner examples/mobile_app.st --target=aarch64-linux-android24 --emit-object -o app.o
+lanner examples/mobile_app.lan --target=arm64-apple-ios16.0 --emit-object -o app.o
+lanner examples/mobile_app.lan --target=arm64-apple-ios16.0-simulator --emit-object -o app-sim.o
+lanner examples/mobile_app.lan --target=aarch64-linux-android24 --emit-object -o app.o
 ```
 
 ## Project generation
@@ -29,7 +29,7 @@ lanner examples/mobile_app.st --target=aarch64-linux-android24 --emit-object -o 
 Android:
 
 ```text
-lanner examples/mobile_app.st --android-project MyAndroidApp \
+lanner examples/mobile_app.lan --android-project MyAndroidApp \
   --android-abi arm64-v8a --deployment 24 \
   --mobile-name LannerMobile --bundle-id com.example.lannermobile
 ```
@@ -39,7 +39,7 @@ The generated project contains a Gradle/NDK/CMake native library, JNI bridge, La
 iOS:
 
 ```text
-lanner examples/mobile_app.st --ios-project MyIOSApp \
+lanner examples/mobile_app.lan --ios-project MyIOSApp \
   --deployment 16.0 --mobile-name LannerMobile \
   --bundle-id com.example.lannermobile
 ```

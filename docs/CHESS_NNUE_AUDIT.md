@@ -8,7 +8,7 @@ Lanner 1.0.0 was audited as a host language for native chess engines and NNUE in
 
 ## Chess-engine capability tested
 
-`examples/chess_engine_kernel_audit.st` exercises:
+`examples/chess_engine_kernel_audit.lan` exercises:
 
 - `u64` bitboards and integer bitwise/shift arithmetic
 - a 64-entry static attack table
@@ -19,11 +19,11 @@ Lanner 1.0.0 was audited as a host language for native chess engines and NNUE in
 - compile-time constants
 - native `-O3` compilation
 
-The existing `examples/uci_engine.st` separately exercises interactive UCI stdin, `stop` polling, threads, atomics, and monotonic search deadlines.
+The existing `examples/uci_engine.lan` separately exercises interactive UCI stdin, `stop` polling, threads, atomics, and monotonic search deadlines.
 
 ## NNUE capability tested
 
-`examples/nnue_host_audit.st` exercises a representative quantized network with the same dimensions as the planned Lanner NNUE shape:
+`examples/nnue_host_audit.lan` exercises a representative quantized network with the same dimensions as the planned Lanner NNUE shape:
 
 `45,192 inputs -> 16 accumulator lanes -> 32 hidden units -> 1 output`
 

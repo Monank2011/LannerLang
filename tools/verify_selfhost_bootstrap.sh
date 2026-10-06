@@ -23,7 +23,7 @@ STRESS2_BIN="$BUILD_DIR/stage2-stress"
 STRESS3_BIN="$BUILD_DIR/stage3-stress"
 STAGE0_PROBE="$BUILD_DIR/stage0-probe"
 STAGE0_STRESS="$BUILD_DIR/stage0-stress"
-INVALID="examples/selfhost_semantic_invalid.st"
+INVALID="examples/selfhost_semantic_invalid.lan"
 
 if [[ ! -x "$BUILD_DIR/lanner" ]]; then
     cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DLANNER_BUILD_TESTS=ON -DLANNER_ENABLE_LEGACY_HIR=ON
@@ -31,19 +31,19 @@ if [[ ! -x "$BUILD_DIR/lanner" ]]; then
 fi
 
 printf '[1/10] stage 0 -> stage 1 compiler\n'
-"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.st" --backend=hir -o "$STAGE1"
+"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.lan" --backend=hir -o "$STAGE1"
 
 printf '[2/10] stage 1 -> stage 2 compiler source\n'
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=selfhost/compiler.st "$STAGE1" > "$STAGE2_CPP"
+    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=selfhost/compiler.lan "$STAGE1" > "$STAGE2_CPP"
 )
 "$CXX" -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror "$STAGE2_CPP" -o "$STAGE2"
 
 printf '[3/10] stage 2 -> stage 3 compiler source\n'
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=selfhost/compiler.st "$STAGE2" > "$STAGE3_CPP"
+    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=selfhost/compiler.lan "$STAGE2" > "$STAGE3_CPP"
 )
 "$CXX" -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror "$STAGE3_CPP" -o "$STAGE3"
 cmp -s "$STAGE2_CPP" "$STAGE3_CPP"
@@ -52,12 +52,12 @@ printf '[4/10] sanitized stage-2 compiler execution\n'
 "$CXX" -std=c++17 -O1 -fsanitize=address,undefined -fno-omit-frame-pointer "$STAGE2_CPP" -o "$STAGE2_ASAN"
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_INPUT=examples/selfhost_input.st "$STAGE2_ASAN" > /dev/null
+    LANNER_SELFHOST_INPUT=examples/selfhost_input.lan "$STAGE2_ASAN" > /dev/null
 )
 
 printf '[5/10] stage-0 reference behavior\n'
-"$BUILD_DIR/lanner" "$ROOT_DIR/examples/selfhost_input.st" --backend=hir -o "$STAGE0_PROBE"
-"$BUILD_DIR/lanner" "$ROOT_DIR/examples/selfhost_bootstrap.st" --backend=hir -o "$STAGE0_STRESS"
+"$BUILD_DIR/lanner" "$ROOT_DIR/examples/selfhost_input.lan" --backend=hir -o "$STAGE0_PROBE"
+"$BUILD_DIR/lanner" "$ROOT_DIR/examples/selfhost_bootstrap.lan" --backend=hir -o "$STAGE0_STRESS"
 set +e
 "$STAGE0_PROBE" >/dev/null
 STAGE0_PROBE_RC=$?
@@ -72,8 +72,8 @@ fi
 printf '[6/10] generated probe artifact comparison\n'
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_input.st "$STAGE2" > "$PROBE2"
-    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_input.st "$STAGE3" > "$PROBE3"
+    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_input.lan "$STAGE2" > "$PROBE2"
+    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_input.lan "$STAGE3" > "$PROBE3"
 )
 cmp -s "$PROBE2" "$PROBE3"
 "$CXX" -std=c++17 -O2 "$PROBE2" -o "$BUILD_DIR/stage2-probe"
@@ -81,8 +81,8 @@ cmp -s "$PROBE2" "$PROBE3"
 printf '[7/10] nested ownership/Result bootstrap probe\n'
 (
     cd "$ROOT_DIR"
-    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_bootstrap.st "$STAGE2" > "$STRESS2"
-    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_bootstrap.st "$STAGE3" > "$STRESS3"
+    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_bootstrap.lan "$STAGE2" > "$STRESS2"
+    LANNER_SELFHOST_REFERENCE=1 LANNER_SELFHOST_INPUT=examples/selfhost_bootstrap.lan "$STAGE3" > "$STRESS3"
 )
 cmp -s "$STRESS2" "$STRESS3"
 "$CXX" -std=c++17 -O2 "$STRESS2" -o "$STRESS2_BIN"

@@ -309,13 +309,13 @@ See **`Memory_Model.md`** for the full semantics.
 The production backend emits **opaque-pointer LLVM IR** and uses a selected Clang/LLVM installation.
 
 ```sh
-LANNER_CLANG=/path/to/clang lanner program.st
+LANNER_CLANG=/path/to/clang lanner program.lan
 ```
 
 or:
 
 ```sh
-LLVM_CC=/path/to/clang lanner program.st
+LLVM_CC=/path/to/clang lanner program.lan
 ```
 
 LLVM/Clang **15+** is the supported modern IR family.
@@ -323,11 +323,11 @@ LLVM/Clang **15+** is the supported modern IR family.
 ## **29. CLI**
 
 ```sh
-lanner program.st
-lanner program.st -o app
-lanner program.st --run
-lanner program.st --check
-lanner program.st --emit-llvm
+lanner program.lan
+lanner program.lan -o app
+lanner program.lan --run
+lanner program.lan --check
+lanner program.lan --emit-llvm
 ```
 
 
@@ -336,7 +336,7 @@ lanner program.st --emit-llvm
 The production LLVM backend has a browser WebAssembly mode:
 
 ```text
-lanner app.st --web -O3 -o app.wasm
+lanner app.lan --web -O3 -o app.wasm
 ```
 
 `Web.*` primitives are browser host calls. `extern` declarations become WebAssembly imports, while exported Lanner functions can be invoked from JavaScript. Browser callbacks use named Lanner functions with statically checked signatures.

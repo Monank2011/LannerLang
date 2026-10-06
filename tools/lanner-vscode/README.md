@@ -1,8 +1,8 @@
 # Lanner VS Code Icon Support
 
-This folder contains the official Lanner editor branding for `.st` source files.
+This folder contains the official Lanner editor branding for `.lan` source files.
 
-The extension contributes the `lanner` language identifier for `.st` files and uses the Lanner logo as the language icon. It also provides a `Lanner File Icons` theme that maps `.st` directly to the same logo.
+The extension contributes the `lanner` language identifier for `.lan` files and uses the Lanner logo as the language icon. It also provides a `Lanner File Icons` theme that maps `.lan` directly to the same logo.
 
 ## Use
 

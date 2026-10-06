@@ -12,10 +12,10 @@ printf '[2/5] running CTest\n'
 ctest --test-dir "$BUILD_DIR" --output-on-failure
 
 printf '[3/5] checking Lanner-written compiler frontend\n'
-"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.st" --backend=hir --check
+"$BUILD_DIR/lanner" "$ROOT_DIR/selfhost/compiler.lan" --backend=hir --check
 
 printf '[4/5] stage-0 -> stage-1 bootstrap and self-parse\n'
-"$ROOT_DIR/tools/bootstrap_selfhost.sh" selfhost/compiler.st
+"$ROOT_DIR/tools/bootstrap_selfhost.sh" selfhost/compiler.lan
 
 printf 'self-hosting frontend verification: PASS\n'
 printf '[5/5] full stage-1 -> stage-2 -> stage-3 bootstrap\n'

@@ -140,7 +140,7 @@ consume(tokens: View[Token], pos: usize, kind: u8) i64:
 isByte(src: View[u8], tokens: View[Token], pos: usize, value: u8) bool:
     if !isKind(tokens, pos, 4):
         return false
-    return tokens[pos].length == 1 && src[tokens[pos].start] == value
+    return tokens[pos].length == 1 && src[tokens[pos].lanart] == value
 
 consumeByte(src: View[u8], tokens: View[Token], pos: usize, value: u8) i64:
     if !isByte(src, tokens, pos, value):
@@ -268,7 +268,7 @@ parseProgram(src: View[u8], tokens: View[Token]) i64:
     return functions
 
 main() i32:
-    src = readFile("examples/selfhost_input.st")
+    src = readFile("examples/selfhost_input.lan")
     source = src[0:src.len()]
     tokenOwner = lex(source)
     tokens = tokenOwner[0:tokenOwner.len()]

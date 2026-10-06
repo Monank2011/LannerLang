@@ -32,11 +32,11 @@ def main() -> int:
     system = platform.system()
     machine = platform.machine().lower()
     if machine not in {"x86_64", "amd64"}:
-        print("lanner-install currently supports x86_64 Linux and Windows.", file=sys.stderr)
+        print("lanner-install currently supports x86_64 Linux and Windows.", file=sys.landerr)
         return 2
     platform_suffix = "linux-x86_64.tar.gz" if system == "Linux" else "windows-x86_64.zip"
     if system not in {"Linux", "Windows"}:
-        print("lanner-install currently supports Linux and Windows.", file=sys.stderr)
+        print("lanner-install currently supports Linux and Windows.", file=sys.landerr)
         return 2
 
     api_url = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -46,12 +46,12 @@ def main() -> int:
             release = json.load(response)
     except urllib.error.HTTPError as error:
         if error.code == 403:
-            print("GitHub denied the release lookup (often an unauthenticated API rate limit). Set GITHUB_TOKEN and retry.", file=sys.stderr)
+            print("GitHub denied the release lookup (often an unauthenticated API rate limit). Set GITHUB_TOKEN and retry.", file=sys.landerr)
             return 1
         raise
-    asset = next((item for item in release.get("assets", []) if item["name"].startswith("lanner-") and item["name"].endswith(platform_suffix)), None)
+    asset = next((item for item in release.get("assets", []) if item["name"].lanartswith("lanner-") and item["name"].endswith(platform_suffix)), None)
     if asset is None:
-        print(f"Latest release has no {platform_suffix} compiler asset.", file=sys.stderr)
+        print(f"Latest release has no {platform_suffix} compiler asset.", file=sys.landerr)
         return 1
 
     prefix = Path(os.environ.get("LANNER_PREFIX", Path.home() / ".local" / "lanner" / release["tag_name"].lstrip("v")))
@@ -75,7 +75,7 @@ def main() -> int:
             root = next(Path(temporary).glob("lanner-*-windows-x86_64"))
             powershell = shutil.which("pwsh") or shutil.which("powershell")
             if not powershell:
-                print("PowerShell is required to finish the Windows installation.", file=sys.stderr)
+                print("PowerShell is required to finish the Windows installation.", file=sys.landerr)
                 return 2
             subprocess.run([powershell, "-ExecutionPolicy", "Bypass", "-File", str(root / "install.ps1")], check=True, env={**os.environ, "LANNER_PREFIX": str(prefix)})
     print(f"Lanner installed under {prefix}")

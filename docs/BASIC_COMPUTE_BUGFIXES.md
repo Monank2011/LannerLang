@@ -15,8 +15,8 @@ The Step 1 scalar benchmark surfaced three numeric-context/backend defects in th
 
 Added:
 
-- `examples/f32_numeric_literals.st`
-- `examples/i64_negative_literal.st`
+- `examples/f32_numeric_literals.lan`
+- `examples/i64_negative_literal.lan`
 - Production integration assertions for both typed negative literal cases.
 - CTest runtime checks for both examples.
 

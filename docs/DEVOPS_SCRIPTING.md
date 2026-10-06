@@ -1,6 +1,6 @@
 # Lanner DevOps and Scripting Runtime
 
-Lanner can build small command-line utilities and compiled scripts without a separate interpreter runtime. `lanner --script file.st -- args...` compiles a temporary native executable, forwards the arguments after `--`, runs it, and removes the temporary executable. `--run` supports the same argument forwarding.
+Lanner can build small command-line utilities and compiled scripts without a separate interpreter runtime. `lanner --script file.lan -- args...` compiles a temporary native executable, forwards the arguments after `--`, runs it, and removes the temporary executable. `--run` supports the same argument forwarding.
 
 ## Command arguments
 

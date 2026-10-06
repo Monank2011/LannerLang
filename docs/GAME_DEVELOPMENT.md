@@ -58,14 +58,14 @@ main() i32:
     return 0
 ```
 
-See `examples/game_full.st` for the regression version, including SDL2 audio initialization.
+See `examples/game_full.lan` for the regression version, including SDL2 audio initialization.
 
 ## Project generation
 
 Generate a portable CMake game project with:
 
 ```sh
-lanner main.st --game-project MyGame --game-name MyGame
+lanner main.lan --game-project MyGame --game-name MyGame
 ```
 
 The generated project contains the Lanner source, a copy of the Lanner runtime, an `assets/` directory, CMake build files, and build scripts. The Lanner source is compiled to an object without the hosted runtime, then CMake links the generated runtime for the host platform.

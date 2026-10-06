@@ -1,6 +1,6 @@
 # LANNER self-hosting bootstrap
 
-LANNER now has a reproducible staged bootstrap. The C++ compiler is stage 0. `selfhost/compiler.st` is a Lanner-written bootstrap compiler containing the frontend bridge, semantic analysis, compact HIR lowering, a safe control-flow optimizer, and a C++17 code-generation backend.
+LANNER now has a reproducible staged bootstrap. The C++ compiler is stage 0. `selfhost/compiler.lan` is a Lanner-written bootstrap compiler containing the frontend bridge, semantic analysis, compact HIR lowering, a safe control-flow optimizer, and a C++17 code-generation backend.
 
 ## Legacy C++ bootstrap reference
 
@@ -18,7 +18,7 @@ cmake --build build -j2
 Build the Lanner-written compiler with the production native backend:
 
 ```sh
-./build/lanner selfhost/compiler.st --backend=llvm -o build/stage1-native-llvm
+./build/lanner selfhost/compiler.lan --backend=llvm -o build/stage1-native-llvm
 ```
 
 The resulting executable reads `LANNER_SELFHOST_INPUT` and emits native LLVM for the supported bootstrap subset. `tools/verify_selfhost_native_llvm.sh` uses this path recursively.
@@ -27,7 +27,7 @@ The resulting executable reads `LANNER_SELFHOST_INPUT` and emits native LLVM for
 
 ## Native recursive fixed point
 
-`tools/verify_selfhost_native_llvm.sh` is the authoritative bootstrap verifier. It builds stage 1 with the production `--backend=llvm`, then has the native Lanner-written compiler emit LLVM for `selfhost/compiler.st` again to produce stage 2, and repeats once more for stage 3. The verifier requires stage-2/stage-3 LLVM and representative probe artifacts to be byte-identical and executes probes from all native stages.
+`tools/verify_selfhost_native_llvm.sh` is the authoritative bootstrap verifier. It builds stage 1 with the production `--backend=llvm`, then has the native Lanner-written compiler emit LLVM for `selfhost/compiler.lan` again to produce stage 2, and repeats once more for stage 3. The verifier requires stage-2/stage-3 LLVM and representative probe artifacts to be byte-identical and executes probes from all native stages.
 
 The legacy C++17 bootstrap remains available as an explicit compatibility/reference path through `tools/verify_selfhost_bootstrap.sh`; that script creates or uses a dedicated `build-legacy` configuration with `LANNER_ENABLE_LEGACY_HIR=ON`.
 
@@ -41,11 +41,11 @@ The harness performs:
 
 ```text
 stage 0 lanner
-    -> selfhost/compiler.st
+    -> selfhost/compiler.lan
     -> stage 1 compiler
-    -> selfhost/compiler.st
+    -> selfhost/compiler.lan
     -> stage 2 compiler
-    -> selfhost/compiler.st
+    -> selfhost/compiler.lan
     -> stage 3 compiler
 ```
 
@@ -56,7 +56,7 @@ It requires stage-2 and stage-3 compiler source artifacts to be byte-identical, 
 The Lanner-written compiler uses its native LLVM backend by default:
 
 ```sh
-LANNER_SELFHOST_INPUT=examples/selfhost_native_llvm_replacement.st \
+LANNER_SELFHOST_INPUT=examples/selfhost_native_llvm_replacement.lan \
 build/stage1-native-llvm > build/selfhost-native-llvm.ll
 clang -c build/selfhost-native-llvm.ll -o build/selfhost-native-llvm.o
 clang build/selfhost-native-llvm.o -o build/selfhost-native-llvm

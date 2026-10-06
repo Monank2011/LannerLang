@@ -13,7 +13,7 @@ tar -xzf lanner-1.0.0-linux-x86_64.tar.gz
 cd lanner-1.0.0-linux-x86_64
 ./install.sh
 export PATH="$HOME/.local/lanner/1.0.0/bin:$PATH"
-lanner examples/hello.st -o hello
+lanner examples/hello.lan -o hello
 ./hello
 ```
 
@@ -27,7 +27,7 @@ Extract the ZIP, open PowerShell in the extracted directory, and run:
 Set-ExecutionPolicy -Scope Process Bypass
 .\install.ps1
 $env:Path = "$env:LOCALAPPDATA\Lanner\1.0.0\bin;$env:Path"
-lanner.cmd .\examples\hello.st -o hello.exe
+lanner.cmd .\examples\hello.lan -o hello.exe
 .\hello.exe
 ```
 
@@ -51,7 +51,7 @@ Windows: 8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095
 - `bin/lanner` or `bin/lanner.exe` — the Lanner compiler
 - `install.sh` / `install.ps1` — LLVM-aware installers
 - `lib/lanner_runtime.c` — runtime support source
-- `examples/hello.st` — a minimal example
+- `examples/hello.lan` — a minimal example
 - `README.txt` — platform-specific installation and usage notes
 
 ## Convenience commands
