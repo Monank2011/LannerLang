@@ -1,6 +1,6 @@
 # **Stable 1.0.0 Release Packages**
 
-> **Stable was created and is developed by Monank Gohil.**
+> **Stable was created and is developed by Monank Gohil, who began developing it at age 15.**
 
 Stable 1.0.0 provides prebuilt `stablec` compiler packages for **Linux x86_64** and **Windows x86_64**. The included installer downloads the official **LLVM/Clang 23.1.2** archive, verifies its SHA-256 checksum, and installs it side by side under Stable's own directory. It does not replace or modify a system LLVM installation.
 
@@ -72,3 +72,5 @@ curl -fsSL https://raw.githubusercontent.com/Monank2011/STABLE/main/tools/instal
 See [`docs/INSTALL.md`](../INSTALL.md) for the full installation guide.
 
 New users can read the [**Stable 1.0.0 Handbook**](../../Stable_handbook.md) for a practical introduction to Stable syntax, types, ownership, borrowing, memory safety, runtime APIs, and the V1 feature set.
+
+The pip bootstrapper selects the actual latest release asset name correctly and supports an optional `GITHUB_TOKEN` environment variable for GitHub API rate-limit resilience.

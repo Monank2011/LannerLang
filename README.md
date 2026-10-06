@@ -1,7 +1,7 @@
 # **Stable 1.0.0**
 
 > **A native systems programming language with compile-time ownership safety, deterministic memory management, and LLVM code generation.**
-> **Created and developed by Monank Gohil.**
+> **Created and developed by Monank Gohil, who began the project at age 15.**
 
 Stable is a general-purpose systems programming language built around a simple goal: make **native, predictable performance** compatible with a **strong static memory-safety model** that remains practical to learn.
 
@@ -23,7 +23,7 @@ Full self-hosting is not yet claimed: the recursive Stable-written bootstrap cov
 
 ## **Project author**
 
-Stable was created and is developed by **Monank Gohil**. See [`AUTHORS.md`](AUTHORS.md).
+Stable was created and is developed by **Monank Gohil**, who began developing the language at age **15**. See [`AUTHORS.md`](AUTHORS.md).
 
 ## **Stable at a glance**
 

@@ -9,14 +9,22 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 
 REPO = "Monank2011/STABLE"
 
+def github_headers() -> dict[str, str]:
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "stable-lang-installer"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
 def download(url: str, destination: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "stable-lang-installer"})
+    request = urllib.request.Request(url, headers=github_headers())
     with urllib.request.urlopen(request) as response, destination.open("wb") as output:
         shutil.copyfileobj(response, output)
 
@@ -27,16 +35,20 @@ def main() -> int:
         print("stable-install currently supports x86_64 Linux and Windows.", file=sys.stderr)
         return 2
     platform_suffix = "linux-x86_64.tar.gz" if system == "Linux" else "windows-x86_64.zip"
-    if system in {"Linux", "Windows"}:
-        asset_name = None
-    else:
+    if system not in {"Linux", "Windows"}:
         print("stable-install currently supports Linux and Windows.", file=sys.stderr)
         return 2
 
     api_url = f"https://api.github.com/repos/{REPO}/releases/latest"
-    request = urllib.request.Request(api_url, headers={"Accept": "application/vnd.github+json", "User-Agent": "stable-lang-installer"})
-    with urllib.request.urlopen(request) as response:
-        release = json.load(response)
+    request = urllib.request.Request(api_url, headers=github_headers())
+    try:
+        with urllib.request.urlopen(request) as response:
+            release = json.load(response)
+    except urllib.error.HTTPError as error:
+        if error.code == 403:
+            print("GitHub denied the release lookup (often an unauthenticated API rate limit). Set GITHUB_TOKEN and retry.", file=sys.stderr)
+            return 1
+        raise
     asset = next((item for item in release.get("assets", []) if item["name"].startswith("stablec-") and item["name"].endswith(platform_suffix)), None)
     if asset is None:
         print(f"Latest release has no {platform_suffix} compiler asset.", file=sys.stderr)
@@ -44,7 +56,7 @@ def main() -> int:
 
     prefix = Path(os.environ.get("STABLE_PREFIX", Path.home() / ".local" / "stable" / release["tag_name"].lstrip("v")))
     with tempfile.TemporaryDirectory(prefix="stable-install-") as temporary:
-        archive = Path(temporary) / asset_name
+        archive = Path(temporary) / asset["name"]
         print(f"Downloading Stable {release['tag_name']} from GitHub...")
         download(asset["browser_download_url"], archive)
         if system == "Linux":

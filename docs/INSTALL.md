@@ -1,6 +1,6 @@
 # **Installing Stable**
 
-Stable was created and is developed by **Monank Gohil**.
+Stable was created and is developed by **Monank Gohil**, who began developing it at age **15**.
 
 ## Latest release via pip
 
@@ -9,7 +9,11 @@ python -m pip install --upgrade git+https://github.com/Monank2011/STABLE.git#sub
 stable-install
 ```
 
-The `stable-install` command downloads the latest Linux or Windows x86_64 compiler release and installs the pinned LLVM/Clang 23.1.2 toolchain side by side. It does not replace a system LLVM installation.
+The `stable-install` command downloads the latest Linux or Windows x86_64 compiler release and installs the pinned LLVM/Clang 23.1.2 toolchain side by side. It does not replace a system LLVM installation. If GitHub's unauthenticated API limit is exhausted on a shared IP, retry with an optional GitHub token:
+
+```bash
+GITHUB_TOKEN=your_token_here stable-install
+```
 
 ## Latest source via g++
 

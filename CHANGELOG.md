@@ -1,9 +1,13 @@
 # **Stable Changelog**
 
+Stable was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
+
 ## **1.0.0 — Initial packaged release**
 
 ### Toolchain installer update
 
+- Fixed the pip bootstrapper to use the selected release asset's actual filename.
+- Added optional `GITHUB_TOKEN` support for GitHub API rate-limit resilience.
 - Added Linux and Windows installers that download official LLVM/Clang **23.1.2**.
 - Pinned and verified the Linux and Windows archive SHA-256 checksums.
 - Installs LLVM side by side under Stable's own versioned directory.

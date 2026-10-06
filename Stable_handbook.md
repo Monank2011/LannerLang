@@ -1,6 +1,8 @@
 # **Stable 1.0.0 Handbook**
 > **The practical language guide**
 
+Stable was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
+
 A medium-detail introduction to the Stable programming language and its V1 capabilities.
 
 ## **1. WHAT IS STABLE?**
