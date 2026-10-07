@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (std::string(argv[1]) == "--version") {
-        std::cout << "Lanner 1.0.0 (native LLVM production backend; C++ bootstrap frontend)\n";
+        std::cout << "Lanner 2.0.0 (native LLVM production backend; C++ bootstrap frontend)\n";
         return 0;
     }
 

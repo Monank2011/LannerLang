@@ -1,0 +1,4 @@
+import "board.lan"
+
+material(b: Board) i32:
+    return (Cpu.popcount(b.white) as i32) - (Cpu.popcount(b.black) as i32)

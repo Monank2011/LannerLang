@@ -1,0 +1,42 @@
+Lanner development upgrade verification
+========================================
+
+Language identity
+-----------------
+Language version: 2.0.0
+Release line: 2.0.0
+Canonical source extension: .lan
+Legacy naming artifacts: removed from source/docs/configuration
+
+Guy / chess / NNUE upgrades
+---------------------------
+- Multi-file top-level `import "file.lan"` support with recursive loading, cycle detection, and relative-path resolution.
+- Place-aware borrowing for disjoint struct projections such as `p.x` and `p.y`.
+- Exclusive `&mut` function parameters lower to LLVM `noalias` pointers.
+- Thread.spawnCtx(worker, context) for explicit search-worker contexts.
+- Typed integer SIMD: i8x16/i16x8/i32x4, i8x32/i16x16/i32x8, and i8x64/i16x32/i32x16.
+- NNUE-oriented sign extension, multiply-add, and integer reduction intrinsics.
+- 512-bit SIMD lowers to real ZMM instructions under an x86-64-v4 target.
+- Deterministic NNUE audit weight fixture included at tests/data/nnue_audit_weights.bin.
+- Handbook and technical docs expanded with chess-engine and NNUE implementation guidance.
+
+Verification
+------------
+- Full optimized compiler build: PASS
+- 105 registered CTest cases: all validated in smaller batches / targeted reruns: PASS
+- Chess-engine kernel: PASS
+- NNUE host audit: PASS
+- 256-bit NNUE SIMD kernel: PASS
+- 512-bit AVX-512 assembly check: PASS
+- Multi-file imports: PASS
+- Thread context passing: PASS
+- Disjoint field borrows: PASS
+- LLVM noalias emission: PASS
+- CMake / source build: PASS
+- Python installer syntax check: PASS
+
+Note
+----
+The AVX-512 regression is an assembly-generation test rather than a runtime test so the ordinary test suite does not require AVX-512 hardware.
+The bundled NNUE weight file is a deterministic regression fixture, not a trained playing-strength network.
+A full ASan/UBSan rebuild was attempted after the final changes but exceeded the execution time available in the audit environment before completion; no result is claimed for that run.

@@ -3,6 +3,7 @@
 #include "../parser/ast.hpp"
 #include <string>
 #include <vector>
+#include <set>
 
 enum class BuildMode {
     Check,
@@ -58,6 +59,7 @@ public:
 
 private:
     static std::string readFile(const std::string& path);
+    static std::string loadModuleSource(const std::string& path);
     static std::string quoteShellArg(const std::string& value);
     static std::string defaultOutputPath(const std::string& inputPath);
     static std::string makeTemporaryPath(const std::string& inputPath);

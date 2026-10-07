@@ -1,4 +1,4 @@
-# **Lanner 1.0.0 Benchmarks**
+# **Lanner 2.0.0 Benchmarks**
 
 Lanner treats benchmarking as both a **performance measurement** and a **bug-finding instrument**.
 

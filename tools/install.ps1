@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$LannerVersion = '1.0.0'
+$LannerVersion = '2.0.0'
 $LLVMVersion = '23.1.2'
 $LlmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVMVersion/clang%2Bllvm-$LLVMVersion-x86_64-pc-windows-msvc.tar.xz"
 $LlvmSha256 = '8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095'

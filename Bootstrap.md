@@ -1,4 +1,4 @@
-# **Lanner 1.0.0 Bootstrap**
+# **Lanner 2.0.0 Bootstrap**
 
 Lanner contains a Lanner-written compiler track and recursive self-hosting verification.
 

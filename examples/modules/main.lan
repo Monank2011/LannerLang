@@ -1,0 +1,6 @@
+import "search.lan"
+
+main() i32:
+    b = initialBoard()
+    score = material(b)
+    return score + 42

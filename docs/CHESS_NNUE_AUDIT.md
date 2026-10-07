@@ -1,6 +1,6 @@
 # Chess Engine and NNUE Hosting Audit
 
-Lanner 1.0.0 was audited as a host language for native chess engines and NNUE inference before the Version 1 release gate.
+Lanner 2.0.0 was audited as a host language for native chess engines and NNUE inference before the Version 1 release gate.
 
 ## Result
 
@@ -60,20 +60,32 @@ The systems/runtime work provides:
 - C ABI FFI
 - native target selection and `-O3`
 
-## Known Version 1 performance caveat
+## Development-tree performance status
 
-Lanner's current built-in SIMD vector surface is intentionally small and exposes fixed-width `i64` lanes with arithmetic/bitwise operations. It does **not** yet provide the richer typed `i8`/`i16`/`i32` vector and widening/dot-product primitives normally used to hand-write an optimized NNUE inner loop.
+The development tree now provides typed signed integer vectors across 128-, 256-, and 512-bit widths, with aligned/unaligned loads and stores, i8-to-i16 widening, pairwise i16 multiply-adds, and i32 reductions. LLVM remains responsible for final ISA selection, so portable builds can use the generic vector path while deployment-specific `--cpu`/`--features` builds can expose wider machine vectors.
 
 Therefore:
 
 - **Correct/functional NNUE in pure Lanner:** PASS
-- **High-performance hand-vectorized NNUE entirely in Lanner:** PARTIAL
-- **High-performance NNUE via Lanner + native C/ISA FFI:** PASS
+- **High-performance vectorized NNUE entirely in Lanner:** PASS
+- **ISA-specific hand-tuning beyond the exposed primitives:** still available through explicit unsafe assembly/FFI
 
-The compiler can optimize scalar loops and can call native SIMD kernels through the existing explicit FFI. A richer typed SIMD/NNUE intrinsic layer is a sensible Version 1.x/Version 2 improvement, not a blocker to developing the engine and NNUE in Lanner.
+The development tree is therefore suitable for implementing a complete native NNUE evaluator without C/C++ source in the evaluator itself.
 
 ## Bootstrap status
 
 The compiler is not yet fully self-hosted. The production parser/typechecker/LLVM backend/driver remain C++, while the Lanner-written self-host compiler currently covers a supported subset and has a verified recursive fixed point.
 
 This does **not** prevent Lanner applications from being written in Lanner. Full bootstrap can therefore remain the Version 2 compiler milestone.
+
+
+## NNUE-oriented SIMD in Lanner
+
+The development tree adds typed integer vectors for quantized inference: `i8x16`, `i16x8`, `i32x4`, `i8x32`, `i16x16`, and `i32x8`. Raw-pointer loads/stores are available in aligned and explicitly unaligned forms.
+
+`Cpu.sxtLoI8x32` / `Cpu.sxtHiI8x32` widen signed 8-bit halves to signed 16-bit vectors. `Cpu.maddI16x16` computes pairwise signed 16-bit multiply-adds into eight 32-bit lanes. LLVM remains responsible for final instruction selection, so a scalar or explicit-vector Lanner kernel can still be optimized for the selected `--cpu`/`--features` target.
+
+
+## NNUE optimization surface
+
+Version 1 development work adds explicit signed integer vectors for NNUE kernels, including 128-bit (`i8x16`/`i16x8`/`i32x4`), 256-bit (`i8x32`/`i16x16`/`i32x8`), and 512-bit (`i8x64`/`i16x32`/`i32x16`) forms. Lanner can load signed i8 weight/activation blocks, widen them to i16, perform pairwise i16 multiply-adds, and reduce i32 results. This lets an NNUE implementation stay entirely in Lanner while still exposing operations LLVM can lower to target vector instructions.

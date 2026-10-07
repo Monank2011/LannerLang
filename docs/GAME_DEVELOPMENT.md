@@ -1,6 +1,6 @@
 # Lanner Game Development
 
-Lanner 1.0.0 includes a native game-development layer designed around predictable native execution, explicit ownership, and low-level graphics access.
+Lanner 2.0.0 includes a native game-development layer designed around predictable native execution, explicit ownership, and low-level graphics access.
 
 ## Runtime layers
 

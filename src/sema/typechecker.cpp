@@ -15,7 +15,7 @@ const std::set<std::string> TypeChecker::primitiveTypes = {
     "void", "bool", "string",
     "i8", "i16", "i32", "i64", "i128", "isize",
     "u8", "u16", "u32", "u64", "u128", "usize",
-    "f32", "f64", "Arena", "View", "EditView", "Atomic", "Thread", "Socket", "Poller", "Mutex", "RwLock", "Condvar", "Semaphore", "Process", "Buffer", "Tensor", "GradTape", "GameWindow", "GameRenderer", "GameTexture", "GameAudio", "Regex", "v128", "v256", "v512"
+    "f32", "f64", "Arena", "View", "EditView", "Atomic", "Thread", "Socket", "Poller", "Mutex", "RwLock", "Condvar", "Semaphore", "Process", "Buffer", "Tensor", "GradTape", "GameWindow", "GameRenderer", "GameTexture", "GameAudio", "Regex", "v128", "v256", "v512", "i8x16", "i16x8", "i32x4", "i8x32", "i16x16", "i32x8", "i8x64", "i16x32", "i32x16"
 };
 
 namespace {
@@ -256,7 +256,10 @@ bool TypeChecker::isAtomic(const TypeNode* type) const {
 
 bool TypeChecker::isVector(const TypeNode* type) {
     return type && !type->isArray && !type->isReference && !type->isOptional &&
-           (type->name == "v128" || type->name == "v256" || type->name == "v512");
+           (type->name == "v128" || type->name == "v256" || type->name == "v512" ||
+            type->name == "i8x16" || type->name == "i16x8" || type->name == "i32x4" ||
+            type->name == "i8x32" || type->name == "i16x16" || type->name == "i32x8" ||
+            type->name == "i8x64" || type->name == "i16x32" || type->name == "i32x16");
 }
 
 bool TypeChecker::isView(const TypeNode* type) const {
@@ -424,11 +427,15 @@ void TypeChecker::validateType(TypeNode* type, int line) {
     if (type->name == "Atomic" && !type->generics.empty() && !isInteger(type->generics[0].get())) {
         throw std::runtime_error("Atomic currently supports integer payloads only at line " + std::to_string(line));
     }
-    if ((type->name == "v128" || type->name == "v256" || type->name == "v512") && !type->generics.empty()) {
+    if ((type->name == "v128" || type->name == "v256" || type->name == "v512" || type->name == "i8x16" || type->name == "i16x8" || type->name == "i32x4" || type->name == "i8x32" || type->name == "i16x16" || type->name == "i32x8" ||
+        type->name == "i8x64" || type->name == "i16x32" || type->name == "i32x16") && !type->generics.empty()) {
         throw std::runtime_error(type->name + " does not accept generic arguments at line " + std::to_string(line));
     }
     if (type->name != "Result" && type->name != "View" && type->name != "EditView" && type->name != "Atomic" &&
-        type->name != "v128" && type->name != "v256" && type->name != "v512" && !type->generics.empty()) {
+        type->name != "v128" && type->name != "v256" && type->name != "v512" &&
+        type->name != "i8x16" && type->name != "i16x8" && type->name != "i32x4" &&
+        type->name != "i8x32" && type->name != "i16x16" && type->name != "i32x8" &&
+        type->name != "i8x64" && type->name != "i16x32" && type->name != "i32x16" && !type->generics.empty()) {
         throw std::runtime_error("Type '" + type->name + "' does not accept generic arguments at line " + std::to_string(line));
     }
     for (const auto& g : type->generics) validateType(g.get(), line);
@@ -795,6 +802,27 @@ std::string borrowRoot(const Expr* expr) {
     return {};
 }
 
+std::string borrowPlace(const Expr* expr) {
+    if (!expr) return {};
+    if (expr->kind == ExprKind::Identifier) return expr->strValue;
+    if (expr->kind == ExprKind::FieldAccess) {
+        auto base = borrowPlace(expr->target.get());
+        return base.empty() ? expr->field : base + "." + expr->field;
+    }
+    if (expr->kind == ExprKind::Index) {
+        auto base = borrowPlace(expr->target.get());
+        // Dynamic indices are conservatively treated as the entire indexed
+        // projection. Constant-index disjointness is deliberately deferred
+        // until a future place/range analysis pass.
+        return base.empty() ? "[]" : base + "[]";
+    }
+    if (expr->kind == ExprKind::Slice) {
+        auto base = borrowPlace(expr->target.get());
+        return base.empty() ? "[:]" : base + "[:]";
+    }
+    return {};
+}
+
 } // namespace
 
 lanner::memory::StorageOrigin TypeChecker::inferOrigin(const Symbol* owner, const std::string& ownerName) {
@@ -808,7 +836,7 @@ lanner::memory::StorageOrigin TypeChecker::inferOrigin(const Symbol* owner, cons
 }
 
 std::optional<lanner::memory::BorrowRecord> TypeChecker::registerBorrow(
-    Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName) const {
+    Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName, const std::string& place) const {
     if (!owner || ownerName.empty()) return std::nullopt;
     const bool exclusive = borrowedType &&
         (borrowedType->isMutable || borrowedType->name == "EditView");
@@ -821,8 +849,9 @@ std::optional<lanner::memory::BorrowRecord> TypeChecker::registerBorrow(
                             : lanner::memory::BorrowMode::Shared;
     record.origin = inferOrigin(owner, ownerName);
     record.ownerBinding = ownerName;
+    record.place = place.empty() ? ownerName : place;
     record.ownerId = owner->bindingId;
-    if (!lanner::memory::mayBeginBorrow(owner->memory, record.mode)) {
+    if (!lanner::memory::mayBeginBorrow(owner->memory, record.mode, record.place)) {
         if (exclusive) {
             throw std::runtime_error("cannot create a mutable borrow of '" + ownerName + "' while it is already borrowed");
         }
@@ -904,7 +933,7 @@ void TypeChecker::popCheckedScope() {
     if (scope) {
         std::vector<std::string> toRelease;
         for (const auto& [name, sym] : scope->entries()) {
-            if (sym.memory.borrow) toRelease.push_back(name);
+            if (!!sym.memory.borrow) toRelease.push_back(name);
         }
         for (const auto& name : toRelease) {
             if (auto* borrower = scope->resolveLocal(name)) releaseBorrow(borrower);
@@ -1076,7 +1105,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkExpr(const Expr* expr, const TypeNod
                 if (!owner || owner->memory.isMoved()) error(expr, "cannot borrow an unknown or moved value");
                 const bool mut = expr->op == "&mut";
                 const auto mode = mut ? lanner::memory::BorrowMode::Exclusive : lanner::memory::BorrowMode::Shared;
-                if (!lanner::memory::mayBeginBorrow(owner->memory, mode)) {
+                if (!lanner::memory::mayBeginBorrow(owner->memory, mode, borrowPlace(expr->value.get()))) {
                     error(expr, mut ? "cannot create &mut while the value is already borrowed"
                                     : "cannot create a shared reference while the value has a mutable borrow");
                 }
@@ -1959,28 +1988,102 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
                 return makeType("u64");
             }
             if (member == "loadV128" || member == "loadV256" || member == "loadV512") {
-                if (expr->args.size() != 1) error(expr, "SIMD load takes one reference argument");
-                auto t = inferExprType(expr->args[0].get());
-                if (!t->isReference || t->name != "u64") error(expr, "SIMD load requires an explicit &u64 reference");
+                if (expr->args.size() != 1) error(expr, "SIMD load takes one pointer/reference argument");
+                auto ptr = inferExprType(expr->args[0].get());
+                if (!ptr->isRawPointer && !ptr->isReference) error(expr, "SIMD load requires a pointer or reference");
                 return makeType(member == "loadV128" ? "v128" : member == "loadV256" ? "v256" : "v512");
             }
-            if (member == "storeV128" || member == "storeV256" || member == "storeV512") {
-                if (expr->args.size() != 2) error(expr, "SIMD store takes a vector and a mutable reference");
-                const auto expectedVec = makeType(member == "storeV128" ? "v128" : member == "storeV256" ? "v256" : "v512");
-                checkExpr(expr->args[0].get(), expectedVec.get());
-                auto ptrType = inferExprType(expr->args[1].get());
-                if (!ptrType->isReference || !ptrType->isMutable || ptrType->name != "u64") error(expr, "SIMD store requires an explicit &mut u64 reference");
-                return makeType("void");
-            }
             if (member == "zeroV128" || member == "zeroV256" || member == "zeroV512") {
-                if (!expr->args.empty()) error(expr, "SIMD zero constructor takes no arguments");
+                if (!expr->args.empty()) error(expr, member + " takes no arguments");
                 return makeType(member == "zeroV128" ? "v128" : member == "zeroV256" ? "v256" : "v512");
             }
-            if (member == "prefetch") {
-                if (expr->args.size() != 1) error(expr, "Cpu.prefetch() takes one reference argument");
-                auto t = inferExprType(expr->args[0].get());
-                if (!t->isReference) error(expr, "Cpu.prefetch() requires an explicit reference");
+            if (member == "storeV128" || member == "storeV256" || member == "storeV512") {
+                if (expr->args.size() != 2) error(expr, "SIMD store takes a vector and raw mutable pointer");
+                auto vec = makeType(member == "storeV128" ? "v128" : member == "storeV256" ? "v256" : "v512");
+                checkExpr(expr->args[0].get(), vec.get());
+                auto ptr = inferExprType(expr->args[1].get());
+                if ((!ptr->isRawPointer && !(ptr->isReference && ptr->isMutable)) || !ptr->isMutable) error(expr, "SIMD store requires a mutable pointer/reference");
+                if (unsafeDepth <= 0) error(expr, member + " requires an unsafe block");
                 return makeType("void");
+            }
+            const std::map<std::string, std::string> loadTypes = {
+                {"loadI8x16", "i8x16"}, {"loadI16x8", "i16x8"}, {"loadI32x4", "i32x4"},
+                {"loadI8x32", "i8x32"}, {"loadI16x16", "i16x16"}, {"loadI32x8", "i32x8"},
+                {"loadI8x64", "i8x64"}, {"loadI16x32", "i16x32"}, {"loadI32x16", "i32x16"},
+                {"loadI8x16Unaligned", "i8x16"}, {"loadI16x8Unaligned", "i16x8"}, {"loadI32x4Unaligned", "i32x4"},
+                {"loadI8x32Unaligned", "i8x32"}, {"loadI16x16Unaligned", "i16x16"}, {"loadI32x8Unaligned", "i32x8"},
+                {"loadI8x64Unaligned", "i8x64"}, {"loadI16x32Unaligned", "i16x32"}, {"loadI32x16Unaligned", "i32x16"}
+            };
+            if (auto it = loadTypes.find(member); it != loadTypes.end()) {
+                if (expr->args.size() != 1) error(expr, "SIMD integer load takes one raw-pointer argument");
+                auto ptr = inferExprType(expr->args[0].get());
+                const bool addressable = ptr->isRawPointer || ptr->isReference;
+                if (!addressable) error(expr, "SIMD integer load requires a pointer or reference");
+                const std::string base = it->second.rfind("i8", 0) == 0 ? "i8" : it->second.rfind("i16", 0) == 0 ? "i16" : "i32";
+                if (ptr->name != base) error(expr, "SIMD integer load pointer element type does not match vector type");
+                if (unsafeDepth <= 0) error(expr, member + " requires an unsafe block");
+                return makeType(it->second);
+            }
+            const std::map<std::string, std::string> storeTypes = {
+                {"storeI8x16", "i8x16"}, {"storeI16x8", "i16x8"}, {"storeI32x4", "i32x4"},
+                {"storeI8x32", "i8x32"}, {"storeI16x16", "i16x16"}, {"storeI32x8", "i32x8"},
+                {"storeI8x64", "i8x64"}, {"storeI16x32", "i16x32"}, {"storeI32x16", "i32x16"},
+                {"storeI8x16Unaligned", "i8x16"}, {"storeI16x8Unaligned", "i16x8"}, {"storeI32x4Unaligned", "i32x4"},
+                {"storeI8x32Unaligned", "i8x32"}, {"storeI16x16Unaligned", "i16x16"}, {"storeI32x8Unaligned", "i32x8"},
+                {"storeI8x64Unaligned", "i8x64"}, {"storeI16x32Unaligned", "i16x32"}, {"storeI32x16Unaligned", "i32x16"}
+            };
+            if (auto it = storeTypes.find(member); it != storeTypes.end()) {
+                if (expr->args.size() != 2) error(expr, "SIMD integer store takes a vector and a raw mutable pointer");
+                auto vec = makeType(it->second);
+                checkExpr(expr->args[0].get(), vec.get());
+                auto ptr = inferExprType(expr->args[1].get());
+                const std::string base = it->second.rfind("i8", 0) == 0 ? "i8" : it->second.rfind("i16", 0) == 0 ? "i16" : "i32";
+                if ((!ptr->isRawPointer && !(ptr->isReference && ptr->isMutable)) || !ptr->isMutable || ptr->name != base) error(expr, "SIMD integer store requires a matching mutable pointer/reference");
+                if (unsafeDepth <= 0) error(expr, member + " requires an unsafe block");
+                return makeType("void");
+            }
+            const std::map<std::string, std::string> zeroTypes = {
+                {"zeroI8x16", "i8x16"}, {"zeroI16x8", "i16x8"}, {"zeroI32x4", "i32x4"},
+                {"zeroI8x32", "i8x32"}, {"zeroI16x16", "i16x16"}, {"zeroI32x8", "i32x8"},
+                {"zeroI8x64", "i8x64"}, {"zeroI16x32", "i16x32"}, {"zeroI32x16", "i32x16"}
+            };
+            if (auto it = zeroTypes.find(member); it != zeroTypes.end()) {
+                if (!expr->args.empty()) error(expr, "SIMD zero constructor takes no arguments");
+                return makeType(it->second);
+            }
+            if (member == "prefetchPtr") {
+                if (expr->args.size() != 1) error(expr, "Cpu.prefetchPtr() takes one raw pointer");
+                auto ptr = inferExprType(expr->args[0].get());
+                if (!ptr->isRawPointer) error(expr, "Cpu.prefetchPtr() requires a raw pointer");
+                if (unsafeDepth <= 0) error(expr, "Cpu.prefetchPtr() requires an unsafe block");
+                return makeType("void");
+            }
+            if (member == "sxtLoI8x32" || member == "sxtHiI8x32") {
+                if (expr->args.size() != 1) error(expr, member + " takes one i8x32 vector");
+                checkExpr(expr->args[0].get(), makeType("i8x32").get());
+                return makeType("i16x16");
+            }
+            if (member == "maddI16x16") {
+                if (expr->args.size() != 2) error(expr, "Cpu.maddI16x16() takes two i16x16 vectors");
+                checkExpr(expr->args[0].get(), makeType("i16x16").get());
+                checkExpr(expr->args[1].get(), makeType("i16x16").get());
+                return makeType("i32x8");
+            }
+            if (member == "sxtLoI8x64" || member == "sxtHiI8x64") {
+                if (expr->args.size() != 1) error(expr, member + " takes one i8x64 vector");
+                checkExpr(expr->args[0].get(), makeType("i8x64").get());
+                return makeType("i16x32");
+            }
+            if (member == "maddI16x32") {
+                if (expr->args.size() != 2) error(expr, "Cpu.maddI16x32() takes two i16x32 vectors");
+                checkExpr(expr->args[0].get(), makeType("i16x32").get());
+                checkExpr(expr->args[1].get(), makeType("i16x32").get());
+                return makeType("i32x16");
+            }
+            if (member == "reduceAddI32x8" || member == "reduceAddI32x16") {
+                if (expr->args.size() != 1) error(expr, member + " takes one vector");
+                checkExpr(expr->args[0].get(), makeType(member == "reduceAddI32x8" ? "i32x8" : "i32x16").get());
+                return makeType("i32");
             }
             error(expr, "unknown Cpu intrinsic '" + member + "'");
         }
@@ -1993,6 +2096,25 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
                 if (it == functions.end() || it->second->isExtern || !it->second->params.empty() || !isVoid(it->second->returnType.get())) {
                     error(expr, "Thread.spawn() target must be a Lanner function with signature () void");
                 }
+                return makeType("Thread");
+            }
+            if (member == "spawnCtx") {
+                if (expr->args.size() != 2 || expr->args[0]->kind != ExprKind::Identifier) {
+                    error(expr, "Thread.spawnCtx() requires a function name and raw context pointer");
+                }
+                auto it = functions.find(expr->args[0]->strValue);
+                if (it == functions.end() || it->second->isExtern || it->second->params.size() != 1 || !it->second->returnType || !isVoid(it->second->returnType.get())) {
+                    error(expr, "Thread.spawnCtx() target must be a Lanner function with signature (*mut void) void");
+                }
+                auto param = it->second->params[0].type.get();
+                if (!param || !param->isRawPointer || !param->isMutable || param->name != "void") {
+                    error(expr, "Thread.spawnCtx() target must accept *mut void");
+                }
+                auto ctx = inferExprType(expr->args[1].get());
+                if (!ctx->isRawPointer || !ctx->isMutable || ctx->name != "void") {
+                    error(expr, "Thread.spawnCtx() context must have type *mut void");
+                }
+                if (unsafeDepth <= 0) error(expr, "Thread.spawnCtx() requires an unsafe block because the context pointer is raw");
                 return makeType("Thread");
             }
             if (member == "hardwareConcurrency") {
@@ -2198,7 +2320,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
         if (ns == "Http") {
             if (member=="get") { if(expr->args.size()!=2) error(expr,"Http.get requires url and timeout_ms"); checkExpr(expr->args[0].get(),makeType("string").get()); checkExpr(expr->args[1].get(),makeType("i32").get()); return makeType("Buffer"); }
             if (member=="post") { if(expr->args.size()!=3) error(expr,"Http.post requires url, body, and timeout_ms"); checkExpr(expr->args[0].get(),makeType("string").get()); checkExpr(expr->args[1].get(),makeType("string").get()); checkExpr(expr->args[2].get(),makeType("i32").get()); return makeType("Buffer"); }
-            if (member=="status") { if(!expr->args.empty()) error(expr,"Http.lanatus takes no arguments"); return makeType("i32"); }
+            if (member=="status") { if(!expr->args.empty()) error(expr,"Http.status takes no arguments"); return makeType("i32"); }
             error(expr,"unknown Http method '"+member+"'");
         }
         if (ns == "Json") {
@@ -2328,7 +2450,7 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
                 if (order == "release" || order == "acq_rel") error(expr, "Atomic.load cannot use release ordering");
                 return cloneType(target->generics[0].get());
             }
-            if (member == "store") { if (expr->args.size() < 1 || expr->args.size() > 2) error(expr, "Atomic.lanore() takes a value and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); const auto order=checkOrder(1,"Atomic.lanore"); if (order=="acquire" || order=="acq_rel") error(expr,"Atomic.lanore cannot use acquire-only ordering"); return makeType("void"); }
+            if (member == "store") { if (expr->args.size() < 1 || expr->args.size() > 2) error(expr, "Atomic.store() takes a value and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); const auto order=checkOrder(1,"Atomic.store"); if (order=="acquire" || order=="acq_rel") error(expr,"Atomic.store cannot use acquire-only ordering"); return makeType("void"); }
             if (member == "fetchAdd" || member == "fetchSub") { if (expr->args.size() < 1 || expr->args.size() > 2) error(expr, "atomic fetch operation takes a value and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); checkOrder(1,"atomic fetch"); return cloneType(target->generics[0].get()); }
             if (member == "compareExchange") { if (expr->args.size() < 2 || expr->args.size() > 3) error(expr, "Atomic.compareExchange() takes expected, desired, and optional memory-order string"); checkExpr(expr->args[0].get(), target->generics[0].get()); checkExpr(expr->args[1].get(), target->generics[0].get()); checkOrder(2,"Atomic.compareExchange"); return makeType("bool"); }
             error(expr, "unknown Atomic method '" + member + "'");
@@ -2376,18 +2498,16 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
             error(expr,"unknown Tensor method '" + member + "'");
         }
         if (isVector(target.get())) {
-            if (field->field == "extractU64") {
-                if (expr->args.size()!=1) error(expr, "vector extractU64() takes one lane argument");
+            if (field->field == "extractU64" || field->field == "extractI8" || field->field == "extractI16" || field->field == "extractI32") {
+                if (expr->args.size()!=1) error(expr, "vector extract() takes one lane argument");
                 checkExpr(expr->args[0].get(), makeType("u32").get());
-                return makeType("u64");
+                if (field->field == "extractU64") return makeType("u64");
+                if (field->field == "extractI8") return makeType("i8");
+                if (field->field == "extractI16") return makeType("i16");
+                return makeType("i32");
             }
-            if (field->field == "add") {
-                if (expr->args.size()!=1) error(expr, "vector add() takes one vector argument");
-                checkExpr(expr->args[0].get(), target.get());
-                return cloneType(target.get());
-            }
-            if (field->field == "and" || field->field == "or" || field->field == "xor") {
-                if (expr->args.size()!=1) error(expr, "vector bit operation takes one vector argument");
+            if (field->field == "add" || field->field == "sub" || field->field == "and" || field->field == "or" || field->field == "xor" || field->field == "mul") {
+                if (expr->args.size()!=1) error(expr, "vector arithmetic takes one vector argument");
                 checkExpr(expr->args[0].get(), target.get());
                 return cloneType(target.get());
             }
@@ -2483,7 +2603,19 @@ std::unique_ptr<TypeNode> TypeChecker::checkFieldAccess(const Expr* expr) {
         }
     }
 
-    auto target = inferExprType(expr->target.get());
+    std::unique_ptr<TypeNode> target;
+    if (expr->target->kind == ExprKind::Identifier) {
+        auto* owner = symbols.resolve(expr->target->strValue);
+        if (!owner) error(expr, "unknown value '" + expr->target->strValue + "'");
+        if (owner->memory.isMoved()) error(expr, "use of moved value '" + expr->target->strValue + "'");
+        const std::string place = borrowPlace(expr);
+        if (!lanner::memory::mayAccess(owner->memory, lanner::memory::BorrowMode::Shared, place)) {
+            error(expr, "cannot access '" + place + "' while a conflicting mutable borrow is active");
+        }
+        target = cloneType(owner->type);
+    } else {
+        target = inferExprType(expr->target.get());
+    }
     if (target->isReference) target->isReference = false;
     if (target->isArray || isView(target.get())) error(expr, "collection values expose methods through calls, not fields");
 
@@ -2602,17 +2734,20 @@ std::unique_ptr<TypeNode> TypeChecker::checkLValue(const Expr* expr) {
             return target;
         }
         case ExprKind::FieldAccess: {
-            auto target = inferExprType(expr->target.get());
-            if (target->isReference) {
-                if (!target->isMutable) error(expr, "cannot modify through a read-only reference");
-            } else {
-                const auto root = borrowRoot(expr->target.get());
-                if (!root.empty()) {
-                    if (auto* owner = symbols.resolve(root); owner && (owner->memory.hasAnyBorrow())) {
-                        error(expr, "cannot modify an owner while it is borrowed");
-                    }
+            std::unique_ptr<TypeNode> target;
+            if (expr->target->kind == ExprKind::Identifier) {
+                auto* owner = symbols.resolve(expr->target->strValue);
+                if (!owner) error(expr, "unknown assignment owner '" + expr->target->strValue + "'");
+                if (owner->memory.isMoved()) error(expr, "cannot modify a moved value");
+                const auto place = borrowPlace(expr);
+                if (!lanner::memory::mayAccess(owner->memory, lanner::memory::BorrowMode::Exclusive, place)) {
+                    error(expr, "cannot modify '" + place + "' while a conflicting borrow is active");
                 }
+                target = cloneType(owner->type);
+            } else {
+                target = inferExprType(expr->target.get());
             }
+            if (target->isReference && !target->isMutable) error(expr, "cannot modify through a read-only reference");
             auto fieldType = checkFieldAccess(expr);
             const_cast<Expr*>(expr)->checkedType = cloneType(fieldType.get());
             return fieldType;
@@ -2646,8 +2781,11 @@ std::unique_ptr<TypeNode> TypeChecker::checkLValue(const Expr* expr) {
             } else if (target->name != "EditView") {
                 const auto root = borrowRoot(expr->target.get());
                 if (!root.empty()) {
-                    if (auto* owner = symbols.resolve(root); owner && (owner->memory.hasAnyBorrow())) {
-                        error(expr, "cannot modify an owner while it is borrowed");
+                    if (auto* owner = symbols.resolve(root)) {
+                        const auto place = borrowPlace(expr->target.get());
+                        if (!lanner::memory::mayAccess(owner->memory, lanner::memory::BorrowMode::Exclusive, place)) {
+                            error(expr, "cannot modify '" + place + "' while a conflicting borrow is active");
+                        }
                     }
                 }
             }
@@ -2799,10 +2937,11 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
                 symbols.declare(stmt->assignTarget, sym);
             }
 
-            if (!rhsBorrowOrigin.empty() && !transferredBorrow) {
+            const bool rhsIsBorrow = typePool.back()->isReference || isView(typePool.back().get());
+            if (!rhsBorrowOrigin.empty() && rhsIsBorrow && !transferredBorrow) {
                 const auto ownerName = rhsBorrowOrigin;
                 if (auto* owner = symbols.resolve(ownerName)) {
-                    auto record = registerBorrow(owner, typePool.back().get(), ownerName);
+                    auto record = registerBorrow(owner, typePool.back().get(), ownerName, borrowPlace(stmt->assignValue.get()));
                     if (existing) {
                         existing->memory.borrow = record;
                     } else if (auto* inserted = symbols.currentScope()->resolveLocal(stmt->assignTarget)) {
@@ -2942,7 +3081,7 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
                 // an exclusive borrow of its origin, so no second borrow is created.
                 if (!iterableBorrowOrigin.empty() && !(isView(iterable.get()) && iterable->name == "EditView")) {
                     if (auto* owner = symbols.resolve(iterableBorrowOrigin)) {
-                        auto record = registerBorrow(owner, typePool.back().get(), iterableBorrowOrigin);
+                        auto record = registerBorrow(owner, typePool.back().get(), iterableBorrowOrigin, borrowPlace(stmt->iterable.get()));
                         if (auto* inserted = symbols.currentScope()->resolveLocal(stmt->loopVar)) inserted->memory.borrow = record;
                     }
                 }
@@ -2985,7 +3124,7 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
                         binding.type = typePool.back().get();
                         symbols.declare(binding.name, binding);
                         if (auto* owner = symbols.resolve(ownerName)) {
-                            auto record = registerBorrow(owner, binding.type, ownerName);
+                            auto record = registerBorrow(owner, binding.type, ownerName, borrowPlace(stmt->guardCondition->left.get()));
                             if (auto* inserted = symbols.currentScope()->resolveLocal(binding.name)) inserted->memory.borrow = record;
                         }
                     } else {

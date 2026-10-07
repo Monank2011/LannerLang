@@ -1,4 +1,13 @@
-# **Lanner Changelog**
+# Changelog
+
+## 2.0.0 — Chess/NNUE development release
+
+- Published the fixed `.lan` source tree as LannerLang 2.0.0.
+- Added module imports, disjoint-field borrow support, exclusive `&mut`/LLVM `noalias` lowering, and explicit thread contexts.
+- Added NNUE-oriented integer SIMD types, widening, multiply-add, reductions, and AVX-512 development coverage.
+- Corrected POSIX runtime filesystem access to use `st.st_mode` and `st.st_size`.
+- Added chess-engine and NNUE examples plus deterministic regression fixtures.
+
 
 Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
 

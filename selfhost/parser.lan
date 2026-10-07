@@ -140,7 +140,7 @@ consume(tokens: View[Token], pos: usize, kind: u8) i64:
 isByte(src: View[u8], tokens: View[Token], pos: usize, value: u8) bool:
     if !isKind(tokens, pos, 4):
         return false
-    return tokens[pos].length == 1 && src[tokens[pos].lanart] == value
+    return tokens[pos].length == 1 && src[tokens[pos].start] == value
 
 consumeByte(src: View[u8], tokens: View[Token], pos: usize, value: u8) i64:
     if !isByte(src, tokens, pos, value):

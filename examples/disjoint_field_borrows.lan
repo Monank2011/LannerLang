@@ -1,0 +1,9 @@
+Point[x:i32,y:i32]
+
+main() i32:
+    p=Point[x:1,y:2]
+    x:&mut i32=&mut p.x
+    y:&mut i32=&mut p.y
+    x=7
+    y=9
+    return p.x+p.y

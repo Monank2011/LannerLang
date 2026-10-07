@@ -1,0 +1,20 @@
+extern seed(p:*mut i8) void
+
+main() i32:
+    a:[64]i8=[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    b:[64]i8=[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
+    unsafe:
+        pa:*mut i8=&raw a[0]
+        pb:*mut i8=&raw b[0]
+        seed(pa)
+        seed(pb)
+        av:i8x64=Cpu.loadI8x64Unaligned(pa)
+        bv:i8x64=Cpu.loadI8x64Unaligned(pb)
+        al:i16x32=Cpu.sxtLoI8x64(av)
+        ah:i16x32=Cpu.sxtHiI8x64(av)
+        bl:i16x32=Cpu.sxtLoI8x64(bv)
+        bh:i16x32=Cpu.sxtHiI8x64(bv)
+        l:i32x16=Cpu.maddI16x32(al,bl)
+        h:i32x16=Cpu.maddI16x32(ah,bh)
+        total:i32=Cpu.reduceAddI32x16(l)+Cpu.reduceAddI32x16(h)
+        return total

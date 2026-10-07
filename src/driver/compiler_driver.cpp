@@ -20,9 +20,11 @@
 #include <filesystem>
 #include <regex>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
@@ -195,7 +197,7 @@ export async function loadLanner(url = new URL("WASM_FILE", import.meta.url), ex
             fetch(urlText).then(async r => {
                 const buf=new Uint8Array(await r.arrayBuffer());
                 const ptr=alloc(buf.length+1,1); bytes().set(buf,ptr); bytes()[ptr+buf.length]=0;
-                const f=instance?.exports?.[cbName]; if(typeof f === "function") f(r.lanatus,ptr,buf.length);
+                const f=instance?.exports?.[cbName]; if(typeof f === "function") f(r.status,ptr,buf.length);
             }).catch(() => {
                 const f=instance?.exports?.[cbName]; if(typeof f === "function") f(0,0,0);
             });
@@ -260,6 +262,61 @@ std::string CompilerDriver::readFile(const std::string& path) {
     std::ostringstream ss;
     ss << in.rdbuf();
     return ss.str();
+}
+
+
+std::string CompilerDriver::loadModuleSource(const std::string& path) {
+    std::set<std::filesystem::path> loaded;
+    std::vector<std::filesystem::path> stack;
+    const auto root = std::filesystem::absolute(std::filesystem::path(path)).lexically_normal();
+
+    std::function<std::string(const std::filesystem::path&)> load = [&](const std::filesystem::path& file) -> std::string {
+        const auto canonical = std::filesystem::absolute(file).lexically_normal();
+        if (std::find(stack.begin(), stack.end(), canonical) != stack.end()) {
+            std::ostringstream chain;
+            for (const auto& p : stack) chain << p.string() << " -> ";
+            chain << canonical.string();
+            throw std::runtime_error("module import cycle: " + chain.str());
+        }
+        if (loaded.count(canonical)) return {};
+        if (!std::filesystem::exists(canonical)) {
+            throw std::runtime_error("module import not found: '" + canonical.string() + "'");
+        }
+        const std::string src = readFile(canonical.string());
+        stack.push_back(canonical);
+        loaded.insert(canonical);
+
+        std::ostringstream out;
+        std::istringstream input(src);
+        std::string line;
+        while (std::getline(input, line)) {
+            const auto first = line.find_first_not_of(" \t");
+            const bool topLevel = first == std::string::npos || first == 0;
+            if (topLevel) {
+                static const std::regex importRe(R"(^import[ \t]+\"([^\"]+)\"[ \t]*(?:#.*)?$)");
+                std::smatch match;
+                if (std::regex_match(line, match, importRe)) {
+                    std::filesystem::path dep(match[1].str());
+                    if (dep.extension().empty()) dep += ".lan";
+                    if (dep.is_relative()) dep = canonical.parent_path() / dep;
+                    out << load(dep.lexically_normal());
+                    out << "\n";
+                    continue;
+                }
+                // An indented import is not matched here.  Imports are deliberately
+                // top-level-only so the module graph stays static and deterministic.
+                if (first == std::string::npos) {
+                    out << '\n';
+                    continue;
+                }
+            }
+            out << line << '\n';
+        }
+        stack.pop_back();
+        return out.str();
+    };
+
+    return load(root);
 }
 
 std::string CompilerDriver::quoteShellArg(const std::string& value) {
@@ -384,7 +441,7 @@ int CompilerDriver::run(const CompilerOptions& options) {
         if (options.web && (options.mode == BuildMode::EmitObject || options.mode == BuildMode::EmitAssembly)) {
             throw std::runtime_error("--web produces a WebAssembly module; do not combine it with --emit-object or --emit-asm");
         }
-        source = readFile(options.inputPath);
+        source = loadModuleSource(options.inputPath);
         Lexer lexer(source);
         Parser parser(lexer.tokenize());
         Program program = parser.parseProgram();

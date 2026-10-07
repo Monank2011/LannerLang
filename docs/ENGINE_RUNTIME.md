@@ -16,7 +16,7 @@ while running:
 String helpers useful for protocol parsing are available as methods:
 
 ```lanner
-line.lanartsWith("go")
+line.startsWith("go")
 line.equals("isready")
 value: u64 = line.parseU64At(3)
 byte: u8 = line[0]
@@ -129,3 +129,22 @@ LANNER_RUNTIME=/path/to/lanner_runtime.c lanner engine.lan -O3 -o engine
 ```
 
 The language primitives stay explicit in the source language. There is no hidden garbage collector, reference counting, or implicit thread pool behind this interface.
+
+
+## Multi-file engine organization
+
+Use top-level imports to split a large engine into ordinary `.lan` modules:
+
+```lanner
+import "board.lan"
+import "movegen.lan"
+import "search.lan"
+import "nnue.lan"
+```
+
+Imports are resolved relative to the importing source file, loaded once, recursively, and rejected on cycles. This keeps the compiled representation as one native program while allowing Guy-sized source organization.
+
+
+## SMP worker contexts
+
+Use `Thread.spawnCtx(function, context)` for a worker with an explicit raw context pointer. The worker signature is `(*mut void) void` and the operation requires `unsafe`, making the lifetime and synchronization responsibility explicit for SMP search implementations.

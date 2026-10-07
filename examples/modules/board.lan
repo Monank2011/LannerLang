@@ -1,0 +1,4 @@
+Board[white:u64, black:u64]
+
+initialBoard() Board:
+    return Board[white: 0x000000000000FFFF, black: 0xFFFF000000000000]

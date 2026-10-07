@@ -1,4 +1,4 @@
-# **LannerLang 1.0.0 Handbook**
+# **LannerLang 2.0.0 Handbook**
 > **The practical language guide**
 
 Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
@@ -511,6 +511,8 @@ Thread.detach
 Thread.yield
 Thread.hardwareConcurrency
 
+For explicit SMP worker state, `Thread.spawnCtx(worker, ctx)` starts a worker with a raw `*mut void` context pointer and requires an `unsafe` block.
+
 ### **9.5 Atomics**
 
 Atomic[T] provides explicit atomic storage.
@@ -519,7 +521,7 @@ static mut Nodes: Atomic[u64] = 0
 
 Nodes.fetchAdd(1)
 count = Nodes.load()
-Nodes.lanore(0)
+Nodes.store(0)
 Nodes.compareExchange(expected, desired)
 
 Atomic load/store/fetch/CAS calls accept optional memory-order strings such as relaxed, acquire, release, acq_rel, and seq_cst where valid for the operation. Lanner also provides atomic and compiler fences.
@@ -695,7 +697,7 @@ Process.arg
 
 Http.get
 Http.post
-Http.lanatus
+Http.status
 
 The V1 client handles bounded HTTP/1.1 operations including Content-Length, connection-close responses, and chunked response decoding.
 
@@ -1362,3 +1364,21 @@ Use the safe core by default, make expensive or dangerous operations explicit, a
 Lanner 1.0 is a general-purpose, LLVM-native, ownership-safe language with a strong low-level escape hatch and a broad V1 runtime/toolchain surface; the next major milestone is replacing the remaining C++ compiler implementation with a fully bootstrapped Lanner compiler.
 
 Welcome to Lanner.
+
+
+### NNUE-oriented integer SIMD
+
+For high-performance neural-network inference, Lanner includes signed integer vector types from 128 through 512 bits: `i8x16`, `i16x8`, `i32x4`, `i8x32`, `i16x16`, `i32x8`, `i8x64`, `i16x32`, and `i32x16`. The `Cpu` API provides aligned/unaligned loads and stores, sign-extension of i8 halves, pairwise i16 multiply-adds, lane extraction, and i32 reductions. These operations are designed so a complete quantized NNUE inner loop can remain in Lanner source while LLVM performs target-specific lowering.
+
+
+## Building a chess engine with Lanner
+
+Lanner's native facilities are sufficient for a full chess-engine implementation. A large engine can be divided into `.lan` files with top-level `import` declarations. Typical modules are board representation, attack tables, move generation, make/unmake, Zobrist hashing, transposition tables, search, evaluation, NNUE, and UCI.
+
+For performance builds, use `-O3` together with an explicit deployment CPU, for example `--cpu x86-64-v3` for a portable AVX2-class baseline. Keep ISA-specific NNUE kernels in separate functions and select the appropriate path with `Cpu.has*()` checks when the chosen target permits it.
+
+## Building an NNUE evaluator with Lanner
+
+A quantized NNUE evaluator can be written entirely in Lanner. Use `FS.read()` or `Buffer` for the network file, raw pointers inside explicit `unsafe` blocks for binary weight access, fixed arrays for accumulators, and the integer SIMD types for packed i8/i16/i32 operations. The 128-, 256-, and 512-bit integer vector families are intended for sparse accumulator and dense hidden-layer kernels.
+
+The language does not require Python or a tracing runtime for inference. Training remains an application concern and can use the tensor/autodiff runtime or external optimized libraries through C ABI FFI.

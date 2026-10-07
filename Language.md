@@ -1,4 +1,4 @@
-# **Lanner 1.0.0 Language Reference**
+# **Lanner 2.0.0 Language Reference**
 
 This document describes the currently implemented Lanner language surface.
 
@@ -347,4 +347,4 @@ lanner app.lan --web -O3 -o app.wasm
 Lanner provides a native `Tensor` handle for f32/f64 rank-1..8 numerical workloads, explicit shape/stride queries, element access, reshape/transpose/slice, elementwise arithmetic, activations, softmax, reductions, dot products, matrix multiplication, and a CPU NCHW convolution kernel. `GradTape` provides explicit reverse-mode autodiff for the bundled operations. `Accel` reports CUDA, ROCm, Metal, and BLAS availability. Optimized BLAS/LAPACK/CUDA/HIP/oneDNN-style libraries are intentionally bound through the same explicit C ABI FFI rather than hidden runtime dependencies.
 ## Runtime domain APIs
 
-Lanner 1.0.0 includes hosted domain namespaces layered on the native compiler: `Game`/`Graphics` for native game windows, input, 2D rendering, textures, audio, frame timing and low-level graphics procedure access; `Tensor`/`GradTape` for native ML workloads; `Web` for browser Wasm integration; `Mobile` for Android/iOS platform services; and `Socket`/`Poller`/`Process` for hosted backend software. These APIs are explicit runtime/library boundaries and do not alter Lanner's ownership model.
+Lanner 2.0.0 includes hosted domain namespaces layered on the native compiler: `Game`/`Graphics` for native game windows, input, 2D rendering, textures, audio, frame timing and low-level graphics procedure access; `Tensor`/`GradTape` for native ML workloads; `Web` for browser Wasm integration; `Mobile` for Android/iOS platform services; and `Socket`/`Poller`/`Process` for hosted backend software. These APIs are explicit runtime/library boundaries and do not alter Lanner's ownership model.

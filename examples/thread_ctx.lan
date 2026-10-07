@@ -1,0 +1,13 @@
+static mut ResultValue: Atomic[i32] = 0
+
+worker(ctx:*mut void) void:
+    unsafe:
+        p:*mut i32 = ctx as *mut i32
+        ResultValue.store(*p)
+
+main() i32:
+    value:i32 = 123
+    unsafe:
+        t:Thread = Thread.spawnCtx(worker, (&raw value) as *mut void)
+        t.join()
+    return ResultValue.load()

@@ -117,6 +117,15 @@ std::string LLVMCodeGenerator::llvmType(const TypeNode* type) const {
     if (type->name == "v128") return "<2 x i64>";
     if (type->name == "v256") return "<4 x i64>";
     if (type->name == "v512") return "<8 x i64>";
+    if (type->name == "i8x16") return "<16 x i8>";
+    if (type->name == "i16x8") return "<8 x i16>";
+    if (type->name == "i32x4") return "<4 x i32>";
+    if (type->name == "i8x32") return "<32 x i8>";
+    if (type->name == "i16x16") return "<16 x i16>";
+    if (type->name == "i32x8") return "<8 x i32>";
+    if (type->name == "i8x64") return "<64 x i8>";
+    if (type->name == "i16x32") return "<32 x i16>";
+    if (type->name == "i32x16") return "<16 x i32>";
     if ((type->name == "View" || type->name == "EditView") && type->generics.size() == 1) return "{ ptr, i64 }";
     if (type->name == "Result" && type->generics.size() == 2) {
         return "{ i1, " + llvmType(type->generics[0].get()) + ", " +
@@ -322,6 +331,29 @@ std::string LLVMCodeGenerator::exprLLVMType(const Expr* expr) const {
                 if (ns == "Cpu" && member == "loadV256") return "<4 x i64>";
                 if (ns == "Cpu" && member == "loadV512") return "<8 x i64>";
                 if (ns == "Cpu" && (member == "zeroV128" || member == "zeroV256" || member == "zeroV512")) return member == "zeroV128" ? "<2 x i64>" : member == "zeroV256" ? "<4 x i64>" : "<8 x i64>";
+                if (ns == "Cpu" && (member == "loadI8x16" || member == "loadI8x16Unaligned")) return "<16 x i8>";
+                if (ns == "Cpu" && (member == "loadI16x8" || member == "loadI16x8Unaligned")) return "<8 x i16>";
+                if (ns == "Cpu" && (member == "loadI32x4" || member == "loadI32x4Unaligned")) return "<4 x i32>";
+                if (ns == "Cpu" && (member == "loadI8x32" || member == "loadI8x32Unaligned")) return "<32 x i8>";
+                if (ns == "Cpu" && (member == "loadI8x64" || member == "loadI8x64Unaligned")) return "<64 x i8>";
+                if (ns == "Cpu" && (member == "loadI16x32" || member == "loadI16x32Unaligned")) return "<32 x i16>";
+                if (ns == "Cpu" && (member == "loadI32x16" || member == "loadI32x16Unaligned")) return "<16 x i32>";
+                if (ns == "Cpu" && (member == "zeroI8x16")) return "<16 x i8>";
+                if (ns == "Cpu" && (member == "zeroI16x8")) return "<8 x i16>";
+                if (ns == "Cpu" && (member == "zeroI32x4")) return "<4 x i32>";
+                if (ns == "Cpu" && (member == "zeroI8x32")) return "<32 x i8>";
+                if (ns == "Cpu" && (member == "zeroI16x16")) return "<16 x i16>";
+                if (ns == "Cpu" && (member == "zeroI32x8")) return "<8 x i32>";
+                if (ns == "Cpu" && (member == "zeroI8x64")) return "<64 x i8>";
+                if (ns == "Cpu" && (member == "zeroI16x32")) return "<32 x i16>";
+                if (ns == "Cpu" && (member == "zeroI32x16")) return "<16 x i32>";
+                if (ns == "Cpu" && (member == "loadI16x16" || member == "loadI16x16Unaligned")) return "<16 x i16>";
+                if (ns == "Cpu" && (member == "loadI32x8" || member == "loadI32x8Unaligned")) return "<8 x i32>";
+                if (ns == "Cpu" && member == "maddI16x16") return "<8 x i32>";
+                if (ns == "Cpu" && (member == "sxtLoI8x32" || member == "sxtHiI8x32")) return "<16 x i16>";
+                if (ns == "Cpu" && (member == "sxtLoI8x64" || member == "sxtHiI8x64")) return "<32 x i16>";
+                if (ns == "Cpu" && member == "maddI16x32") return "<16 x i32>";
+                if (ns == "Cpu" && (member == "reduceAddI32x8" || member == "reduceAddI32x16")) return "i32";
             }
             if (expr->callee->kind == ExprKind::FieldAccess && expr->callee->target && expr->callee->target->checkedType && expr->callee->target->checkedType->name == "GradTape") {
                 if (expr->callee->field == "free") return "void";
@@ -1803,6 +1835,13 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
                 body.push_back("  "+r+" = call ptr @__lanner_thread_spawn(ptr @__lanner_thread_entry_"+expr->args[0]->strValue+")");
                 return r;
             }
+            if (member == "spawnCtx") {
+                if (expr->args.size()!=2 || expr->args[0]->kind!=ExprKind::Identifier) unsupported("invalid Thread.spawnCtx target", expr->line);
+                const auto ctx = emitExpr(expr->args[1].get());
+                const auto r = newTemp("thread.spawn.ctx");
+                body.push_back("  "+r+" = call ptr @__lanner_thread_spawn_ctx(ptr @__lanner_thread_entry_ctx_"+expr->args[0]->strValue+", ptr "+ctx+")");
+                return r;
+            }
         }
         if (ns == "Net") {
             auto asI32 = [&](const Expr* a, const std::string& tag) {
@@ -1871,7 +1910,7 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
         if (ns == "Http") {
             if(member=="get"){auto u=emitExpr(expr->args[0].get());auto tm=emitExpr(expr->args[1].get());auto r=newTemp("http.get");body.push_back("  "+r+" = call ptr @__lanner_http_get(ptr "+u+", i32 "+tm+")");return r;}
             if(member=="post"){auto u=emitExpr(expr->args[0].get());auto b=emitExpr(expr->args[1].get());auto tm=emitExpr(expr->args[2].get());auto r=newTemp("http.post");body.push_back("  "+r+" = call ptr @__lanner_http_post(ptr "+u+", ptr "+b+", i32 "+tm+")");return r;}
-            if(member=="status"){auto r=newTemp("http.lanatus");body.push_back("  "+r+" = call i32 @__lanner_http_status()");return r;}
+            if(member=="status"){auto r=newTemp("http.status");body.push_back("  "+r+" = call i32 @__lanner_http_status()");return r;}
         }
         if (ns == "Json") {
             if(member=="validate"){auto j=emitExpr(expr->args[0].get());auto r=newTemp("json.valid");body.push_back("  "+r+" = call i32 @__lanner_json_validate(ptr "+j+")");auto b=newTemp("json.valid.bool");body.push_back("  "+b+" = trunc i32 "+r+" to i1");return b;}
@@ -1911,8 +1950,93 @@ std::string LLVMCodeGenerator::emitBuiltinCall(const Expr* expr) {
             if (member == "pext" || member == "pdep") { auto a=emitExpr(expr->args[0].get()); auto b=emitExpr(expr->args[1].get()); auto r=newTemp("cpu.bmi2"); body.push_back("  "+r+" = call i64 @llvm.x86.bmi."+member+".64(i64 "+a+", i64 "+b+")"); return r; }
             if (member == "prefetch") { auto a=emitExpr(expr->args[0].get()); body.push_back("  call void @llvm.prefetch(ptr "+a+", i32 0, i32 3, i32 1)"); return ""; }
             if (member == "loadV128" || member == "loadV256" || member == "loadV512") { auto a=emitExpr(expr->args[0].get()); const std::string ty=member=="loadV128"?"<2 x i64>":member=="loadV256"?"<4 x i64>":"<8 x i64>"; auto r=newTemp("simd.load"); body.push_back("  "+r+" = load "+ty+", ptr "+a); return r; }
-            if (member == "zeroV128" || member == "zeroV256" || member == "zeroV512") { const std::string ty=member=="zeroV128"?"<2 x i64>":member=="zeroV256"?"<4 x i64>":"<8 x i64>"; return "zeroinitializer"; }
+            if (member == "zeroV128" || member == "zeroV256" || member == "zeroV512") { return "zeroinitializer"; }
             if (member == "storeV128" || member == "storeV256" || member == "storeV512") { auto v=emitExpr(expr->args[0].get()); auto p=emitExpr(expr->args[1].get()); const std::string ty=member=="storeV128"?"<2 x i64>":member=="storeV256"?"<4 x i64>":"<8 x i64>"; body.push_back("  store "+ty+" "+v+", ptr "+p); return ""; }
+            const std::map<std::string,std::string> vecTys = {
+                {"I8x16","<16 x i8>"},{"I16x8","<8 x i16>"},{"I32x4","<4 x i32>"},
+                {"I8x32","<32 x i8>"},{"I16x16","<16 x i16>"},{"I32x8","<8 x i32>"},
+                {"I8x64","<64 x i8>"},{"I16x32","<32 x i16>"},{"I32x16","<16 x i32>"}
+            };
+            for (const auto& [name, ty] : vecTys) {
+                const std::string load = "load" + name;
+                const std::string loadUn = load + "Unaligned";
+                const std::string store = "store" + name;
+                const std::string storeUn = store + "Unaligned";
+                const std::string zero = "zero" + name;
+                if (member == load || member == loadUn) {
+                    auto a=emitExpr(expr->args[0].get()); auto r=newTemp("simd.iload");
+                    if (member == loadUn) body.push_back("  "+r+" = load "+ty+", ptr "+a+", align 1");
+                    else body.push_back("  "+r+" = load "+ty+", ptr "+a);
+                    return r;
+                }
+                if (member == store || member == storeUn) {
+                    auto v=emitExpr(expr->args[0].get()); auto a=emitExpr(expr->args[1].get());
+                    if (member == storeUn) body.push_back("  store "+ty+" "+v+", ptr "+a+", align 1");
+                    else body.push_back("  store "+ty+" "+v+", ptr "+a);
+                    return "";
+                }
+                if (member == zero) return "zeroinitializer";
+            }
+            if (member == "prefetchPtr") { auto a=emitExpr(expr->args[0].get()); body.push_back("  call void @llvm.prefetch(ptr "+a+", i32 0, i32 3, i32 1)"); return ""; }
+            if (member == "sxtLoI8x32" || member == "sxtHiI8x32") {
+                auto v=emitExpr(expr->args[0].get());
+                std::string mask;
+                for(int i=0;i<16;++i){ if(i) mask += ", "; int idx = member=="sxtLoI8x32" ? i : i+16; mask += "i32 "+std::to_string(idx); }
+                auto sh=newTemp("simd.i8half");
+                body.push_back("  "+sh+" = shufflevector <32 x i8> "+v+", <32 x i8> zeroinitializer, <16 x i32> <"+mask+">");
+                auto r=newTemp("simd.sxt");
+                body.push_back("  "+r+" = sext <16 x i8> "+sh+" to <16 x i16>");
+                return r;
+            }
+            if (member == "maddI16x16") {
+                auto a=emitExpr(expr->args[0].get()); auto b=emitExpr(expr->args[1].get());
+                std::string even, odd;
+                for(int i=0;i<8;++i){ if(i){even+=", ";odd+=", ";} even += "i32 "+std::to_string(2*i); odd += "i32 "+std::to_string(2*i+1); }
+                auto ae=newTemp("simd.even.a"); auto ao=newTemp("simd.odd.a"); auto be=newTemp("simd.even.b"); auto bo=newTemp("simd.odd.b");
+                body.push_back("  "+ae+" = shufflevector <16 x i16> "+a+", <16 x i16> zeroinitializer, <8 x i32> <"+even+">");
+                body.push_back("  "+ao+" = shufflevector <16 x i16> "+a+", <16 x i16> zeroinitializer, <8 x i32> <"+odd+">");
+                body.push_back("  "+be+" = shufflevector <16 x i16> "+b+", <16 x i16> zeroinitializer, <8 x i32> <"+even+">");
+                body.push_back("  "+bo+" = shufflevector <16 x i16> "+b+", <16 x i16> zeroinitializer, <8 x i32> <"+odd+">");
+                auto aes=newTemp("simd.sext.ae"); auto aos=newTemp("simd.sext.ao"); auto bes=newTemp("simd.sext.be"); auto bos=newTemp("simd.sext.bo");
+                body.push_back("  "+aes+" = sext <8 x i16> "+ae+" to <8 x i32>"); body.push_back("  "+aos+" = sext <8 x i16> "+ao+" to <8 x i32>");
+                body.push_back("  "+bes+" = sext <8 x i16> "+be+" to <8 x i32>"); body.push_back("  "+bos+" = sext <8 x i16> "+bo+" to <8 x i32>");
+                auto mp1=newTemp("simd.mul.e"); auto mp2=newTemp("simd.mul.o"); auto r=newTemp("simd.madd");
+                body.push_back("  "+mp1+" = mul <8 x i32> "+aes+", "+bes);
+                body.push_back("  "+mp2+" = mul <8 x i32> "+aos+", "+bos);
+                body.push_back("  "+r+" = add <8 x i32> "+mp1+", "+mp2);
+                return r;
+            }
+            if (member == "sxtLoI8x64" || member == "sxtHiI8x64") {
+                auto v=emitExpr(expr->args[0].get()); std::string mask;
+                for(int i=0;i<32;++i){ if(i) mask += ", "; int idx = member=="sxtLoI8x64" ? i : i+32; mask += "i32 "+std::to_string(idx); }
+                auto sh=newTemp("simd.i8half64");
+                body.push_back("  "+sh+" = shufflevector <64 x i8> "+v+", <64 x i8> zeroinitializer, <32 x i32> <"+mask+">");
+                auto r=newTemp("simd.sxt64");
+                body.push_back("  "+r+" = sext <32 x i8> "+sh+" to <32 x i16>");
+                return r;
+            }
+            if (member == "maddI16x32") {
+                auto a=emitExpr(expr->args[0].get()); auto b=emitExpr(expr->args[1].get());
+                std::string even, odd;
+                for(int i=0;i<16;++i){ if(i){even+=", ";odd+=", ";} even += "i32 "+std::to_string(2*i); odd += "i32 "+std::to_string(2*i+1); }
+                auto ae=newTemp("simd.even32.a"); auto ao=newTemp("simd.odd32.a"); auto be=newTemp("simd.even32.b"); auto bo=newTemp("simd.odd32.b");
+                body.push_back("  "+ae+" = shufflevector <32 x i16> "+a+", <32 x i16> zeroinitializer, <16 x i32> <"+even+">");
+                body.push_back("  "+ao+" = shufflevector <32 x i16> "+a+", <32 x i16> zeroinitializer, <16 x i32> <"+odd+">");
+                body.push_back("  "+be+" = shufflevector <32 x i16> "+b+", <32 x i16> zeroinitializer, <16 x i32> <"+even+">");
+                body.push_back("  "+bo+" = shufflevector <32 x i16> "+b+", <32 x i16> zeroinitializer, <16 x i32> <"+odd+">");
+                auto aes=newTemp("simd.sext32.ae"); auto aos=newTemp("simd.sext32.ao"); auto bes=newTemp("simd.sext32.be"); auto bos=newTemp("simd.sext32.bo");
+                body.push_back("  "+aes+" = sext <16 x i16> "+ae+" to <16 x i32>"); body.push_back("  "+aos+" = sext <16 x i16> "+ao+" to <16 x i32>");
+                body.push_back("  "+bes+" = sext <16 x i16> "+be+" to <16 x i32>"); body.push_back("  "+bos+" = sext <16 x i16> "+bo+" to <16 x i32>");
+                auto mp1=newTemp("simd.mul32.e"); auto mp2=newTemp("simd.mul32.o"); auto r=newTemp("simd.madd32");
+                body.push_back("  "+mp1+" = mul <16 x i32> "+aes+", "+bes);
+                body.push_back("  "+mp2+" = mul <16 x i32> "+aos+", "+bos);
+                body.push_back("  "+r+" = add <16 x i32> "+mp1+", "+mp2);
+                return r;
+            }
+            if (member == "reduceAddI32x8" || member == "reduceAddI32x16") {
+                auto v=emitExpr(expr->args[0].get()); const std::string ty = member=="reduceAddI32x8" ? "<8 x i32>" : "<16 x i32>";
+                auto r=newTemp("simd.reduce"); body.push_back("  "+r+" = call i32 @llvm.vector.reduce.add.v"+std::string(member=="reduceAddI32x8"?"8":"16")+"i32("+ty+" "+v+")"); return r;
+            }
         }
     }
     if (!expr || expr->callee->kind != ExprKind::Identifier) return {};
@@ -2497,7 +2621,7 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                 }
                 if (targetType->name == "string" && !targetType->isArray) {
                     const auto text = emitExpr(field->target.get());
-                    if (field->field == "startsWith") { auto pref=emitExpr(expr->args[0].get()); auto r=newTemp("str.lanarts"); body.push_back("  "+r+" = call i32 @__lanner_string_startsWith(ptr "+text+", ptr "+pref+")"); auto b=newTemp("str.lanarts.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
+                    if (field->field == "startsWith") { auto pref=emitExpr(expr->args[0].get()); auto r=newTemp("str.starts"); body.push_back("  "+r+" = call i32 @__lanner_string_startsWith(ptr "+text+", ptr "+pref+")"); auto b=newTemp("str.starts.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
                     if (field->field == "contains" || field->field == "endsWith" || field->field == "equalsIgnoreCase") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.bool"); body.push_back("  "+r+" = call i32 @__lanner_string_"+field->field+"(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.bool.cast"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
                     if (field->field == "equals") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.eq"); body.push_back("  "+r+" = call i32 @__lanner_string_equals(ptr "+text+", ptr "+other+")"); auto b=newTemp("str.eq.bool"); body.push_back("  "+b+" = trunc i32 "+r+" to i1"); return b; }
                     if (field->field == "find") { auto other=emitExpr(expr->args[0].get()); auto r=newTemp("str.find"); body.push_back("  "+r+" = call i64 @__lanner_string_find(ptr "+text+", ptr "+other+")"); return r; }
@@ -2530,16 +2654,23 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                 }
                 if (targetType->name == "Thread" && field->field == "join") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__lanner_thread_join(ptr "+h+")"); return ""; }
                 if (targetType->name == "Thread" && field->field == "detach") { auto h=emitExpr(field->target.get()); body.push_back("  call void @__lanner_thread_detach(ptr "+h+")"); return ""; }
-                if ((targetType->name == "v128" || targetType->name == "v256" || targetType->name == "v512") &&
-                    (field->field == "add" || field->field == "and" || field->field == "or" || field->field == "xor")) {
-                    const std::string ty = targetType->name=="v128"?"<2 x i64>":targetType->name=="v256"?"<4 x i64>":"<8 x i64>";
-                    auto lhs=emitExpr(field->target.get()); auto rhs=emitExpr(expr->args[0].get()); auto r=newTemp("simd");
-                    const char* op = field->field=="add"?"add":field->field=="and"?"and":field->field=="or"?"or":"xor";
-                    body.push_back("  "+r+" = "+op+" "+ty+" "+lhs+", "+rhs); return r;
-                }
-                if ((targetType->name == "v128" || targetType->name == "v256" || targetType->name == "v512") && field->field == "extractU64") {
-                    const std::string ty = targetType->name=="v128"?"<2 x i64>":targetType->name=="v256"?"<4 x i64>":"<8 x i64>";
-                    auto vec=emitExpr(field->target.get()); auto lane=emitExpr(expr->args[0].get()); auto r=newTemp("simd.extract"); body.push_back("  "+r+" = extractelement "+ty+" "+vec+", i32 "+lane); return r;
+                const std::map<std::string,std::string> vecTys = {
+                    {"v128","<2 x i64>"},{"v256","<4 x i64>"},{"v512","<8 x i64>"},
+                    {"i8x16","<16 x i8>"},{"i16x8","<8 x i16>"},{"i32x4","<4 x i32>"},
+                    {"i8x32","<32 x i8>"},{"i16x16","<16 x i16>"},{"i32x8","<8 x i32>"}
+                };
+                if (auto vit = vecTys.find(targetType->name); vit != vecTys.end()) {
+                    const std::string& ty = vit->second;
+                    if (field->field == "add" || field->field == "sub" || field->field == "mul" || field->field == "and" || field->field == "or" || field->field == "xor") {
+                        auto lhs=emitExpr(field->target.get()); auto rhs=emitExpr(expr->args[0].get()); auto r=newTemp("simd");
+                        const char* op = field->field=="add"?"add":field->field=="sub"?"sub":field->field=="mul"?"mul":field->field=="and"?"and":field->field=="or"?"or":"xor";
+                        body.push_back("  "+r+" = "+op+" "+ty+" "+lhs+", "+rhs); return r;
+                    }
+                    const std::string ext = targetType->name=="v128"||targetType->name=="v256"||targetType->name=="v512" ? "extractU64" :
+                        (targetType->name.rfind("i8",0)==0 ? "extractI8" : targetType->name.rfind("i16",0)==0 ? "extractI16" : "extractI32");
+                    if (field->field == ext) {
+                        auto vec=emitExpr(field->target.get()); auto lane=emitExpr(expr->args[0].get()); auto r=newTemp("simd.extract"); body.push_back("  "+r+" = extractelement "+ty+" "+vec+", i32 "+lane); return r;
+                    }
                 }
                 if (field->field == "len") {
                     if (targetType->name == "string" && !targetType->isArray) {
@@ -3337,8 +3468,13 @@ void LLVMCodeGenerator::emitStaticDecl(const StaticDecl& decl, std::string& out)
 }
 
 void LLVMCodeGenerator::emitThreadWrapper(const FunctionDecl& fn, std::string& out) {
-    if (fn.isExtern || !fn.params.empty() || llvmType(fn.returnType.get()) != "void") return;
-    out += "define internal void @__lanner_thread_entry_"+fn.name+"(ptr %ctx) {\nentry:\n  call void @"+fn.name+"()\n  ret void\n}\n\n";
+    if (fn.isExtern || !fn.returnType || llvmType(fn.returnType.get()) != "void") return;
+    if (fn.params.empty()) {
+        out += "define internal void @__lanner_thread_entry_"+fn.name+"(ptr %ctx) {\nentry:\n  call void @"+fn.name+"()\n  ret void\n}\n\n";
+    } else if (fn.params.size() == 1 && fn.params[0].type && fn.params[0].type->isRawPointer &&
+               fn.params[0].type->isMutable && fn.params[0].type->name == "void") {
+        out += "define internal void @__lanner_thread_entry_ctx_"+fn.name+"(ptr %ctx) {\nentry:\n  call void @"+fn.name+"(ptr %ctx)\n  ret void\n}\n\n";
+    }
 }
 
 void LLVMCodeGenerator::emitFunction(const FunctionDecl& fn, std::string& out) {
@@ -3359,7 +3495,10 @@ void LLVMCodeGenerator::emitFunction(const FunctionDecl& fn, std::string& out) {
     out += "define " + ret + " @" + emittedName + "(";
     for (std::size_t i = 0; i < fn.params.size(); ++i) {
         if (i) out += ", ";
-        out += llvmType(fn.params[i].type.get()) + " %" + fn.params[i].name;
+        const auto* ptype = fn.params[i].type.get();
+        out += llvmType(ptype) + " ";
+        if (ptype && ptype->isReference && ptype->isMutable) out += "noalias ";
+        out += "%" + fn.params[i].name;
     }
     out += ") {\nentry:\n";
 
@@ -3781,6 +3920,7 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "declare void @__lanner_clock_sleep_nanos(i64)\n";
         out += "declare i64 @__lanner_thread_hardware_concurrency()\n";
         out += "declare ptr @__lanner_thread_spawn(ptr)\n";
+        out += "declare ptr @__lanner_thread_spawn_ctx(ptr, ptr)\n";
         out += "declare void @__lanner_thread_join(ptr)\n";
         out += "declare void @__lanner_thread_detach(ptr)\n";
         out += "declare void @__lanner_thread_yield()\n";

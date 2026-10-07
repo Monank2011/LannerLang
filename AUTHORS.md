@@ -5,4 +5,4 @@
 Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
 
 - Project: [Monank2011/LannerLang](https://github.com/Monank2011/LannerLang)
-- Release: **LannerLang 1.0.0**
+- Release: **LannerLang 2.0.0**

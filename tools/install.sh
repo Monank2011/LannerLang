@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LANNER_VERSION="1.0.0"
+LANNER_VERSION="2.0.0"
 LLVM_VERSION="23.1.2"
 LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
 LLVM_SHA256="b5ed9675149cc837c282e9b6962c276c9fa62863d5b2f91537b60848552995b7"

@@ -1,4 +1,4 @@
-# **Lanner 1.0.0 Language Reference**
+# **Lanner 2.0.0 Language Reference**
 
 This document describes the currently implemented Lanner language surface.
 
@@ -329,3 +329,38 @@ lanner program.lan --run
 lanner program.lan --check
 lanner program.lan --emit-llvm
 ```
+
+
+## 30. Multi-file imports
+
+Top-level modules can be composed with:
+
+```lanner
+import "board.lan"
+import "search.lan"
+```
+
+Paths are resolved relative to the importing source file. Imports are recursively expanded once; cycles and missing files are compiler errors.
+
+## 31. NNUE-oriented SIMD
+
+The native compiler supports signed `i8`/`i16`/`i32` vectors at 128-, 256-, and 512-bit widths. Use the `Cpu.load*`/`store*` families, explicit unaligned forms, i8-to-i16 widening, pairwise i16 multiply-adds, and i32 reductions for quantized integer kernels. New typed SIMD memory operations are explicitly unsafe.
+
+
+## 32. Native integer SIMD
+
+Lanner exposes fixed-width signed integer vectors for hand-written high-performance kernels:
+
+```text
+i8x16   i16x8   i32x4
+i8x32   i16x16  i32x8
+i8x64   i16x32  i32x16
+```
+
+The 128/256/512-bit widths map directly to LLVM integer vectors. The CPU surface provides aligned and explicitly unaligned loads/stores, zero construction, lane extraction, sign-extension of i8 halves, and pairwise i16 multiply-add operations. Reduction helpers such as `Cpu.reduceAddI32x8()` and `Cpu.reduceAddI32x16()` reduce an integer vector to an `i32`.
+
+This surface is intended for NNUE accumulators and other dense integer kernels. The compiler does not silently assume a CPU ISA; select `--cpu`/`--features` for deployment-specific code paths.
+
+## 33. Exclusive-reference optimization
+
+`&mut T` is an exclusive access capability. The LLVM backend preserves that information by emitting `noalias` on exclusive reference parameters. This gives LLVM an explicit aliasing fact without changing Lanner's source-level ownership rules.

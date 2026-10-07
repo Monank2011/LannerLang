@@ -5,12 +5,12 @@ receiver() void:
     socket: Socket = Net.udpOpen()
     bound: bool = Net.udpBind(socket, "127.0.0.1", 46872)
     if !bound:
-        Result.lanore(1)
-        Ready.lanore(2)
+        Result.store(1)
+        Ready.store(2)
         Net.close(socket)
         return
     Net.setNonblocking(socket, true)
-    Ready.lanore(1)
+    Ready.store(1)
     poller: Poller = Poller.create()
     Poller.add(poller, socket, Poller.readEvents())
     if Poller.wait(poller, 2000) > 0 && (Poller.eventMask(poller, 0) & Poller.readEvents()) != 0:
@@ -22,7 +22,7 @@ receiver() void:
             unsafe:
                 value: u8 = unalignedLoad(buffer)
                 if value == 90:
-                    Result.lanore(90)
+                    Result.store(90)
     Poller.destroy(poller)
     Net.close(socket)
 

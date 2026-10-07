@@ -1,23 +1,23 @@
-# **LannerLang 1.0.0 Release Packages**
+# **LannerLang 2.0.0 Release Packages**
 
 > **Lanner was created and is developed by Monank Gohil, who began developing it at age 15.**
 
-LannerLang 1.0.0 provides prebuilt `lanner` compiler packages for **Linux x86_64** and **Windows x86_64**. The included installer downloads the official **LLVM/Clang 23.1.2** archive, verifies its SHA-256 checksum, and installs it side by side under Lanner's own directory. It does not replace or modify a system LLVM installation.
+LannerLang 2.0.0 provides prebuilt `lanner` compiler packages for **Linux x86_64** and **Windows x86_64**. The included installer downloads the official **LLVM/Clang 23.1.2** archive, verifies its SHA-256 checksum, and installs it side by side under Lanner's own directory. It does not replace or modify a system LLVM installation.
 
 ## Recommended installation
 
 ### Linux
 
 ```sh
-tar -xzf lanner-1.0.0-linux-x86_64.tar.gz
-cd lanner-1.0.0-linux-x86_64
+tar -xzf lanner-2.0.0-linux-x86_64.tar.gz
+cd lanner-2.0.0-linux-x86_64
 ./install.sh
-export PATH="$HOME/.local/lanner/1.0.0/bin:$PATH"
+export PATH="$HOME/.local/lanner/2.0.0/bin:$PATH"
 lanner examples/hello.lan -o hello
 ./hello
 ```
 
-Use `sudo ./install.sh --system` to install under `/usr/local/lib/lanner/1.0.0`.
+Use `sudo ./install.sh --system` to install under `/usr/local/lib/lanner/2.0.0`.
 
 ### Windows
 
@@ -26,12 +26,12 @@ Extract the ZIP, open PowerShell in the extracted directory, and run:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\install.ps1
-$env:Path = "$env:LOCALAPPDATA\Lanner\1.0.0\bin;$env:Path"
+$env:Path = "$env:LOCALAPPDATA\Lanner\2.0.0\bin;$env:Path"
 lanner.cmd .\examples\hello.lan -o hello.exe
 .\hello.exe
 ```
 
-The Windows installer uses the official x86_64 LLVM archive and stores it at `%LOCALAPPDATA%\Lanner\1.0.0\llvm\23.1.2`.
+The Windows installer uses the official x86_64 LLVM archive and stores it at `%LOCALAPPDATA%\Lanner\2.0.0\llvm\23.1.2`.
 
 ## Pinned LLVM downloads
 
@@ -71,6 +71,6 @@ curl -fsSL https://raw.githubusercontent.com/Monank2011/LannerLang/main/tools/in
 
 See [`docs/INSTALL.md`](../INSTALL.md) for the full installation guide.
 
-New users can read the [**Lanner 1.0.0 Handbook**](../../Lanner_handbook.md) for a practical introduction to Lanner syntax, types, ownership, borrowing, memory safety, runtime APIs, and the V1 feature set.
+New users can read the [**Lanner 2.0.0 Handbook**](../../Lanner_handbook.md) for a practical introduction to Lanner syntax, types, ownership, borrowing, memory safety, runtime APIs, and the V1 feature set.
 
 The pip bootstrapper selects the actual latest release asset name correctly and supports an optional `GITHUB_TOKEN` environment variable for GitHub API rate-limit resilience.

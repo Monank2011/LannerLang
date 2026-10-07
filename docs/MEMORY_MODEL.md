@@ -1,4 +1,4 @@
-# **Lanner 1.0.0 Memory Model**
+# **Lanner 2.0.0 Memory Model**
 
 Lanner's memory model is built around **ownership**, **exclusive access**, **non-owning views**, **storage origins**, and **regions**.
 
@@ -374,3 +374,10 @@ Lanner therefore relies on multiple layers of validation:
 - ongoing fuzzing and review
 
 The model is designed so that common memory errors are rejected by construction rather than left entirely to programmer discipline.
+
+
+## 25. Disjoint field projections
+
+Borrow checking is place-aware for structure fields. For example, `p.x` and `p.y` are different storage places and may be mutably borrowed at the same time when the projections are disjoint. A borrow of the whole `p` conflicts with both projections. Indexed and dynamically-sized regions remain conservative where element disjointness cannot be proven.
+
+Exclusive `&mut T` parameters are also lowered with LLVM `noalias`, preserving the semantic guarantee that overlapping mutable access cannot occur through safe Lanner references.

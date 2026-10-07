@@ -80,7 +80,7 @@ private:
     bool isIOSTarget() const;
     bool isMobileTarget() const;
     static lanner::memory::StorageOrigin inferOrigin(const Symbol* owner, const std::string& ownerName);
-    std::optional<lanner::memory::BorrowRecord> registerBorrow(Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName) const;
+    std::optional<lanner::memory::BorrowRecord> registerBorrow(Symbol* owner, const TypeNode* borrowedType, const std::string& ownerName, const std::string& place = {}) const;
     void releaseBorrow(Symbol* borrower);
     void releaseBorrowsAtLastUse();
     void collectExprUses(const Expr* expr, std::size_t serial);

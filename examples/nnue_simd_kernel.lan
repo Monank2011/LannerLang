@@ -1,0 +1,18 @@
+main() i32:
+    staticData:[32]i8=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]
+    weights:[32]i8=[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    unsafe:
+        a:*i8=&raw staticData[0]
+        w:*i8=&raw weights[0]
+        av:i8x32=Cpu.loadI8x32Unaligned(a)
+        wv:i8x32=Cpu.loadI8x32Unaligned(w)
+        alo:i16x16=Cpu.sxtLoI8x32(av)
+        ahi:i16x16=Cpu.sxtHiI8x32(av)
+        wlo:i16x16=Cpu.sxtLoI8x32(wv)
+        whi:i16x16=Cpu.sxtHiI8x32(wv)
+        left:i32x8=Cpu.maddI16x16(alo,wlo)
+        right:i32x8=Cpu.maddI16x16(ahi,whi)
+        total:i32=Cpu.reduceAddI32x8(left)+Cpu.reduceAddI32x8(right)
+        if total != 528:
+            return 1
+        return 42

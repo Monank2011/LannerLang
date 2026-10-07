@@ -1,0 +1,8 @@
+inc(v:&mut i64) i64:
+    v = v + 1
+    return v
+
+main() i32:
+    x:i64=41
+    y:i64=inc(&mut x)
+    return y as i32

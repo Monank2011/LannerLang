@@ -2,7 +2,7 @@
   "name": "lanner-language-support",
   "displayName": "Lanner Language Support",
   "description": "Lanner language identification and the official Lanner logo for .lan files.",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "publisher": "lanner-lang",
   "license": "MIT",
   "engines": {

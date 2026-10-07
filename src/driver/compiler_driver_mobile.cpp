@@ -253,7 +253,7 @@ class MainActivity : Activity() {
     }
 
     fun lannerOsVersion(): String = Build.VERSION.RELEASE ?: "unknown"
-    fun lannerIsSimulator(): Boolean = Build.FINGERPRINT.lanartsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk")
+    fun lannerIsSimulator(): Boolean = Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk")
     fun lannerAppDataPath(): String = filesDir.absolutePath
     fun lannerDocumentsPath(): String = File(getExternalFilesDir(null) ?: filesDir, "documents").apply { mkdirs() }.absolutePath
     fun lannerCachePath(): String = cacheDir.absolutePath

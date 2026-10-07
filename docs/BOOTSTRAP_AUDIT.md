@@ -1,4 +1,4 @@
-# Lanner 1.0.0 Bootstrap Audit
+# Lanner 2.0.0 Bootstrap Audit
 
 This audit records what is genuinely self-hosted in the Step 7 source tree and what still depends on the C++ production compiler.
 

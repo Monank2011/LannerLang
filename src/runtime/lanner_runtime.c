@@ -162,6 +162,7 @@ typedef void (*LannerThreadFn)(void*);
 
 typedef struct LannerThreadStart {
     LannerThreadFn fn;
+    void *ctx;
 } LannerThreadStart;
 
 static LANNER_TLS char *lanner_line_buf = NULL;
@@ -264,16 +265,18 @@ uint64_t __lanner_thread_hardware_concurrency(void) {
 static unsigned __stdcall lanner_thread_entry(void *arg) {
     LannerThreadStart *start = (LannerThreadStart*)arg;
     LannerThreadFn fn = start->fn;
+    void *ctx = start->ctx;
     free(start);
-    fn(NULL);
+    fn(ctx);
     return 0;
 }
 #else
 static void* lanner_thread_entry(void *arg) {
     LannerThreadStart *start = (LannerThreadStart*)arg;
     LannerThreadFn fn = start->fn;
+    void *ctx = start->ctx;
     free(start);
-    fn(NULL);
+    fn(ctx);
     return NULL;
 }
 #endif
@@ -284,6 +287,25 @@ void* __lanner_thread_spawn(LannerThreadFn fn) {
     LannerThreadHandle *handle = (LannerThreadHandle*)malloc(sizeof(*handle));
     if (!start || !handle) { free(start); free(handle); return NULL; }
     start->fn = fn;
+    start->ctx = NULL;
+#if defined(_WIN32)
+    handle->handle = (HANDLE)_beginthreadex(NULL, 0, lanner_thread_entry, start, 0, NULL);
+    if (!handle->handle) { free(start); free(handle); return NULL; }
+#else
+    if (pthread_create(&handle->handle, NULL, lanner_thread_entry, start) != 0) {
+        free(start); free(handle); return NULL;
+    }
+#endif
+    return handle;
+}
+
+void* __lanner_thread_spawn_ctx(LannerThreadFn fn, void *ctx) {
+    if (!fn) return NULL;
+    LannerThreadStart *start = (LannerThreadStart*)malloc(sizeof(*start));
+    LannerThreadHandle *handle = (LannerThreadHandle*)malloc(sizeof(*handle));
+    if (!start || !handle) { free(start); free(handle); return NULL; }
+    start->fn = fn;
+    start->ctx = ctx;
 #if defined(_WIN32)
     handle->handle = (HANDLE)_beginthreadex(NULL, 0, lanner_thread_entry, start, 0, NULL);
     if (!handle->handle) { free(start); free(handle); return NULL; }
@@ -1515,9 +1537,9 @@ int __lanner_set_env_unset(const char* name){
 }
 static int lanner_fs_stat(const char* p,struct stat* st){return p&&st&&stat(p,st)==0;}
 int __lanner_fs_exists(const char*p){struct stat st;return lanner_fs_stat(p,&st);}
-int __lanner_fs_isFile(const char*p){struct stat st;return lanner_fs_stat(p,&st)&&((st.lan_mode&S_IFMT)==S_IFREG);}
-int __lanner_fs_isDir(const char*p){struct stat st;return lanner_fs_stat(p,&st)&&((st.lan_mode&S_IFMT)==S_IFDIR);}
-int64_t __lanner_fs_file_size(const char*p){struct stat st;if(!lanner_fs_stat(p,&st)||st.lan_size<0)return -1;return(int64_t)st.lan_size;}
+int __lanner_fs_isFile(const char*p){struct stat st;return lanner_fs_stat(p,&st)&&((st.st_mode&S_IFMT)==S_IFREG);}
+int __lanner_fs_isDir(const char*p){struct stat st;return lanner_fs_stat(p,&st)&&((st.st_mode&S_IFMT)==S_IFDIR);}
+int64_t __lanner_fs_file_size(const char*p){struct stat st;if(!lanner_fs_stat(p,&st)||st.st_size<0)return -1;return(int64_t)st.st_size;}
 void* __lanner_fs_read(const char*p){if(!p)return NULL;FILE*f=fopen(p,"rb");if(!f)return NULL;if(fseek(f,0,SEEK_END)!=0){fclose(f);return NULL;}long sz=ftell(f);if(sz<0){fclose(f);return NULL;}rewind(f);LannerBuffer*b=lanner_buffer_new((size_t)sz+1);if(!b){fclose(f);return NULL;}b->len=fread(b->data,1,(size_t)sz,f);b->data[b->len]=0;fclose(f);return b;}
 static int lanner_fs_write_core(const char*p,const void*d,size_t n,const char*mode){if(!p||(!d&&n))return 0;FILE*f=fopen(p,mode);if(!f)return 0;size_t w=fwrite(d,1,n,f);int ok=(w==n&&fclose(f)==0);if(w!=n)fclose(f);return ok;}
 int __lanner_fs_write(const char*p,const char*t){return t?lanner_fs_write_core(p,t,strlen(t),"wb"):0;}

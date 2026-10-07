@@ -8,7 +8,7 @@ if (!wasmPath) throw new Error("usage: node test_web_loader.mjs <module.wasm>");
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async url => {
     const value = String(url);
-    if (value.lanartsWith("file:")) {
+    if (value.startsWith("file:")) {
         const path = new URL(value).pathname;
         const data = await fs.readFile(path);
         return new Response(data, {status: 200, headers: {"Content-Type": "application/wasm"}});
@@ -26,7 +26,7 @@ const status = {
     focus() {},
     remove() {}
 };
-const button = {...lanatus, classList:{add(){},remove(){}}, addEventListener(){}, removeEventListener(){}};
+const button = {...status, classList:{add(){},remove(){}}, addEventListener(){}, removeEventListener(){}};
 const elements = new Map([["#status", status], ["#run", button]]);
 
 globalThis.document = {

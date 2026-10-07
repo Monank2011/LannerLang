@@ -1,6 +1,6 @@
 # Lanner Systems & Low-Level Support
 
-Lanner 1.0.0 now exposes a complete native systems-oriented layer around the ownership-safe language core. The safety boundary is explicit: ordinary code remains borrow-checked, while raw hardware-oriented operations require `unsafe`.
+Lanner 2.0.0 now exposes a complete native systems-oriented layer around the ownership-safe language core. The safety boundary is explicit: ordinary code remains borrow-checked, while raw hardware-oriented operations require `unsafe`.
 
 ## Memory and pointers
 
