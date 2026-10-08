@@ -1,0 +1,6 @@
+main() i32:
+    a: u64 = 1
+    b: i32 = 5
+    for i in a..b:
+        b += 1
+    return 0

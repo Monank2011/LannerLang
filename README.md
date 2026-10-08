@@ -1,4 +1,49 @@
-# **LannerLang 2.0.0**
+# **LannerLang 3.0.0**
+
+## **What is new in Lanner 3.0.0**
+
+### Compound assignment
+
+```lanner
+x += 5
+mask &= 0xFF
+state <<= 1
+board.nodes += 1
+table[(hash >> 4) & 1023] ^= key
+```
+
+All of `+= -= *= /= %= &= |= ^= <<= >>=` work on variables, struct fields and indexed elements.
+`place op= value` means `place = place op value`, and the place is evaluated twice, so a place that contains a
+function call is rejected with a diagnostic instead of silently calling it twice.
+
+### Range loops
+
+```lanner
+for i in 0..n:        # 0, 1, ... n-1  (exclusive)
+    total += i
+for i in 1..=10:      # 1, 2, ... 10   (inclusive)
+    total += i
+```
+
+- A literal bound adopts the type of the other bound, so `for i in 0..n` with `n: usize` makes `i` a `usize`.
+- Both bounds must have the same integer type. Bounds are evaluated once, before the loop starts.
+- The loop variable is read-only inside the body. `continue` and `break` behave as in `while`.
+- `0..=255` on a `u8` terminates correctly; inclusive loops stop *at* the last value instead of wrapping.
+- The counter increment carries `nuw`/`nsw`, giving LLVM an exact trip count for unrolling and vectorization.
+
+### Smaller conveniences
+
+- `elif cond:` is shorthand for `else if cond:`.
+- Digit separators in numeric literals: `1_000_000`, `0xFF_FF`, `0b1010_0101`, `3.141_592`.
+
+### Performance and tooling
+
+- Dynamic-array growth (capacity doubling, overflow checks, arena/heap allocation, copy) is one shared
+  `cold noinline` helper instead of being duplicated at every `push`. Generated IR is smaller, hot loops are tighter,
+  and the helper takes the array header **by value** so the header never escapes and stays in registers.
+- Whole-program hosted executables are emitted with `internal` linkage, which lets LLVM do interprocedural
+  optimization across all user functions. Object, library, web and freestanding builds, and any build using
+  `--link`, keep external symbols. Use `--keep-symbols` to opt out explicitly.
 
 > **A native systems programming language with compile-time ownership safety, deterministic memory management, and LLVM code generation.**
 > **Created and developed by Monank Gohil, who began the project at age 15.**
@@ -40,30 +85,30 @@ Lanner's borrow lifetimes are **inferred**. Ordinary source code does not requir
 
 The core model does **not** require tracing garbage collection and does **not** silently introduce reference counting for ordinary values.
 
-[![Release](https://img.shields.io/github/v/release/Monank2011/LannerLang?display_name=tag&sort=semver)](https://github.com/Monank2011/LannerLang/releases/tag/v2.0.0)
+[![Release](https://img.shields.io/github/v/release/Monank2011/LannerLang?display_name=tag&sort=semver)](https://github.com/Monank2011/LannerLang/releases/tag/v3.0.0)
 [![License](https://img.shields.io/github/license/Monank2011/LannerLang)](LICENSE)
 [![Build](https://img.shields.io/badge/build-CMake%20%2B%20C%2B%2B17-blue)](CMakeLists.txt)
 
-> **Lanner 2.0.0 is the first packaged release.** Download a ready-to-run compiler below, or build the compiler from source.
+> **Lanner 3.0.0 is the current major release.** Download a ready-to-run compiler below, or build the compiler from source.
 
 ### Release downloads
 
-- **[Linux x86_64 compiler](https://github.com/Monank2011/LannerLang/releases/download/v2.0.0/lanner-2.0.0-linux-x86_64.tar.gz)**
-- **[Windows x86_64 compiler](https://github.com/Monank2011/LannerLang/releases/download/v2.0.0/lanner-2.0.0-windows-x86_64.zip)**
-- **[Source code (this repository)](https://github.com/Monank2011/LannerLang/tree/v2.0.0)**
+- **[Linux x86_64 compiler](https://github.com/Monank2011/LannerLang/releases/download/v3.0.0/lanner-3.0.0-linux-x86_64.tar.gz)**
+- **[Windows x86_64 compiler](https://github.com/Monank2011/LannerLang/releases/download/v3.0.0/lanner-3.0.0-windows-x86_64.zip)**
+- **[Source code (this repository)](https://github.com/Monank2011/LannerLang/tree/v3.0.0)**
 
 Each binary package includes the `lanner` compiler, runtime support files, examples, and an installer that downloads official LLVM/Clang **23.1.2** into a Lanner-owned side-by-side directory. The installer verifies the download checksum and does not replace a system LLVM installation. SHA-256 checksums are published with the GitHub release. See [`docs/release/README.md`](docs/release/README.md).
 
 For convenience, see the [installation guide](docs/INSTALL.md) for a `pip` command that fetches the latest release and a `g++` source-build command.
 
-New users can start with the [**Lanner 2.0.0 Handbook**](Lanner_handbook.md), a practical guide to the language, ownership model, syntax, runtime, and V1 capabilities.
+New users can start with the [**Lanner 3.0.0 Handbook**](Lanner_handbook.md), a practical guide to the language, ownership model, syntax, runtime, and V1 capabilities.
 
 
 ---
 
-## **Version 2.0.0**
+## **Version 3.0.0**
 
-Lanner 2.0.0 is the current published implementation of the Lanner compiler and language surface.
+Lanner 3.0.0 is the current published implementation of the Lanner compiler and language surface.
 
 The release includes:
 
@@ -264,12 +309,20 @@ Fixed arrays support indexed access and mutation and participate in ownership/bo
 ### **Dynamic arrays**
 
 ```lanner
-xs = [1, 2, 3]
+xs: []u64 = []u64.new()
 xs.push(4)
 print(xs.len())
 ```
 
-Dynamic arrays support ownership, indexed access, mutation, length queries, emptiness checks, growth, slicing, views, and deterministic cleanup.
+Allocation-sensitive code can preallocate and tune growth:
+
+```lanner
+xs: []u64 = []u64.with_capacity(1024)
+xs.reserve(4096)
+print(xs.capacity())
+```
+
+Dynamic arrays support ownership, indexed access, mutation, length/capacity queries, emptiness checks, explicit reservation, growth, slicing, views, and deterministic cleanup. A typed empty array can also be written directly as `[]u64`; a dummy seed element is not required.
 
 ---
 
@@ -584,7 +637,7 @@ tools/        Bootstrap and compatibility tooling
 
 ## **Release scope**
 
-Lanner 2.0.0 is a complete release of the **currently implemented language/compiler surface**, including native systems programming, browser WebAssembly, hosted backend/cloud primitives, native ML/AI compute, mobile targets, and game-development APIs.
+Lanner 3.0.0 is a complete release of the **currently implemented language/compiler surface**, including native systems programming, browser WebAssembly, hosted backend/cloud primitives, native ML/AI compute, mobile targets, and game-development APIs.
 
 Future expansion focuses on broader language/ecosystem features such as general-purpose generics, richer pattern matching, modules/packages, language-level async/await, advanced GPU libraries, PGO, and broader tooling.
 
@@ -597,7 +650,7 @@ See **`LICENSE`**.
 
 ## Building on Linux and Windows
 
-Lanner 2.0.0 is designed to build on both Linux and Windows using CMake 3.20+ and a C++17 compiler. The production backend uses an external LLVM/Clang toolchain.
+Lanner 3.0.0 is designed to build on both Linux and Windows using CMake 3.20+ and a C++17 compiler. The production backend uses an external LLVM/Clang toolchain.
 
 ### Linux
 
@@ -625,8 +678,8 @@ Lanner supports browser-oriented WebAssembly builds with `lanner --web`; see `do
 
 ## Mobile targets
 
-Lanner 2.0.0 includes native Android and iOS target support, mobile project generation, JNI/Objective-C bridge scaffolding, native UI shells, and a platform-neutral `Mobile` API for screen metrics, safe areas, storage paths, clipboard, URLs, haptics, permissions, and hardware capability queries. See `docs/Mobile.md`.
+Lanner 3.0.0 includes native Android and iOS target support, mobile project generation, JNI/Objective-C bridge scaffolding, native UI shells, and a platform-neutral `Mobile` API for screen metrics, safe areas, storage paths, clipboard, URLs, haptics, permissions, and hardware capability queries. See `docs/Mobile.md`.
 
 ## Game development
 
-Lanner 2.0.0 includes a native SDL2-backed `Game` runtime for windows, events, input, 2D rendering, textures, audio and frame timing, plus a `Graphics` layer for OpenGL and dynamically loaded native GPU APIs. `lanner --game-project` generates a portable CMake game project. See `docs/GAME_DEVELOPMENT.md`.
+Lanner 3.0.0 includes a native SDL2-backed `Game` runtime for windows, events, input, 2D rendering, textures, audio and frame timing, plus a `Graphics` layer for OpenGL and dynamically loaded native GPU APIs. `lanner --game-project` generates a portable CMake game project. See `docs/GAME_DEVELOPMENT.md`.

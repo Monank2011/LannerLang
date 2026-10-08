@@ -1,6 +1,6 @@
 # **Lanner Roadmap**
 
-Lanner 2.0.0 is the current implemented release. Systems/low-level, Web frontend, Backend/Cloud foundation, ML/AI core, Mobile targets, and Game Development core are implemented and regression-tested. The remaining items below are future language/ecosystem expansion rather than missing foundations for those domains.
+Lanner 3.0.0 is the current implemented release. Systems/low-level, Web frontend, Backend/Cloud foundation, ML/AI core, Mobile targets, and Game Development core are implemented and regression-tested. The remaining items below are future language/ecosystem expansion rather than missing foundations for those domains.
 
 ## **Language**
 

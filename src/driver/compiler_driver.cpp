@@ -377,7 +377,7 @@ bool CompilerDriver::hasMain(const Program& program) {
     return false;
 }
 
-std::string CompilerDriver::generateLLVM(const Program& program, BackendKind backend, int optimizationLevel, BackendKind& usedBackend, bool includeRuntime, const std::string& targetTriple) {
+std::string CompilerDriver::generateLLVM(const Program& program, BackendKind backend, int optimizationLevel, BackendKind& usedBackend, bool includeRuntime, const std::string& targetTriple, bool internalizeFunctions) {
 #if !LANNER_ENABLE_LEGACY_HIR
     (void)optimizationLevel;
     (void)includeRuntime;
@@ -405,6 +405,7 @@ std::string CompilerDriver::generateLLVM(const Program& program, BackendKind bac
     }
 
     LLVMCodeGenerator codegen;
+    codegen.setInternalizeFunctions(internalizeFunctions);
     usedBackend = BackendKind::LLVM;
     return codegen.generate(program, includeRuntime, targetTriple);
 }
@@ -480,7 +481,13 @@ int CompilerDriver::run(const CompilerOptions& options) {
         }
 
         BackendKind usedBackend = BackendKind::Auto;
-        const std::string llvm = generateLLVM(program, options.backend, options.optimizationLevel, usedBackend, !options.noRuntime, options.targetTriple);
+        // Lanner 3.0.0: whole-program executables get internal linkage so LLVM can do
+        // interprocedural optimization. Object/library/web/freestanding builds, and any
+        // build that links foreign objects (which may call Lanner symbols by name),
+        // keep external symbols.
+        const bool internalize = executableMode && !options.noRuntime && !options.freestanding && !options.web &&
+                                 !options.keepSymbols && options.linkArgs.empty() && options.optimizationLevel > 0;
+        const std::string llvm = generateLLVM(program, options.backend, options.optimizationLevel, usedBackend, !options.noRuntime, options.targetTriple, internalize);
 
         if (options.mode == BuildMode::EmitLLVM) {
             const std::string output = options.outputPath;
@@ -540,8 +547,24 @@ int CompilerDriver::run(const CompilerOptions& options) {
         }
         const std::string opt = "-O" + std::to_string(options.optimizationLevel);
         std::vector<std::string> command;
+        if (options.native && !options.targetTriple.empty()) {
+            throw std::runtime_error("--native cannot be combined with an explicit --target; use --cpu/--features for cross-target tuning");
+        }
         if (!options.targetTriple.empty()) command.push_back("--target=" + options.targetTriple);
         if (!options.sysroot.empty()) command.push_back("--sysroot=" + options.sysroot);
+        if (options.native && options.cpu.empty()) {
+            std::string triple = clangTargetTriple(compiler);
+            std::string lower = triple;
+            std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            const bool x86 = lower.rfind("x86_64", 0) == 0 || lower.rfind("amd64", 0) == 0 ||
+                              lower.rfind("i386", 0) == 0 || lower.rfind("i486", 0) == 0 ||
+                              lower.rfind("i586", 0) == 0 || lower.rfind("i686", 0) == 0;
+            command.push_back(x86 ? "-march=native" : "-mcpu=native");
+#if !defined(_WIN32)
+            command.push_back("-fomit-frame-pointer");
+            command.push_back("-fno-plt");
+#endif
+        }
         if (!options.cpu.empty()) {
             std::string triple = options.targetTriple;
             if (triple.empty()) triple = clangTargetTriple(compiler);

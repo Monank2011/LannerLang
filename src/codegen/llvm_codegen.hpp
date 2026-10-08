@@ -3,6 +3,7 @@
 #include "../parser/ast.hpp"
 #include "../sema/comptime_value.hpp"
 #include <map>
+#include <optional>
 #include <functional>
 #include <memory>
 #include <string>
@@ -12,6 +13,8 @@
 class LLVMCodeGenerator {
 public:
     std::string generate(const Program& program, bool includeRuntime = true, const std::string& targetTriple = {});
+    // Lanner 3.0.0: emit user functions with internal linkage (whole-program executables only).
+    void setInternalizeFunctions(bool enabled) { internalizeFunctions = enabled; }
 
 private:
     struct LocalBinding {
@@ -46,6 +49,7 @@ private:
     bool blockTerminated = false;
     std::vector<std::string> stringLiterals;
     bool includeRuntime = true;
+    bool internalizeFunctions = false;
     std::string targetTriple;
     int pointerBits = 64;
 
@@ -64,10 +68,13 @@ private:
     std::string llvmFloatLiteral(const Expr* expr) const;
     std::string normalizeIndexToI64(const Expr* expr, const std::string& value);
     void emitBoundsCheck(const Expr* index, const std::string& indexI64, std::uint64_t size);
+    bool canProveFixedIndexSafe(const Expr* index, std::uint64_t size) const;
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> knownUnsignedRange(const Expr* expr) const;
     void emitDynamicBoundsCheck(const std::string& indexI64, const std::string& lengthI64);
 
     std::string emitArenaCreate(const Expr* expr);
     std::string emitDynamicArrayPush(const Expr* target, const Expr* value, int line);
+    void emitDynamicArrayReserve(const Expr* target, const Expr* capacityExpr, int line);
     std::string dynamicArrayElementType(const TypeNode* arrayType) const;
     std::string emitTypeSize(const std::string& elementType);
     std::string emitTypeAlign(const std::string& elementType);

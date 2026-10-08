@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+#include <algorithm>
 #include <cctype>
 #include <limits>
 #include <stdexcept>
@@ -152,6 +153,12 @@ void Lexer::scanIdentifierOrKeyword() {
     addToken(it == keywords.end() ? TokenType::Identifier : it->second, text, startLine, startColumn);
 }
 
+// Lanner 3.0.0: `1_000_000`, `0xFF_FF`, `0b1010_0101` digit separators.
+static std::string stripSeparators(std::string text) {
+    text.erase(std::remove(text.begin(), text.end(), '_'), text.end());
+    return text;
+}
+
 void Lexer::scanNumber() {
     const int startLine = line;
     const int startColumn = column;
@@ -159,25 +166,29 @@ void Lexer::scanNumber() {
     if (peek() == '0' && (peek(1) == 'x' || peek(1) == 'X')) {
         advance(); advance();
         const size_t digits = pos;
-        while (!isAtEnd() && std::isxdigit(static_cast<unsigned char>(peek()))) advance();
+        while (!isAtEnd() && (std::isxdigit(static_cast<unsigned char>(peek())) ||
+                              (peek() == '_' && std::isxdigit(static_cast<unsigned char>(peek(1)))))) advance();
         if (pos == digits) error("expected hexadecimal digits after 0x", startLine, startColumn);
-        addToken(TokenType::IntLiteral, src.substr(start, pos - start), startLine, startColumn);
+        addToken(TokenType::IntLiteral, stripSeparators(src.substr(start, pos - start)), startLine, startColumn);
         return;
     }
     if (peek() == '0' && (peek(1) == 'b' || peek(1) == 'B')) {
         advance(); advance();
         const size_t digits = pos;
-        while (!isAtEnd() && (peek() == '0' || peek() == '1')) advance();
+        while (!isAtEnd() && (peek() == '0' || peek() == '1' ||
+                              (peek() == '_' && (peek(1) == '0' || peek(1) == '1')))) advance();
         if (pos == digits) error("expected binary digits after 0b", startLine, startColumn);
-        addToken(TokenType::IntLiteral, src.substr(start, pos - start), startLine, startColumn);
+        addToken(TokenType::IntLiteral, stripSeparators(src.substr(start, pos - start)), startLine, startColumn);
         return;
     }
-    while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) advance();
+    while (!isAtEnd() && (std::isdigit(static_cast<unsigned char>(peek())) ||
+                          (peek() == '_' && std::isdigit(static_cast<unsigned char>(peek(1)))))) advance();
     bool isFloat = false;
     if (peek() == '.' && std::isdigit(static_cast<unsigned char>(peek(1)))) {
         isFloat = true;
         advance();
-        while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) advance();
+        while (!isAtEnd() && (std::isdigit(static_cast<unsigned char>(peek())) ||
+                              (peek() == '_' && std::isdigit(static_cast<unsigned char>(peek(1)))))) advance();
     }
     if (peek() == 'e' || peek() == 'E') {
         isFloat = true;
@@ -187,7 +198,7 @@ void Lexer::scanNumber() {
         while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) advance();
     }
     addToken(isFloat ? TokenType::FloatLiteral : TokenType::IntLiteral,
-             src.substr(start, pos - start), startLine, startColumn);
+             stripSeparators(src.substr(start, pos - start)), startLine, startColumn);
 }
 
 void Lexer::scanString() {
@@ -257,20 +268,43 @@ void Lexer::scanToken() {
         case '}': addToken(TokenType::RBrace, "}", startLine, startColumn); break;
         case ':': addToken(TokenType::Colon, ":", startLine, startColumn); break;
         case ',': addToken(TokenType::Comma, ",", startLine, startColumn); break;
-        case '.': addToken(TokenType::Dot, ".", startLine, startColumn); break;
+        case '.':
+            if (peek() == '.') {
+                advance();
+                if (peek() == '=') { advance(); addToken(TokenType::DotDotEq, "..=", startLine, startColumn); }
+                else addToken(TokenType::DotDot, "..", startLine, startColumn);
+            } else addToken(TokenType::Dot, ".", startLine, startColumn);
+            break;
         case '?': addToken(TokenType::Question, "?", startLine, startColumn); break;
-        case '+': addToken(TokenType::Plus, "+", startLine, startColumn); break;
-        case '*': addToken(TokenType::Star, "*", startLine, startColumn); break;
-        case '/': addToken(TokenType::Slash, "/", startLine, startColumn); break;
-        case '%': addToken(TokenType::Percent, "%", startLine, startColumn); break;
+        case '+':
+            if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "+=", startLine, startColumn); }
+            else addToken(TokenType::Plus, "+", startLine, startColumn);
+            break;
+        case '*':
+            if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "*=", startLine, startColumn); }
+            else addToken(TokenType::Star, "*", startLine, startColumn);
+            break;
+        case '/':
+            if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "/=", startLine, startColumn); }
+            else addToken(TokenType::Slash, "/", startLine, startColumn);
+            break;
+        case '%':
+            if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "%=", startLine, startColumn); }
+            else addToken(TokenType::Percent, "%", startLine, startColumn);
+            break;
         case '|':
             if (peek() == '|') { advance(); addToken(TokenType::OrOr, "||", startLine, startColumn); }
+            else if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "|=", startLine, startColumn); }
             else addToken(TokenType::Pipe, "|", startLine, startColumn);
             break;
-        case '^': addToken(TokenType::Caret, "^", startLine, startColumn); break;
+        case '^':
+            if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "^=", startLine, startColumn); }
+            else addToken(TokenType::Caret, "^", startLine, startColumn);
+            break;
         case '~': addToken(TokenType::Tilde, "~", startLine, startColumn); break;
         case '&':
             if (peek() == '&') { advance(); addToken(TokenType::AndAnd, "&&", startLine, startColumn); }
+            else if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "&=", startLine, startColumn); }
             else addToken(TokenType::Ampersand, "&", startLine, startColumn);
             break;
         case '!':
@@ -282,17 +316,26 @@ void Lexer::scanToken() {
             else addToken(TokenType::Equals, "=", startLine, startColumn);
             break;
         case '<':
-            if (peek() == '<') { advance(); addToken(TokenType::ShiftLeft, "<<", startLine, startColumn); }
+            if (peek() == '<') {
+                advance();
+                if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "<<=", startLine, startColumn); }
+                else addToken(TokenType::ShiftLeft, "<<", startLine, startColumn);
+            }
             else if (peek() == '=') { advance(); addToken(TokenType::LessEq, "<=", startLine, startColumn); }
             else addToken(TokenType::Less, "<", startLine, startColumn);
             break;
         case '>':
-            if (peek() == '>') { advance(); addToken(TokenType::ShiftRight, ">>", startLine, startColumn); }
+            if (peek() == '>') {
+                advance();
+                if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, ">>=", startLine, startColumn); }
+                else addToken(TokenType::ShiftRight, ">>", startLine, startColumn);
+            }
             else if (peek() == '=') { advance(); addToken(TokenType::GreaterEq, ">=", startLine, startColumn); }
             else addToken(TokenType::Greater, ">", startLine, startColumn);
             break;
         case '-':
             if (peek() == '>') { advance(); addToken(TokenType::Arrow, "->", startLine, startColumn); }
+            else if (peek() == '=') { advance(); addToken(TokenType::CompoundAssign, "-=", startLine, startColumn); }
             else addToken(TokenType::Minus, "-", startLine, startColumn);
             break;
         default:

@@ -1,3 +1,5 @@
+> **Historical document.** This audit records the state of Lanner 1.0.0. The current version is **Lanner 3.0.0**; see [CHANGELOG.md](../CHANGELOG.md) for what changed.
+
 # Lanner 1.0.0 Version 1 Release Audit
 
 ## Technical gate

@@ -1,6 +1,6 @@
 # Lanner engine runtime
 
-Lanner 1.0 now exposes the small runtime surface needed by native engines while keeping the compiler in charge of types, ownership, and lowering.
+Lanner 3.0.0 exposes the small runtime surface needed by native engines while keeping the compiler in charge of types, ownership, and lowering.
 
 ## Interactive stdin
 

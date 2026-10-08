@@ -1,4 +1,49 @@
-# **Lanner 2.0.0 Language Reference**
+# **Lanner 3.0.0 Language Reference**
+
+## **What is new in Lanner 3.0.0**
+
+### Compound assignment
+
+```lanner
+x += 5
+mask &= 0xFF
+state <<= 1
+board.nodes += 1
+table[(hash >> 4) & 1023] ^= key
+```
+
+All of `+= -= *= /= %= &= |= ^= <<= >>=` work on variables, struct fields and indexed elements.
+`place op= value` means `place = place op value`, and the place is evaluated twice, so a place that contains a
+function call is rejected with a diagnostic instead of silently calling it twice.
+
+### Range loops
+
+```lanner
+for i in 0..n:        # 0, 1, ... n-1  (exclusive)
+    total += i
+for i in 1..=10:      # 1, 2, ... 10   (inclusive)
+    total += i
+```
+
+- A literal bound adopts the type of the other bound, so `for i in 0..n` with `n: usize` makes `i` a `usize`.
+- Both bounds must have the same integer type. Bounds are evaluated once, before the loop starts.
+- The loop variable is read-only inside the body. `continue` and `break` behave as in `while`.
+- `0..=255` on a `u8` terminates correctly; inclusive loops stop *at* the last value instead of wrapping.
+- The counter increment carries `nuw`/`nsw`, giving LLVM an exact trip count for unrolling and vectorization.
+
+### Smaller conveniences
+
+- `elif cond:` is shorthand for `else if cond:`.
+- Digit separators in numeric literals: `1_000_000`, `0xFF_FF`, `0b1010_0101`, `3.141_592`.
+
+### Performance and tooling
+
+- Dynamic-array growth (capacity doubling, overflow checks, arena/heap allocation, copy) is one shared
+  `cold noinline` helper instead of being duplicated at every `push`. Generated IR is smaller, hot loops are tighter,
+  and the helper takes the array header **by value** so the header never escapes and stays in registers.
+- Whole-program hosted executables are emitted with `internal` linkage, which lets LLVM do interprocedural
+  optimization across all user functions. Object, library, web and freestanding builds, and any build using
+  `--link`, keep external symbols. Use `--keep-symbols` to opt out explicitly.
 
 This document describes the currently implemented Lanner language surface.
 
@@ -204,10 +249,26 @@ Supported operations include construction, indexing, mutation, parameter passing
 ## **19. Dynamic arrays**
 
 ```lanner
-xs = [1, 2, 3]
+xs: []u64 = []u64.new()
 xs.push(4)
 print(xs.len())
 ```
+
+A typed empty array can be created directly from its element type:
+
+```lanner
+xs: []u64 = []u64.new()
+```
+
+For allocation-sensitive code, reserve the desired capacity up front:
+
+```lanner
+xs: []u64 = []u64.with_capacity(1024)
+xs.reserve(4096)
+print(xs.capacity())
+```
+
+`with_capacity(n)` allocates storage for at least `n` elements with length zero. `reserve(n)` raises capacity to at least `n` when needed and never shrinks an existing array. `capacity()` reports the current storage capacity.
 
 Supported operations include:
 
@@ -215,6 +276,9 @@ Supported operations include:
 - **indexing**
 - **indexed mutation**
 - **length and emptiness queries**
+- **capacity queries**
+- **explicit preallocation through `with_capacity()`**
+- **explicit growth control through `reserve()`**
 - **growth through `push()`**
 - **slicing**
 - **shared views**

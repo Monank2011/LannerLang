@@ -1,0 +1,60 @@
+mix(x: u64, k: u64) u64:
+    return x * k + 0x9E3779B97F4A7C15
+
+hash_words(data: &[]u64) u64:
+    state: u64 = 0xCBF29CE484222325
+    mul: u64 = 0x100000001B3
+    i: usize = 0
+
+    while i < data.len():
+        state = state * mul + data[i]
+        state = mix(state, mul)
+        i = i + 1
+
+    return state
+
+build_table(n: usize) []u64:
+    table: []u64 = []u64.with_capacity(n)
+    i: usize = 0
+
+    while i < n:
+        value: u64 = i as u64
+        table.push(value * 0x9E3779B97F4A7C15)
+        i = i + 1
+
+    return table
+
+main() i32:
+    values: []u64 = []u64.new()
+    values.reserve(128)
+
+    i: usize = 0
+    while i < 64:
+        value: u64 = i as u64
+        values.push(value * value + 3)
+        i = i + 1
+
+    before: usize = values.capacity()
+    values.reserve(256)
+    after: usize = values.capacity()
+
+    table = build_table(32)
+    h1: u64 = hash_words(&values)
+    h2: u64 = hash_words(&table)
+
+    if values.len() != 64:
+        return 10
+    if before < 128:
+        return 11
+    if after < 256:
+        return 12
+    if values[0] != 3:
+        return 13
+    if values[63] != (63 as u64) * (63 as u64) + 3:
+        return 14
+    if h1 == h2:
+        return 15
+
+    if (h1 ^ h2) == 0:
+        return 15
+    return 0

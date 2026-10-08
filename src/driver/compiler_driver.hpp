@@ -35,6 +35,8 @@ struct CompilerOptions {
     std::string linker;
     std::string linkerScript;
     std::string cpu;
+    bool native = false;
+    bool keepSymbols = false;   // Lanner 3.0.0: disable whole-program internal linkage
     std::string features;
     std::string entryPoint;
     std::vector<std::string> runArgs;
@@ -64,7 +66,7 @@ private:
     static std::string defaultOutputPath(const std::string& inputPath);
     static std::string makeTemporaryPath(const std::string& inputPath);
     static bool hasMain(const Program& program);
-    static std::string generateLLVM(const Program& program, BackendKind backend, int optimizationLevel, BackendKind& usedBackend, bool includeRuntime, const std::string& targetTriple);
+    static std::string generateLLVM(const Program& program, BackendKind backend, int optimizationLevel, BackendKind& usedBackend, bool includeRuntime, const std::string& targetTriple, bool internalizeFunctions = false);
     static int invokeClang(const std::vector<std::string>& args);
     static bool writeTextFile(const std::string& path, const std::string& text);
     static int generateAndroidProject(const CompilerOptions& options, const std::string& source);

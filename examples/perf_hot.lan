@@ -1,0 +1,53 @@
+xorshift64(x:u64) u64:
+    v:u64 = x
+    v = v ^ (v << 13)
+    v = v ^ (v >> 7)
+    v = v ^ (v << 17)
+    return v
+
+pushBench() u64:
+    a: []u64 = []u64.with_capacity(1048576)
+    i: usize = 0
+    s:u64 = 0
+    while i < 1048576:
+        s = s + i as u64
+        a.push(s)
+        i = i + 1
+    return a[1048575] ^ (a.len() as u64)
+
+gatherBench() u64:
+    a: []u64 = []u64.with_capacity(1048576)
+    i: usize = 0
+    while i < 1048576:
+        a.push((i as u64) * 0x9E3779B97F4A7C15)
+        i = i + 1
+    s:u64 = 0x123456789ABCDEF
+    sum:u64 = 0
+    i = 0
+    while i < 8388608:
+        s = xorshift64(s)
+        sum = sum + a[(s as usize) & 1048575]
+        i = i + 1
+    return sum
+
+rmwBench() u64:
+    a: []u64 = []u64.with_capacity(1048576)
+    i: usize = 0
+    while i < 1048576:
+        a.push(i as u64)
+        i = i + 1
+    s:u64 = 0xCAFEBABE12345678
+    i = 0
+    while i < 8388608:
+        s = xorshift64(s)
+        j: usize = (s as usize) & 1048575
+        a[j] = a[j] + s
+        i = i + 1
+    return a[12345] ^ a[54321]
+
+main() i32:
+    x:u64 = pushBench()
+    x = x ^ gatherBench()
+    x = x ^ rmwBench()
+    writeIntRaw(x as i64)
+    return 42

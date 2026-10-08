@@ -1544,6 +1544,7 @@ void Lowerer::lowerStmt(const Stmt* stmt) {
             return;
         }
         case StmtKind::For: {
+            if (stmt->rangeEnd) throw std::runtime_error("range for-loops require the native LLVM backend");
             const auto* iterableTypeRaw = stmt->iterable->checkedType.get();
             if (!iterableTypeRaw) unsupported("for iterable has no type", stmt->line);
             auto iterableType = cloneTypeNode(iterableTypeRaw);

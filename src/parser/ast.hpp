@@ -94,7 +94,9 @@ struct Stmt {
     std::unique_ptr<TypeNode> declaredType;
     std::unique_ptr<Expr> assignValue;
     std::string loopVar;
-    std::unique_ptr<Expr> iterable;
+    std::unique_ptr<Expr> iterable;      // collection, or range start for `for i in a..b`
+    std::unique_ptr<Expr> rangeEnd;      // Lanner 3.0.0: non-null for `a..b` / `a..=b` loops
+    bool rangeInclusive = false;         // true for `a..=b`
     std::vector<std::unique_ptr<Stmt>> body;
     std::vector<std::unique_ptr<Stmt>> elseBody;
     std::unique_ptr<Expr> guardCondition;

@@ -1,0 +1,29 @@
+classify(n: i32) i32:
+    if n < 0:
+        return 1
+    elif n == 0:
+        return 2
+    elif n < 1_000:
+        return 3
+    else:
+        return 4
+
+main() i32:
+    big: u64 = 1_000_000_007
+    mask: u64 = 0xFF_FF
+    bits: u64 = 0b1010_0101
+    big != 1000000007 -> return 1
+    mask != 65535 -> return 2
+    bits != 165 -> return 3
+    classify(-5) != 1 -> return 4
+    classify(0) != 2 -> return 5
+    classify(999) != 3 -> return 6
+    classify(1_000) != 4 -> return 7
+    xs: []u64 = []u64.new()
+    for i in 0..100:
+        xs.push(i as u64 * 2)
+    acc: u64 = 0
+    for v in xs:
+        acc += v
+    acc != 9900 -> return 8
+    return 0

@@ -3,8 +3,7 @@ Lanner development upgrade verification
 
 Language identity
 -----------------
-Language version: 2.0.0
-Release line: 2.0.0
+Language version: 3.0.0
 Canonical source extension: .lan
 Legacy naming artifacts: removed from source/docs/configuration
 
@@ -18,12 +17,13 @@ Guy / chess / NNUE upgrades
 - NNUE-oriented sign extension, multiply-add, and integer reduction intrinsics.
 - 512-bit SIMD lowers to real ZMM instructions under an x86-64-v4 target.
 - Deterministic NNUE audit weight fixture included at tests/data/nnue_audit_weights.bin.
+- 3.0.0: compound assignment, range loops, `elif`, digit separators, outlined array growth, internal linkage for hosted executables.
 - Handbook and technical docs expanded with chess-engine and NNUE implementation guidance.
 
 Verification
 ------------
 - Full optimized compiler build: PASS
-- 105 registered CTest cases: all validated in smaller batches / targeted reruns: PASS
+- 107 registered CTest cases: all validated in smaller batches / targeted reruns: PASS
 - Chess-engine kernel: PASS
 - NNUE host audit: PASS
 - 256-bit NNUE SIMD kernel: PASS

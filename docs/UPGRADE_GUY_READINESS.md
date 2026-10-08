@@ -1,6 +1,6 @@
 # Lanner development-tree upgrade for Guy
 
-LannerLang 2.0.0 is the development release focused on chess-engine hosting, module imports, ownership improvements, and NNUE-oriented SIMD support.
+This document describes the Guy/engine-hosting upgrades that ship as part of Lanner 3.0.0.
 
 ## Engine-hosting additions
 
@@ -8,6 +8,11 @@ LannerLang 2.0.0 is the development release focused on chess-engine hosting, mod
 - Place-aware borrow checking for disjoint structure fields such as `board.white` and `board.black`.
 - LLVM `noalias` on `&mut T` function parameters to preserve exclusive-access information for optimization.
 - `Thread.spawnCtx(function, context)` for explicit SMP worker contexts.
+
+## Dynamic-array ergonomics
+
+- Typed empty dynamic arrays can be written as `[]T` or `[]T.new()` without a dummy seed element.
+- `[]T.with_capacity(n)`, `array.reserve(n)`, and `array.capacity()` provide explicit allocation control for engine/search workloads.
 
 ## NNUE additions
 

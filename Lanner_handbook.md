@@ -1,4 +1,4 @@
-# **LannerLang 2.0.0 Handbook**
+# **LannerLang 3.0.0 Handbook**
 > **The practical language guide**
 
 Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
@@ -238,6 +238,26 @@ Loop controls:
 break
 continue
 
+### Range loops, `elif`, and compound assignment (3.0.0)
+
+```lanner
+classify(n: i32) i32:
+    if n < 0:
+        return 1
+    elif n == 0:
+        return 2
+    else:
+        return 3
+
+main() i32:
+    total: u64 = 0
+    for i in 0..1_000:       # exclusive end; use 0..=1_000 to include 1_000
+        total += i as u64
+    return classify(total as i32)
+```
+
+The loop variable is read-only, `continue`/`break` work as in `while`, and a literal bound takes the type of the other bound.
+
 ## **6. ARRAYS, STRINGS, AND COLLECTIONS**
 
 ### **6.1 Fixed arrays**
@@ -251,15 +271,28 @@ Indexing is bounds checked unless the compiler can prove the access safe.
 
 ### **6.2 Dynamic arrays**
 
-xs = [1, 2, 3]
+```lanner
+xs: []u64 = []u64.new()
 xs.push(4)
 print(xs.len())
+```
+
+For allocation-sensitive workloads:
+
+```lanner
+xs: []u64 = []u64.with_capacity(1024)
+xs.reserve(4096)
+print(xs.capacity())
+```
+
+`[]u64` is already a valid typed empty dynamic array literal, so a dummy seed element is not required.
 
 Dynamic arrays support:
 
 - ownership transfer
 - indexing and mutation
-- length and empty checks
+- length, capacity, and empty checks
+- explicit reservation and capacity control
 - growth through push
 - slicing and views
 - deterministic cleanup
@@ -1361,7 +1394,7 @@ Use the safe core by default, make expensive or dangerous operations explicit, a
 
 ## **30. VERSION 1 IN ONE SENTENCE**
 
-Lanner 1.0 is a general-purpose, LLVM-native, ownership-safe language with a strong low-level escape hatch and a broad V1 runtime/toolchain surface; the next major milestone is replacing the remaining C++ compiler implementation with a fully bootstrapped Lanner compiler.
+Lanner 3.0.0 is a general-purpose, LLVM-native, ownership-safe language with a strong low-level escape hatch and a broad V1 runtime/toolchain surface; the next major milestone is replacing the remaining C++ compiler implementation with a fully bootstrapped Lanner compiler.
 
 Welcome to Lanner.
 

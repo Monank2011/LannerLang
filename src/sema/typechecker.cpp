@@ -661,6 +661,7 @@ void TypeChecker::checkProgram(Program& program) {
         visitExpr(stmt->expr.get());
         visitExpr(stmt->assignValue.get());
         visitExpr(stmt->iterable.get());
+        visitExpr(stmt->rangeEnd.get());
         visitExpr(stmt->guardCondition.get());
         if (stmt->guardBody) visitStmt(stmt->guardBody.get());
         for (const auto& child : stmt->body) visitStmt(child.get());
@@ -914,6 +915,7 @@ void TypeChecker::collectStmtUses(const Stmt* stmt, std::size_t& serial) {
     }
     collectExprUses(stmt->assignValue.get(), serial);
     collectExprUses(stmt->iterable.get(), serial);
+    collectExprUses(stmt->rangeEnd.get(), serial);
     collectExprUses(stmt->guardCondition.get(), serial);
     collectExprUses(stmt->comptimeValue.get(), serial);
     collectBlockUses(stmt->body, serial);
@@ -2527,6 +2529,26 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
             if (member == "equalsIgnoreCase") { if (expr->args.size()!=1) error(expr,"equalsIgnoreCase() takes one string"); checkExpr(expr->args[0].get(),makeType("string").get()); return makeType("bool"); }
         }
         if (target->isArray) {
+            // Ergonomic dynamic-array constructors:
+            //   []T.new()
+            //   []T.with_capacity(n)
+            // The receiver is intentionally restricted to the typed-empty array
+            // literal so the type itself is the source of the element type.
+            if (field->field == "new" || field->field == "with_capacity") {
+                if (field->target->kind != ExprKind::ArrayLit ||
+                    !field->target->args.empty() ||
+                    field->target->elementTypeName.empty() ||
+                    target->fixedArraySize) {
+                    error(expr, "array." + field->field + "() is only available as []T." + field->field + "()");
+                }
+                if (field->field == "new") {
+                    if (!expr->args.empty()) error(expr, "[]T.new() takes no arguments");
+                } else {
+                    if (expr->args.size() != 1) error(expr, "[]T.with_capacity() takes exactly one argument");
+                    checkExpr(expr->args[0].get(), makeType("usize").get());
+                }
+                return cloneType(target.get());
+            }
             if (field->field == "isEmpty") {
                 if (!expr->args.empty()) error(expr, "isEmpty() takes no arguments");
                 return makeType("bool");
@@ -2534,6 +2556,27 @@ std::unique_ptr<TypeNode> TypeChecker::checkCall(const Expr* expr, const TypeNod
             if (field->field == "len") {
                 if (!expr->args.empty()) error(expr, "len() takes no arguments");
                 return makeType("usize");
+            }
+            if (field->field == "capacity") {
+                if (!expr->args.empty()) error(expr, "capacity() takes no arguments");
+                return makeType("usize");
+            }
+            if (field->field == "reserve") {
+                if (target->fixedArraySize) error(expr, "fixed arrays have no reserve()");
+                if (expr->args.size() != 1) error(expr, "reserve() takes exactly one argument");
+                if (field->target->kind == ExprKind::Identifier) {
+                    if (!targetWasMutableReference) {
+                        if (auto* owner = symbols.resolve(field->target->strValue)) {
+                            if (owner->isConst) error(expr, "cannot reserve into const array");
+                            if (owner->memory.isMoved()) error(expr, "cannot reserve moved array");
+                            if (owner->memory.hasAnyBorrow()) error(expr, "cannot reserve while the array has an active borrow/view");
+                        }
+                    }
+                } else if (!targetWasMutableReference) {
+                    error(expr, "reserve() requires an owned array or &mut []T");
+                }
+                checkExpr(expr->args[0].get(), makeType("usize").get());
+                return makeType("void");
             }
             if (field->field == "push") {
                 if (target->fixedArraySize) error(expr, "fixed arrays have no push(); use an index assignment");
@@ -3047,6 +3090,52 @@ void TypeChecker::checkStmt(const Stmt* stmt) {
         }
 
         case StmtKind::For: {
+            if (stmt->rangeEnd) {
+                // Lanner 3.0.0 range loop: `for i in a..b` / `for i in a..=b`.
+                // A literal bound adopts the other bound's integer type, so
+                // `for i in 0..n` with `n: usize` makes `i` a usize.
+                auto isIntLiteral = [](const Expr* e) {
+                    return e && (e->kind == ExprKind::IntLit ||
+                                 (e->kind == ExprKind::UnaryOp && (e->op == "-" || e->op == "+") &&
+                                  e->value && e->value->kind == ExprKind::IntLit));
+                };
+                std::unique_ptr<TypeNode> startType;
+                std::unique_ptr<TypeNode> endType;
+                if (isIntLiteral(stmt->iterable.get()) && !isIntLiteral(stmt->rangeEnd.get())) {
+                    endType = inferExprType(stmt->rangeEnd.get());
+                    startType = checkExpr(stmt->iterable.get(), endType.get());
+                } else {
+                    startType = inferExprType(stmt->iterable.get());
+                    endType = checkExpr(stmt->rangeEnd.get(), startType.get());
+                }
+                if (!isInteger(startType.get()) || startType->isReference || startType->isArray || startType->isOptional ||
+                    !isInteger(endType.get()) || endType->isReference || endType->isArray || endType->isOptional) {
+                    throw std::runtime_error("range bounds must be integers at line " + std::to_string(stmt->line));
+                }
+                if (startType->name != endType->name) {
+                    throw std::runtime_error("range bounds have different integer types (" + typeToString(startType.get()) +
+                                             " and " + typeToString(endType.get()) + ") at line " + std::to_string(stmt->line));
+                }
+                symbols.pushScope();
+                try {
+                    typePool.push_back(cloneType(startType.get()));
+                    Symbol loopSymbol;
+                    loopSymbol.name = stmt->loopVar;
+                    loopSymbol.type = typePool.back().get();
+                    loopSymbol.declaredLine = stmt->line;
+                    loopSymbol.isConst = true;   // the loop variable is read-only inside the body
+                    symbols.declare(stmt->loopVar, loopSymbol);
+                    ++loopDepth;
+                    checkBlock(stmt->body);
+                    --loopDepth;
+                    popCheckedScope();
+                } catch (...) {
+                    if (loopDepth > 0) --loopDepth;
+                    popCheckedScope();
+                    throw;
+                }
+                break;
+            }
             auto iterable = inferExprType(stmt->iterable.get());
             std::unique_ptr<TypeNode> elem;
             if (iterable->isArray) {

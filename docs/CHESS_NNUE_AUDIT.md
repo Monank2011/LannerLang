@@ -1,6 +1,8 @@
+> **Historical document.** This audit records the state of Lanner 1.0.0. The current version is **Lanner 3.0.0**; see [CHANGELOG.md](../CHANGELOG.md) for what changed.
+
 # Chess Engine and NNUE Hosting Audit
 
-Lanner 2.0.0 was audited as a host language for native chess engines and NNUE inference before the Version 1 release gate.
+Lanner 1.0.0 was audited as a host language for native chess engines and NNUE inference before the Version 1 release gate.
 
 ## Result
 

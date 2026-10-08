@@ -1,0 +1,7 @@
+f() i32:
+    return 1
+
+main() i32:
+    xs: [2]i32 = [1, 2]
+    xs[f()] += 1
+    return 0

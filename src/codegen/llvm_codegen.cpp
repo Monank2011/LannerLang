@@ -539,12 +539,76 @@ std::string LLVMCodeGenerator::normalizeIndexToI64(const Expr* expr, const std::
     return temp;
 }
 
+std::optional<std::pair<std::uint64_t, std::uint64_t>> LLVMCodeGenerator::knownUnsignedRange(const Expr* expr) const {
+    if (!expr) return std::nullopt;
+
+    if (expr->kind == ExprKind::IntLit) {
+        try {
+            const auto text = expr->strValue;
+            int base = 10;
+            std::size_t start = 0;
+            if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) { base = 16; start = 2; }
+            else if (text.size() > 2 && text[0] == '0' && (text[1] == 'b' || text[1] == 'B')) { base = 2; start = 2; }
+            std::uint64_t value = 0;
+            const auto parsed = std::from_chars(text.data() + start, text.data() + text.size(), value, base);
+            if (parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size()) return std::make_pair(value, value);
+        } catch (...) {}
+        return std::nullopt;
+    }
+
+    if (expr->kind == ExprKind::Cast) return knownUnsignedRange(expr->value.get());
+
+    if (expr->kind == ExprKind::UnaryOp && expr->op == "+") return knownUnsignedRange(expr->value.get());
+
+    if (expr->kind == ExprKind::BinaryOp) {
+        const auto& op = expr->op;
+        if (op == "&") {
+            const auto left = knownUnsignedRange(expr->left.get());
+            const auto right = knownUnsignedRange(expr->right.get());
+            if (right && right->first == right->second) return std::make_pair(std::uint64_t{0}, right->second);
+            if (left && left->first == left->second) return std::make_pair(std::uint64_t{0}, left->second);
+            return std::nullopt;
+        }
+        if (op == "%") {
+            const auto rhs = knownUnsignedRange(expr->right.get());
+            const auto lhs = knownUnsignedRange(expr->left.get());
+            if (rhs && rhs->first == rhs->second && rhs->first > 0 && lhs && lhs->first <= lhs->second) {
+                return std::make_pair(std::uint64_t{0}, rhs->second - 1);
+            }
+            return std::nullopt;
+        }
+    }
+
+    if (expr->kind == ExprKind::Call && expr->callee && expr->callee->kind == ExprKind::FieldAccess &&
+        expr->callee->target && expr->callee->target->kind == ExprKind::Identifier && expr->args.size() == 1 &&
+        expr->callee->target->strValue == "Cpu") {
+        const auto member = expr->callee->field;
+        if (member == "popcount" || member == "ctz" || member == "clz") {
+            // These helpers currently lower from i64 and return i32. popcount is
+            // 0..64; ctz/clz are 0..64 because zero is defined as returning the
+            // operand width in the current intrinsic form.
+            return std::make_pair(std::uint64_t{0}, std::uint64_t{64});
+        }
+    }
+
+    return std::nullopt;
+}
+
+bool LLVMCodeGenerator::canProveFixedIndexSafe(const Expr* index, std::uint64_t size) const {
+    if (size == 0) return false;
+    const auto range = knownUnsignedRange(index);
+    return range && range->first < size && range->second < size;
+}
+
 void LLVMCodeGenerator::emitBoundsCheck(const Expr* index, const std::string& indexI64, std::uint64_t size) {
+    if (canProveFixedIndexSafe(index, size)) return;
     const auto ok = newLabel("bounds.ok");
     const auto bad = newLabel("bounds.trap");
     const auto check = newTemp("bounds");
     body.push_back("  " + check + " = icmp ult i64 " + indexI64 + ", " + std::to_string(size));
-    body.push_back("  br i1 " + check + ", label %" + ok + ", label %" + bad);
+    const auto likely = newTemp("bounds.likely");
+    body.push_back("  " + likely + " = call i1 @llvm.expect.i1(i1 " + check + ", i1 true)");
+    body.push_back("  br i1 " + likely + ", label %" + ok + ", label %" + bad);
     body.push_back(bad + ":");
     body.push_back("  call void @llvm.trap()");
     body.push_back("  unreachable");
@@ -557,7 +621,9 @@ void LLVMCodeGenerator::emitDynamicBoundsCheck(const std::string& indexI64, cons
     const auto bad = newLabel("bounds.trap");
     const auto check = newTemp("bounds");
     body.push_back("  " + check + " = icmp ult i64 " + indexI64 + ", " + lengthI64);
-    body.push_back("  br i1 " + check + ", label %" + ok + ", label %" + bad);
+    const auto likely = newTemp("bounds.likely");
+    body.push_back("  " + likely + " = call i1 @llvm.expect.i1(i1 " + check + ", i1 true)");
+    body.push_back("  br i1 " + likely + ", label %" + ok + ", label %" + bad);
     body.push_back(bad + ":");
     body.push_back("  call void @llvm.trap()");
     body.push_back("  unreachable");
@@ -820,11 +886,8 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     if (!targetType->isArray || targetType->fixedArraySize) unsupported("push target is not a dynamic array", line);
 
     std::string targetAddr;
-    if (checkedTarget->isReference) {
-        targetAddr = emitExpr(target);
-    } else {
-        targetAddr = emitLValueAddress(target);
-    }
+    if (checkedTarget->isReference) targetAddr = emitExpr(target);
+    else targetAddr = emitLValueAddress(target);
 
     auto elem = cloneType(targetType.get());
     elem->isArray = false;
@@ -834,23 +897,62 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     elem->isMutable = false;
     const auto elemType = llvmType(elem.get());
     const auto valueIR = emitExpr(value);
-    const auto array = newTemp("array.load");
-    body.push_back("  " + array + " = load %LannerDynArray, ptr " + targetAddr);
+
+    // Keep the dynamic-array header in scalar LLVM fields instead of loading and
+    // rewriting the whole aggregate on every push. This gives LLVM cleaner alias
+    // information and lets the common no-growth path stay almost entirely in
+    // registers while preserving the exact same layout/ownership semantics.
+    const auto dataAddr = newTemp("array.data.addr");
+    const auto lenAddr = newTemp("array.len.addr");
+    const auto capAddr = newTemp("array.cap.addr");
+    const auto arenaAddr = newTemp("array.arena.addr");
+    body.push_back("  " + dataAddr + " = getelementptr inbounds %LannerDynArray, ptr " + targetAddr + ", i32 0, i32 0");
+    body.push_back("  " + lenAddr + " = getelementptr inbounds %LannerDynArray, ptr " + targetAddr + ", i32 0, i32 1");
+    body.push_back("  " + capAddr + " = getelementptr inbounds %LannerDynArray, ptr " + targetAddr + ", i32 0, i32 2");
+    body.push_back("  " + arenaAddr + " = getelementptr inbounds %LannerDynArray, ptr " + targetAddr + ", i32 0, i32 3");
+
     const auto data = newTemp("array.data");
     const auto len = newTemp("array.len");
     const auto cap = newTemp("array.cap");
     const auto arena = newTemp("array.arena");
-    body.push_back("  " + data + " = extractvalue %LannerDynArray " + array + ", 0");
-    body.push_back("  " + len + " = extractvalue %LannerDynArray " + array + ", 1");
-    body.push_back("  " + cap + " = extractvalue %LannerDynArray " + array + ", 2");
-    body.push_back("  " + arena + " = extractvalue %LannerDynArray " + array + ", 3");
+    body.push_back("  " + data + " = load ptr, ptr " + dataAddr);
+    body.push_back("  " + len + " = load i64, ptr " + lenAddr);
+    body.push_back("  " + cap + " = load i64, ptr " + capAddr);
+    body.push_back("  " + arena + " = load ptr, ptr " + arenaAddr);
 
     const auto full = newTemp("array.full");
     body.push_back("  " + full + " = icmp uge i64 " + len + ", " + cap);
     const auto grow = newLabel("array.grow");
     const auto write = newLabel("array.write");
-    body.push_back("  br i1 " + full + ", label %" + grow + ", label %" + write);
+    const auto fast = newLabel("array.fast");
+    // Lanner 3.0.0: the cold growth path (capacity doubling, overflow checks, arena or
+    // realloc allocation, copy) lives in one shared `cold noinline` helper instead of
+    // being duplicated at every push site. Hot loops shrink dramatically, which helps
+    // register allocation, instruction-cache use, and compile time.
+    const bool outlinedGrow = includeRuntime || isWebTarget();
+    const auto grownDone = newLabel("array.grown.done");
+    std::string newData;
+    const auto fullLikely = newTemp("array.full.likely");
+    body.push_back("  " + fullLikely + " = call i1 @llvm.expect.i1(i1 " + full + ", i1 false)");
+    body.push_back("  br i1 " + fullLikely + ", label %" + grow + ", label %" + fast);
 
+    if (outlinedGrow) {
+        body.push_back(grow + ":");
+        // By-value helper: the array header's address never escapes, so LLVM keeps
+        // data/len/cap in registers across hot loops.
+        const auto grown = newTemp("array.grown");
+        body.push_back("  " + grown + " = call { ptr, i64 } @__lanner_array_grow(ptr " + data + ", i64 " + len + ", i64 " + cap +
+                       ", ptr " + arena + ", i64 " + emitTypeSize(elemType) + ")");
+        newData = newTemp("array.newdata");
+        const auto newCapOut = newTemp("array.newcap");
+        body.push_back("  " + newData + " = extractvalue { ptr, i64 } " + grown + ", 0");
+        body.push_back("  " + newCapOut + " = extractvalue { ptr, i64 } " + grown + ", 1");
+        body.push_back("  store ptr " + newData + ", ptr " + dataAddr);
+        body.push_back("  store i64 " + newCapOut + ", ptr " + capAddr);
+        body.push_back("  br label %" + grownDone);
+        body.push_back(grownDone + ":");
+        body.push_back("  br label %" + write);
+    } else {
     body.push_back(grow + ":");
     const auto capNonzero = newTemp("cap.nonzero");
     body.push_back("  " + capNonzero + " = icmp ne i64 " + cap + ", 0");
@@ -867,7 +969,9 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     body.push_back("  " + capWrapped + " = icmp ult i64 " + doubled + ", " + cap);
     const auto capBad = newLabel("cap.overflow");
     const auto capGood = newLabel("cap.ok");
-    body.push_back("  br i1 " + capWrapped + ", label %" + capBad + ", label %" + capGood);
+    const auto capWrappedLikely = newTemp("cap.wrapped.likely");
+    body.push_back("  " + capWrappedLikely + " = call i1 @llvm.expect.i1(i1 " + capWrapped + ", i1 false)");
+    body.push_back("  br i1 " + capWrappedLikely + ", label %" + capBad + ", label %" + capGood);
     body.push_back(capBad + ":");
     body.push_back("  call void @llvm.trap()");
     body.push_back("  unreachable");
@@ -886,7 +990,9 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     body.push_back("  " + bytesOv + " = extractvalue { i64, i1 } " + bytesPair + ", 1");
     const auto bytesBad = newLabel("array.bytes.overflow");
     const auto bytesGood = newLabel("array.bytes.ok");
-    body.push_back("  br i1 " + bytesOv + ", label %" + bytesBad + ", label %" + bytesGood);
+    const auto bytesOvLikely = newTemp("array.bytes.ov.likely");
+    body.push_back("  " + bytesOvLikely + " = call i1 @llvm.expect.i1(i1 " + bytesOv + ", i1 false)");
+    body.push_back("  br i1 " + bytesOvLikely + ", label %" + bytesBad + ", label %" + bytesGood);
     body.push_back(bytesBad + ":");
     body.push_back("  call void @llvm.trap()");
     body.push_back("  unreachable");
@@ -909,14 +1015,16 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     body.push_back("  " + heapNull + " = icmp eq ptr " + heapData + ", null");
     const auto heapBad = newLabel("array.heap.oom");
     const auto heapGood = newLabel("array.heap.ok");
-    body.push_back("  br i1 " + heapNull + ", label %" + heapBad + ", label %" + heapGood);
+    const auto heapNullLikely = newTemp("array.heap.null.likely");
+    body.push_back("  " + heapNullLikely + " = call i1 @llvm.expect.i1(i1 " + heapNull + ", i1 false)");
+    body.push_back("  br i1 " + heapNullLikely + ", label %" + heapBad + ", label %" + heapGood);
     body.push_back(heapBad + ":");
     body.push_back("  call void @llvm.trap()");
     body.push_back("  unreachable");
     body.push_back(heapGood + ":");
     body.push_back("  br label %" + allocMerge);
     body.push_back(allocMerge + ":");
-    const auto newData = newTemp("array.newdata");
+    newData = newTemp("array.newdata");
     body.push_back("  " + newData + " = phi ptr [ " + arenaData + ", %" + arenaPath + " ], [ " + heapData + ", %" + heapGood + " ]");
 
     const auto oldNonNull = newTemp("array.oldnonnull");
@@ -943,7 +1051,9 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     body.push_back("  " + copyBytesOv + " = extractvalue { i64, i1 } " + copyBytesPair + ", 1");
     const auto copyBad = newLabel("copy.overflow");
     const auto copyGood = newLabel("copy.ok");
-    body.push_back("  br i1 " + copyBytesOv + ", label %" + copyBad + ", label %" + copyGood);
+    const auto copyBytesOvLikely = newTemp("copy.bytes.ov.likely");
+    body.push_back("  " + copyBytesOvLikely + " = call i1 @llvm.expect.i1(i1 " + copyBytesOv + ", i1 false)");
+    body.push_back("  br i1 " + copyBytesOvLikely + ", label %" + copyBad + ", label %" + copyGood);
     body.push_back(copyBad + ":");
     body.push_back("  call void @llvm.trap()");
     body.push_back("  unreachable");
@@ -951,38 +1061,173 @@ std::string LLVMCodeGenerator::emitDynamicArrayPush(const Expr* target, const Ex
     body.push_back("  call void @llvm.memcpy.p0.p0.i64(ptr " + newData + ", ptr " + data + ", i64 " + copyBytes + ", i1 false)");
     body.push_back("  br label %" + copyModeDone);
     body.push_back(copyHeap + ":");
-    // realloc already preserved heap data in-place/moved; nothing to copy.
     body.push_back("  br label %" + copyModeDone);
     body.push_back(copyModeDone + ":");
     body.push_back("  br label %" + copyDone);
     body.push_back(copyDone + ":");
-    const auto grown0 = newTemp("array.g0");
-    const auto grown1 = newTemp("array.g1");
-    const auto grown2 = newTemp("array.g2");
-    const auto grown3 = newTemp("array.g3");
-    body.push_back("  " + grown0 + " = insertvalue %LannerDynArray " + array + ", ptr " + newData + ", 0");
-    body.push_back("  " + grown1 + " = insertvalue %LannerDynArray " + grown0 + ", i64 " + len + ", 1");
-    body.push_back("  " + grown2 + " = insertvalue %LannerDynArray " + grown1 + ", i64 " + newCap + ", 2");
-    body.push_back("  " + grown3 + " = insertvalue %LannerDynArray " + grown2 + ", ptr " + arena + ", 3");
-    body.push_back("  store %LannerDynArray " + grown3 + ", ptr " + targetAddr);
+
+    // Commit the grown storage before entering the common write block.
+    body.push_back("  store ptr " + newData + ", ptr " + dataAddr);
+    body.push_back("  store i64 " + newCap + ", ptr " + capAddr);
+    body.push_back("  br label %" + grownDone);
+
+    body.push_back(grownDone + ":");
+    body.push_back("  br label %" + write);
+    }
+
+    body.push_back(fast + ":");
     body.push_back("  br label %" + write);
 
     body.push_back(write + ":");
-    const auto currentArray = newTemp("array.current");
-    const auto currentData = newTemp("array.current.data");
+    const auto writeData = newTemp("array.write.data");
+    body.push_back("  " + writeData + " = phi ptr [ " + data + ", %" + fast + " ], [ " + newData + ", %" + grownDone + " ]");
+    // The grown path and fast path differ only in the data pointer. The length
+    // remains the pre-push value on both paths, so a single load keeps the write
+    // block compact and avoids a second aggregate header load.
     const auto currentLen = newTemp("array.current.len");
-    body.push_back("  " + currentArray + " = load %LannerDynArray, ptr " + targetAddr);
-    body.push_back("  " + currentData + " = extractvalue %LannerDynArray " + currentArray + ", 0");
-    body.push_back("  " + currentLen + " = extractvalue %LannerDynArray " + currentArray + ", 1");
+    body.push_back("  " + currentLen + " = load i64, ptr " + lenAddr);
     const auto addr = newTemp("array.push.addr");
-    body.push_back("  " + addr + " = getelementptr inbounds " + elemType + ", ptr " + currentData + ", i64 " + currentLen);
+    body.push_back("  " + addr + " = getelementptr inbounds " + elemType + ", ptr " + writeData + ", i64 " + currentLen);
     body.push_back("  store " + elemType + " " + valueIR + ", ptr " + addr);
     const auto newLen = newTemp("array.newlen");
-    body.push_back("  " + newLen + " = add i64 " + currentLen + ", 1");
-    const auto finalArray = newTemp("array.final");
-    body.push_back("  " + finalArray + " = insertvalue %LannerDynArray " + currentArray + ", i64 " + newLen + ", 1");
-    body.push_back("  store %LannerDynArray " + finalArray + ", ptr " + targetAddr);
-    return "";
+    body.push_back("  " + newLen + " = add nuw i64 " + currentLen + ", 1");
+    body.push_back("  store i64 " + newLen + ", ptr " + lenAddr);
+    return {};
+}
+
+void LLVMCodeGenerator::emitDynamicArrayReserve(const Expr* target, const Expr* capacityExpr, int line) {
+    const auto* checkedTarget = target ? target->checkedType.get() : nullptr;
+    if (!checkedTarget) unsupported("reserve target has no type annotation", line);
+    auto targetType = cloneType(checkedTarget);
+    if (targetType->isReference) targetType->isReference = false;
+    if (!targetType->isArray || targetType->fixedArraySize) unsupported("reserve target is not a dynamic array", line);
+
+    std::string targetAddr;
+    if (checkedTarget->isReference) targetAddr = emitExpr(target);
+    else targetAddr = emitLValueAddress(target);
+
+    auto elem = cloneType(targetType.get());
+    elem->isArray = false;
+    elem->fixedArraySize.reset();
+    elem->origin = {};
+    elem->isReference = false;
+    elem->isMutable = false;
+
+    const auto requested = emitExpr(capacityExpr);
+    const auto reqType = exprLLVMType(capacityExpr);
+    std::string requestedI64 = requested;
+    if (reqType != "i64") {
+        requestedI64 = newTemp("array.reserve.capacity");
+        const bool signedSource = capacityExpr->checkedType && isSignedType(capacityExpr->checkedType.get());
+        body.push_back("  " + requestedI64 + " = " + (signedSource ? "sext" : "zext") + " " + reqType + " " + requested + " to i64");
+    }
+
+    const auto array = newTemp("array.reserve.load");
+    body.push_back("  " + array + " = load %LannerDynArray, ptr " + targetAddr);
+    const auto cap = newTemp("array.reserve.cap");
+    body.push_back("  " + cap + " = extractvalue %LannerDynArray " + array + ", 2");
+    const auto need = newTemp("array.reserve.need");
+    body.push_back("  " + need + " = icmp ugt i64 " + requestedI64 + ", " + cap);
+    const auto grow = newLabel("array.reserve.grow");
+    const auto done = newLabel("array.reserve.done");
+    body.push_back("  br i1 " + need + ", label %" + grow + ", label %" + done);
+
+    body.push_back(grow + ":");
+    const auto elemType = llvmType(elem.get());
+    const auto elemSize = emitTypeSize(elemType);
+    const auto bytesPair = newTemp("array.reserve.bytes.pair");
+    body.push_back("  " + bytesPair + " = call { i64, i1 } @llvm.umul.with.overflow.i64(i64 " + requestedI64 + ", i64 " + elemSize + ")");
+    const auto bytes = newTemp("array.reserve.bytes");
+    const auto bytesOv = newTemp("array.reserve.bytes.ov");
+    body.push_back("  " + bytes + " = extractvalue { i64, i1 } " + bytesPair + ", 0");
+    body.push_back("  " + bytesOv + " = extractvalue { i64, i1 } " + bytesPair + ", 1");
+    const auto bytesBad = newLabel("array.reserve.bytes.bad");
+    const auto bytesGood = newLabel("array.reserve.bytes.good");
+    const auto bytesOvLikely = newTemp("array.bytes.ov.likely");
+    body.push_back("  " + bytesOvLikely + " = call i1 @llvm.expect.i1(i1 " + bytesOv + ", i1 false)");
+    body.push_back("  br i1 " + bytesOvLikely + ", label %" + bytesBad + ", label %" + bytesGood);
+    body.push_back(bytesBad + ":");
+    body.push_back("  call void @llvm.trap()");
+    body.push_back("  unreachable");
+    body.push_back(bytesGood + ":");
+
+    const auto data = newTemp("array.reserve.data");
+    const auto arena = newTemp("array.reserve.arena");
+    body.push_back("  " + data + " = extractvalue %LannerDynArray " + array + ", 0");
+    body.push_back("  " + arena + " = extractvalue %LannerDynArray " + array + ", 3");
+
+    const auto arenaPath = newLabel("array.reserve.arena.alloc");
+    const auto heapPath = newLabel("array.reserve.heap.alloc");
+    const auto allocMerge = newLabel("array.reserve.alloc.merge");
+    const auto hasArena = newTemp("array.reserve.hasarena");
+    body.push_back("  " + hasArena + " = icmp ne ptr " + arena + ", null");
+    body.push_back("  br i1 " + hasArena + ", label %" + arenaPath + ", label %" + heapPath);
+
+    body.push_back(arenaPath + ":");
+    const auto arenaData = newTemp("array.reserve.arena.data");
+    body.push_back("  " + arenaData + " = call ptr @__lanner_arena_alloc(ptr " + arena + ", i64 " + bytes + ")");
+    body.push_back("  br label %" + allocMerge);
+
+    body.push_back(heapPath + ":");
+    const auto heapData = newTemp("array.reserve.heap.data");
+    body.push_back("  " + heapData + " = call ptr @realloc(ptr " + data + ", i64 " + bytes + ")");
+    const auto heapNull = newTemp("array.reserve.heap.null");
+    body.push_back("  " + heapNull + " = icmp eq ptr " + heapData + ", null");
+    const auto heapBad = newLabel("array.reserve.heap.oom");
+    const auto heapGood = newLabel("array.reserve.heap.ok");
+    const auto heapNullLikely = newTemp("array.heap.null.likely");
+    body.push_back("  " + heapNullLikely + " = call i1 @llvm.expect.i1(i1 " + heapNull + ", i1 false)");
+    body.push_back("  br i1 " + heapNullLikely + ", label %" + heapBad + ", label %" + heapGood);
+    body.push_back(heapBad + ":");
+    body.push_back("  call void @llvm.trap()");
+    body.push_back("  unreachable");
+    body.push_back(heapGood + ":");
+    body.push_back("  br label %" + allocMerge);
+
+    body.push_back(allocMerge + ":");
+    const auto newData = newTemp("array.reserve.newdata");
+    body.push_back("  " + newData + " = phi ptr [ " + arenaData + ", %" + arenaPath + " ], [ " + heapData + ", %" + heapGood + " ]");
+
+    const auto oldNonNull = newTemp("array.reserve.oldnonnull");
+    body.push_back("  " + oldNonNull + " = icmp ne ptr " + data + ", null");
+    const auto copy = newLabel("array.reserve.copy");
+    const auto copySkip = newLabel("array.reserve.copy.skip");
+    const auto copyDone = newLabel("array.reserve.copy.done");
+    body.push_back("  br i1 " + oldNonNull + ", label %" + copy + ", label %" + copySkip);
+    body.push_back(copySkip + ":");
+    body.push_back("  br label %" + copyDone);
+    body.push_back(copy + ":");
+    const auto len = newTemp("array.reserve.len");
+    body.push_back("  " + len + " = extractvalue %LannerDynArray " + array + ", 1");
+    const auto copyBytesPair = newTemp("array.reserve.copy.bytes.pair");
+    body.push_back("  " + copyBytesPair + " = call { i64, i1 } @llvm.umul.with.overflow.i64(i64 " + len + ", i64 " + elemSize + ")");
+    const auto copyBytes = newTemp("array.reserve.copy.bytes");
+    const auto copyBytesOv = newTemp("array.reserve.copy.bytes.ov");
+    body.push_back("  " + copyBytes + " = extractvalue { i64, i1 } " + copyBytesPair + ", 0");
+    body.push_back("  " + copyBytesOv + " = extractvalue { i64, i1 } " + copyBytesPair + ", 1");
+    const auto copyBad = newLabel("array.reserve.copy.bytes.bad");
+    const auto copyGood = newLabel("array.reserve.copy.bytes.good");
+    const auto copyBytesOvLikely = newTemp("copy.bytes.ov.likely");
+    body.push_back("  " + copyBytesOvLikely + " = call i1 @llvm.expect.i1(i1 " + copyBytesOv + ", i1 false)");
+    body.push_back("  br i1 " + copyBytesOvLikely + ", label %" + copyBad + ", label %" + copyGood);
+    body.push_back(copyBad + ":");
+    body.push_back("  call void @llvm.trap()");
+    body.push_back("  unreachable");
+    body.push_back(copyGood + ":");
+    body.push_back("  call void @llvm.memcpy.p0.p0.i64(ptr " + newData + ", ptr " + data + ", i64 " + copyBytes + ", i1 false)");
+    body.push_back("  br label %" + copyDone);
+
+    body.push_back(copyDone + ":");
+    const auto grown0 = newTemp("array.reserve.grown0");
+    const auto grown1 = newTemp("array.reserve.grown1");
+    const auto grown2 = newTemp("array.reserve.grown2");
+    body.push_back("  " + grown0 + " = insertvalue %LannerDynArray " + array + ", ptr " + newData + ", 0");
+    body.push_back("  " + grown1 + " = insertvalue %LannerDynArray " + grown0 + ", i64 " + requestedI64 + ", 2");
+    body.push_back("  " + grown2 + " = insertvalue %LannerDynArray " + grown1 + ", ptr " + arena + ", 3");
+    body.push_back("  store %LannerDynArray " + grown2 + ", ptr " + targetAddr);
+    body.push_back("  br label %" + done);
+
+    body.push_back(done + ":");
 }
 
 std::string LLVMCodeGenerator::emitDynamicArrayLiteral(const Expr* expr, const std::string& arenaAddress) {
@@ -1181,18 +1426,46 @@ std::string LLVMCodeGenerator::emitLValueAddress(const Expr* expr) {
         }
 
         if (normalizedSource->isArray && !normalizedSource->fixedArraySize) {
-            std::string array;
+            std::string base;
+            std::string length;
+
+            // Keep dynamic-array metadata in scalar LLVM values whenever the
+            // target is a local array/reference. Loading the whole 32-byte
+            // aggregate on every indexed access needlessly couples data, length,
+            // capacity, and arena provenance and makes hot loops harder to
+            // optimize. The aggregate fallback remains for arbitrary expressions.
             if (sourceType->isReference) {
                 const auto arrayPtr = emitExpr(expr->target.get());
-                array = newTemp("array.ref.load");
-                body.push_back("  " + array + " = load %LannerDynArray, ptr " + arrayPtr);
-            } else {
-                array = emitExpr(expr->target.get());
+                const auto dataAddr = newTemp("array.ref.data.addr");
+                const auto lenAddr = newTemp("array.ref.len.addr");
+                body.push_back("  " + dataAddr + " = getelementptr inbounds %LannerDynArray, ptr " + arrayPtr + ", i32 0, i32 0");
+                body.push_back("  " + lenAddr + " = getelementptr inbounds %LannerDynArray, ptr " + arrayPtr + ", i32 0, i32 1");
+                base = newTemp("array.base");
+                length = newTemp("array.length");
+                body.push_back("  " + base + " = load ptr, ptr " + dataAddr);
+                body.push_back("  " + length + " = load i64, ptr " + lenAddr);
+            } else if (expr->target->kind == ExprKind::Identifier) {
+                const auto* local = lookupLocal(expr->target->strValue);
+                if (local && local->type->isArray && !local->type->fixedArraySize) {
+                    const auto dataAddr = newTemp("array.local.data.addr");
+                    const auto lenAddr = newTemp("array.local.len.addr");
+                    body.push_back("  " + dataAddr + " = getelementptr inbounds %LannerDynArray, ptr " + local->addr + ", i32 0, i32 0");
+                    body.push_back("  " + lenAddr + " = getelementptr inbounds %LannerDynArray, ptr " + local->addr + ", i32 0, i32 1");
+                    base = newTemp("array.base");
+                    length = newTemp("array.length");
+                    body.push_back("  " + base + " = load ptr, ptr " + dataAddr);
+                    body.push_back("  " + length + " = load i64, ptr " + lenAddr);
+                }
             }
-            const auto base = newTemp("array.base");
-            const auto length = newTemp("array.length");
-            body.push_back("  " + base + " = extractvalue %LannerDynArray " + array + ", 0");
-            body.push_back("  " + length + " = extractvalue %LannerDynArray " + array + ", 1");
+
+            if (base.empty()) {
+                const auto array = emitExpr(expr->target.get());
+                base = newTemp("array.base");
+                length = newTemp("array.length");
+                body.push_back("  " + base + " = extractvalue %LannerDynArray " + array + ", 0");
+                body.push_back("  " + length + " = extractvalue %LannerDynArray " + array + ", 1");
+            }
+
             emitDynamicBoundsCheck(indexI64, length);
             const auto elemType = dynamicArrayElementType(normalizedSource.get());
             const auto address = newTemp("array.elem.addr");
@@ -2672,6 +2945,87 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                         auto vec=emitExpr(field->target.get()); auto lane=emitExpr(expr->args[0].get()); auto r=newTemp("simd.extract"); body.push_back("  "+r+" = extractelement "+ty+" "+vec+", i32 "+lane); return r;
                     }
                 }
+                if (field->field == "new") {
+                    if (field->target->kind != ExprKind::ArrayLit ||
+                        !field->target->args.empty() ||
+                        field->target->elementTypeName.empty() ||
+                        !targetType->isArray || targetType->fixedArraySize ||
+                        !expr->args.empty()) {
+                        unsupported("[]T.new() requires a typed empty dynamic-array receiver and no arguments", expr->line);
+                    }
+                    return "zeroinitializer";
+                }
+                if (field->field == "with_capacity") {
+                    if (field->target->kind != ExprKind::ArrayLit ||
+                        !field->target->args.empty() ||
+                        field->target->elementTypeName.empty() ||
+                        !targetType->isArray || targetType->fixedArraySize ||
+                        expr->args.size() != 1) {
+                        unsupported("[]T.with_capacity(n) requires a typed empty dynamic-array receiver", expr->line);
+                    }
+                    auto elem = cloneType(targetType.get());
+                    elem->isArray = false;
+                    elem->fixedArraySize.reset();
+                    elem->origin = {};
+                    elem->isReference = false;
+                    elem->isMutable = false;
+                    const auto elemType = llvmType(elem.get());
+                    const auto requestedRaw = emitExpr(expr->args[0].get());
+                    const auto requestedType = exprLLVMType(expr->args[0].get());
+                    std::string requested = requestedRaw;
+                    if (requestedType != "i64") {
+                        requested = newTemp("array.with_capacity.n");
+                        const bool signedSource = expr->args[0]->checkedType && isSignedType(expr->args[0]->checkedType.get());
+                        body.push_back("  " + requested + " = " + (signedSource ? "sext" : "zext") + " " + requestedType + " " + requestedRaw + " to i64");
+                    }
+                    const auto elemSize = emitTypeSize(elemType);
+                    const auto bytesPair = newTemp("array.with_capacity.bytes.pair");
+                    body.push_back("  " + bytesPair + " = call { i64, i1 } @llvm.umul.with.overflow.i64(i64 " + requested + ", i64 " + elemSize + ")");
+                    const auto bytes = newTemp("array.with_capacity.bytes");
+                    const auto bytesOv = newTemp("array.with_capacity.bytes.ov");
+                    body.push_back("  " + bytes + " = extractvalue { i64, i1 } " + bytesPair + ", 0");
+                    body.push_back("  " + bytesOv + " = extractvalue { i64, i1 } " + bytesPair + ", 1");
+                    const auto bytesBad = newLabel("array.with_capacity.bytes.bad");
+                    const auto bytesGood = newLabel("array.with_capacity.bytes.good");
+                    const auto bytesOvLikely = newTemp("array.bytes.ov.likely");
+    body.push_back("  " + bytesOvLikely + " = call i1 @llvm.expect.i1(i1 " + bytesOv + ", i1 false)");
+    body.push_back("  br i1 " + bytesOvLikely + ", label %" + bytesBad + ", label %" + bytesGood);
+                    body.push_back(bytesBad + ":");
+                    body.push_back("  call void @llvm.trap()");
+                    body.push_back("  unreachable");
+                    body.push_back(bytesGood + ":");
+                    const auto nonzero = newTemp("array.with_capacity.nonzero");
+                    body.push_back("  " + nonzero + " = icmp ne i64 " + requested + ", 0");
+                    const auto allocLabel = newLabel("array.with_capacity.alloc");
+                    const auto zeroLabel = newLabel("array.with_capacity.zero");
+                    const auto doneLabel = newLabel("array.with_capacity.done");
+                    body.push_back("  br i1 " + nonzero + ", label %" + allocLabel + ", label %" + zeroLabel);
+                    body.push_back(zeroLabel + ":");
+                    body.push_back("  br label %" + doneLabel);
+                    body.push_back(allocLabel + ":");
+                    const auto data = newTemp("array.with_capacity.data");
+                    body.push_back("  " + data + " = call ptr @malloc(i64 " + bytes + ")");
+                    const auto oomCond = newTemp("array.with_capacity.oom.cond");
+                    body.push_back("  " + oomCond + " = icmp eq ptr " + data + ", null");
+                    const auto oomLabel = newLabel("array.with_capacity.oom");
+                    const auto okLabel = newLabel("array.with_capacity.ok");
+                    body.push_back("  br i1 " + oomCond + ", label %" + oomLabel + ", label %" + okLabel);
+                    body.push_back(oomLabel + ":");
+                    body.push_back("  call void @llvm.trap()");
+                    body.push_back("  unreachable");
+                    body.push_back(okLabel + ":");
+                    const auto initialized = newTemp("array.with_capacity.initialized");
+                    body.push_back("  " + initialized + " = insertvalue %LannerDynArray zeroinitializer, ptr " + data + ", 0");
+                    const auto initializedCap = newTemp("array.with_capacity.initialized.cap");
+                    body.push_back("  " + initializedCap + " = insertvalue %LannerDynArray " + initialized + ", i64 " + requested + ", 2");
+                    const auto result = newTemp("array.with_capacity.result");
+                    body.push_back("  " + result + " = insertvalue %LannerDynArray " + initializedCap + ", ptr null, 3");
+                    body.push_back("  br label %" + doneLabel);
+                    body.push_back(doneLabel + ":");
+                    const auto emptyResult = newTemp("array.with_capacity.empty.result");
+                    body.push_back("  " + emptyResult + " = phi %LannerDynArray [ zeroinitializer, %" + zeroLabel + " ], [ " + result + ", %" + okLabel + " ]");
+                    return emptyResult;
+                }
                 if (field->field == "len") {
                     if (targetType->name == "string" && !targetType->isArray) {
                         const auto addrOrValue = targetTypeRaw->isReference ? emitExpr(field->target.get()) : emitExpr(field->target.get());
@@ -2697,6 +3051,18 @@ std::string LLVMCodeGenerator::emitExpr(const Expr* expr) {
                         body.push_back("  " + value + " = extractvalue { ptr, i64 } " + target + ", 1");
                         return value;
                     }
+                }
+                if (field->field == "capacity") {
+                    if (!targetType->isArray || targetType->fixedArraySize) return std::to_string(targetType->fixedArraySize.value_or(0));
+                    const auto target = loadAggregate("%LannerDynArray");
+                    const auto value = newTemp("array.capacity.value");
+                    body.push_back("  " + value + " = extractvalue %LannerDynArray " + target + ", 2");
+                    return value;
+                }
+                if (field->field == "reserve") {
+                    if (expr->args.size() != 1) unsupported("reserve() takes one argument", expr->line);
+                    emitDynamicArrayReserve(field->target.get(), expr->args[0].get(), expr->line);
+                    return {};
                 }
                 if (field->field == "isEmpty") {
                     std::string length;
@@ -3278,6 +3644,70 @@ void LLVMCodeGenerator::emitStmt(const Stmt* stmt) {
         }
 
         case StmtKind::For: {
+            if (stmt->rangeEnd) {
+                // Lanner 3.0.0 counted loop. The bound is evaluated once; the
+                // increment carries nuw/nsw because it only runs while i < end, which
+                // hands LLVM an exact trip count for unrolling/vectorization.
+                const auto* startTy = stmt->iterable->checkedType.get();
+                if (!startTy) unsupported("range start has no type", stmt->line);
+                const auto intTy = llvmType(startTy);
+                const bool signedRange = isSignedType(startTy);
+                const auto startValue = emitExpr(stmt->iterable.get());
+                const auto endValue = emitExpr(stmt->rangeEnd.get());
+                const auto counterAddr = "%" + stmt->loopVar + ".range.addr" + std::to_string(labelCounter++);
+                body.push_back("  " + counterAddr + " = alloca " + intTy);
+                body.push_back("  store " + intTy + " " + startValue + ", ptr " + counterAddr);
+                const auto condLabel = newLabel("range.cond");
+                const auto bodyLabel = newLabel("range.body");
+                const auto nextLabel = newLabel("range.next");
+                const auto stepLabel = newLabel("range.step");
+                const auto exitLabel = newLabel("range.end");
+                body.push_back("  br label %" + condLabel);
+                body.push_back(condLabel + ":");
+                const auto cur = newTemp("range.cur");
+                body.push_back("  " + cur + " = load " + intTy + ", ptr " + counterAddr);
+                const auto cond = newTemp("range.cond.value");
+                const std::string pred = signedRange ? (stmt->rangeInclusive ? "sle" : "slt")
+                                                     : (stmt->rangeInclusive ? "ule" : "ult");
+                body.push_back("  " + cond + " = icmp " + pred + " " + intTy + " " + cur + ", " + endValue);
+                body.push_back("  br i1 " + cond + ", label %" + bodyLabel + ", label %" + exitLabel);
+                body.push_back(bodyLabel + ":");
+
+                loopLabels.push_back(LoopContext{condLabel, nextLabel, exitLabel, localScopes.size()});
+                pushScope();
+                auto loopType = cloneType(startTy);
+                loopType->isReference = false;
+                loopType->isMutable = false;
+                loopType->origin = {};
+                ownedLocalTypes.push_back(std::move(loopType));
+                localScopes.back()[stmt->loopVar] = LocalBinding{ownedLocalTypes.back().get(), counterAddr, false, false};
+                scopeOrder.back().push_back(stmt->loopVar);
+
+                const bool terminated = emitBlock(stmt->body);
+                if (!terminated) cleanupCurrentScope();
+                popScope();
+                loopLabels.pop_back();
+                if (!terminated) body.push_back("  br label %" + nextLabel);
+                body.push_back(nextLabel + ":");
+                const auto cur2 = newTemp("range.cur2");
+                body.push_back("  " + cur2 + " = load " + intTy + ", ptr " + counterAddr);
+                if (stmt->rangeInclusive) {
+                    // Stop *at* the last value so `0..=255` on u8 cannot wrap forever.
+                    const auto atEnd = newTemp("range.at.end");
+                    body.push_back("  " + atEnd + " = icmp eq " + intTy + " " + cur2 + ", " + endValue);
+                    body.push_back("  br i1 " + atEnd + ", label %" + exitLabel + ", label %" + stepLabel);
+                } else {
+                    body.push_back("  br label %" + stepLabel);
+                }
+                body.push_back(stepLabel + ":");
+                const auto nextValue = newTemp("range.next.value");
+                body.push_back("  " + nextValue + " = add " + std::string(signedRange ? "nsw " : "nuw ") + intTy + " " + cur2 + ", 1");
+                body.push_back("  store " + intTy + " " + nextValue + ", ptr " + counterAddr);
+                body.push_back("  br label %" + condLabel);
+                body.push_back(exitLabel + ":");
+                blockTerminated = false;
+                break;
+            }
             const auto* iterableTypeRaw = stmt->iterable->checkedType.get();
             if (!iterableTypeRaw) unsupported("for iterable has no type", stmt->line);
             auto iterableType = cloneType(iterableTypeRaw);
@@ -3492,15 +3922,21 @@ void LLVMCodeGenerator::emitFunction(const FunctionDecl& fn, std::string& out) {
     pushScope();
     const auto ret = llvmType(fn.returnType.get());
     const std::string emittedName = (fn.name == "main" && includeRuntime && !isWebTarget()) ? "lanner_user_main" : fn.name;
-    out += "define " + ret + " @" + emittedName + "(";
+    // Lanner 3.0.0: in whole-program hosted executable builds every user function is
+    // `internal`, which lets LLVM inline, specialize arguments, drop dead arguments,
+    // and infer readonly/norecurse/nocapture across the entire program.
+    out += std::string(internalizeFunctions ? "define internal " : "define dso_local ") + ret + " @" + emittedName + "(";
     for (std::size_t i = 0; i < fn.params.size(); ++i) {
         if (i) out += ", ";
         const auto* ptype = fn.params[i].type.get();
         out += llvmType(ptype) + " ";
-        if (ptype && ptype->isReference && ptype->isMutable) out += "noalias ";
+        if (ptype && ptype->isReference) {
+            out += "nonnull ";
+            if (ptype->isMutable) out += "noalias ";
+        }
         out += "%" + fn.params[i].name;
     }
-    out += ") {\nentry:\n";
+    out += ") nounwind {\nentry:\n";
 
     for (const auto& p : fn.params) {
         const auto address = "%" + p.name + ".param.addr";
@@ -3518,6 +3954,33 @@ void LLVMCodeGenerator::emitFunction(const FunctionDecl& fn, std::string& out) {
         else if (ret.rfind("i", 0) == 0) body.push_back("  ret " + ret + " 0");
         else body.push_back("  ret " + ret + " zeroinitializer");
     }
+
+    // LLVM allocas are lifetime-sensitive stack allocations. Fixed-size local
+    // slots must live in the function entry block: emitting them inside a
+    // loop grows the stack on every iteration and eventually causes stack
+    // exhaustion for perfectly ordinary code such as array shuffles or
+    // allocation-heavy loops. Dynamic stackAlloc() remains in place because
+    // its size is computed at runtime and its exact program point is part of
+    // that operation's semantics.
+    std::vector<std::string> entryAllocas;
+    std::vector<std::string> remainingBody;
+    entryAllocas.reserve(body.size());
+    remainingBody.reserve(body.size());
+    for (const auto& line : body) {
+        const auto marker = line.find(" = alloca ");
+        if (marker == std::string::npos) {
+            remainingBody.push_back(line);
+            continue;
+        }
+        const auto typeStart = marker + 9;
+        const auto comma = line.find(',', typeStart);
+        const bool dynamic = comma != std::string::npos &&
+                             line.compare(comma, 5, ", i64") == 0;
+        if (dynamic) remainingBody.push_back(line);
+        else entryAllocas.push_back(line);
+    }
+    body.swap(remainingBody);
+    body.insert(body.begin(), entryAllocas.begin(), entryAllocas.end());
 
     for (const auto& line : body) out += line + "\n";
     out += "}\n\n";
@@ -3567,9 +4030,10 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
     out += "%LannerArenaNode = type { ptr, i8 }\n\n";
     out += "declare void @llvm.trap()\n";
     out += "declare void @llvm.assume(i1)\n";
-    out += "declare ptr @malloc(i64)\n";
-    out += "declare ptr @realloc(ptr, i64)\n";
-    out += "declare ptr @lanner_aligned_alloc(i64, i64)\n";
+    out += "declare i1 @llvm.expect.i1(i1, i1)\n";
+    out += "declare noalias ptr @malloc(i64) allocsize(0)\n";
+    out += "declare noalias ptr @realloc(ptr, i64) allocsize(1)\n";
+    out += "declare noalias ptr @lanner_aligned_alloc(i64, i64)\n";
     out += "declare void @lanner_aligned_free(ptr)\n";
     out += "declare void @free(ptr)\n";
     out += "declare ptr @memset(ptr, i32, i64)\n";
@@ -4100,6 +4564,43 @@ std::string LLVMCodeGenerator::generate(const Program& program, bool runtime, co
         out += "  call void @llvm.trap()\n";
         out += "  unreachable\n";
         out += "}\n\n";
+        // Lanner 3.0.0: shared cold growth path for dynamic-array push.
+        out += "define internal { ptr, i64 } @__lanner_array_grow(ptr %data, i64 %len, i64 %cap, ptr %arena, i64 %elem) cold noinline nounwind {\n";
+        out += "entry:\n";
+        out += "  %cap.nonzero = icmp ne i64 %cap, 0\n";
+        out += "  %doubled = add i64 %cap, %cap\n";
+        out += "  %wrapped = icmp ult i64 %doubled, %cap\n";
+        out += "  %newcap = select i1 %cap.nonzero, i64 %doubled, i64 4\n";
+        out += "  %bytes.pair = call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %newcap, i64 %elem)\n";
+        out += "  %bytes = extractvalue { i64, i1 } %bytes.pair, 0\n";
+        out += "  %bytes.ov = extractvalue { i64, i1 } %bytes.pair, 1\n";
+        out += "  %bad = or i1 %wrapped, %bytes.ov\n";
+        out += "  br i1 %bad, label %trap, label %alloc\n";
+        out += "trap:\n";
+        out += "  call void @llvm.trap()\n";
+        out += "  unreachable\n";
+        out += "alloc:\n";
+        out += "  %has.arena = icmp ne ptr %arena, null\n";
+        out += "  br i1 %has.arena, label %arena.path, label %heap.path\n";
+        out += "arena.path:\n";
+        out += "  %arena.data = call ptr @__lanner_arena_alloc(ptr %arena, i64 %bytes)\n";
+        out += "  %old.nonnull = icmp ne ptr %data, null\n";
+        out += "  br i1 %old.nonnull, label %copy, label %commit\n";
+        out += "copy:\n";
+        out += "  %copy.bytes = mul i64 %len, %elem\n";
+        out += "  call void @llvm.memcpy.p0.p0.i64(ptr %arena.data, ptr %data, i64 %copy.bytes, i1 false)\n";
+        out += "  br label %commit\n";
+        out += "heap.path:\n";
+        out += "  %heap.data = call ptr @realloc(ptr %data, i64 %bytes)\n";
+        out += "  %heap.null = icmp eq ptr %heap.data, null\n";
+        out += "  br i1 %heap.null, label %trap, label %commit\n";
+        out += "commit:\n";
+        out += "  %new.data = phi ptr [ %arena.data, %arena.path ], [ %arena.data, %copy ], [ %heap.data, %heap.path ]\n";
+        out += "  %r0 = insertvalue { ptr, i64 } poison, ptr %new.data, 0\n";
+        out += "  %r1 = insertvalue { ptr, i64 } %r0, i64 %newcap, 1\n";
+        out += "  ret { ptr, i64 } %r1\n";
+        out += "}\n";
+        out += "\n";
         out += "define internal void @__lanner_arena_destroy(ptr %arena) {\n";
         out += "entry:\n";
         out += "  %first = load ptr, ptr %arena\n";

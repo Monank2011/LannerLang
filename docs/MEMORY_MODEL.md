@@ -1,4 +1,4 @@
-# **Lanner 2.0.0 Memory Model**
+# **Lanner 3.0.0 Memory Model**
 
 Lanner's memory model is built around **ownership**, **exclusive access**, **non-owning views**, **storage origins**, and **regions**.
 

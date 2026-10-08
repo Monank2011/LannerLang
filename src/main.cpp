@@ -35,6 +35,8 @@ static void usage() {
         << "  --target=<triple>               LLVM target triple for native/cross builds\n"
         << "  --sysroot <path>                target sysroot/root for toolchain and linker\n"
         << "  --cpu <name>                    target CPU or architecture tuning\n"
+        << "  --native                         optimize for the build machine (implies native CPU tuning)\n"
+        << "  --keep-symbols                  keep external linkage for all functions (disables whole-program internalization)\n"
         << "  --features <f1,f2,...>          target feature flags\n"
         << "  --linker <name>                 select linker (e.g. lld, mold)\n"
         << "  --linker-script <path>          pass a custom linker script\n"
@@ -106,7 +108,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (std::string(argv[1]) == "--version") {
-        std::cout << "Lanner 2.0.0 (native LLVM production backend; C++ bootstrap frontend)\n";
+        std::cout << "Lanner 3.0.0 (native LLVM production backend; C++ bootstrap frontend)\n";
         return 0;
     }
 
@@ -187,6 +189,8 @@ int main(int argc, char** argv) {
         if (arg == "--sysroot") { if (i + 1 >= argc) { std::cerr << "lanner: --sysroot requires a path\n"; return 2; } options.sysroot = argv[++i]; continue; }
         if (arg == "--linker") { if (i + 1 >= argc) { std::cerr << "lanner: --linker requires a linker name\n"; return 2; } options.linker = argv[++i]; continue; }
         if (arg == "--linker-script") { if (i + 1 >= argc) { std::cerr << "lanner: --linker-script requires a path\n"; return 2; } options.linkerScript = argv[++i]; continue; }
+        if (arg == "--native") { options.native = true; continue; }
+        if (arg == "--keep-symbols") { options.keepSymbols = true; continue; }
         if (arg == "--cpu") { if (i + 1 >= argc) { std::cerr << "lanner: --cpu requires a CPU name\n"; return 2; } options.cpu = argv[++i]; continue; }
         if (arg == "--features") { if (i + 1 >= argc) { std::cerr << "lanner: --features requires a comma-separated feature list\n"; return 2; } options.features = argv[++i]; continue; }
         if (arg == "--entry") { if (i + 1 >= argc) { std::cerr << "lanner: --entry requires a symbol\n"; return 2; } options.entryPoint = argv[++i]; continue; }

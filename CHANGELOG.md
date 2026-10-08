@@ -1,17 +1,44 @@
-# Changelog
+# **Lanner Changelog**
 
-## 2.0.0 — Chess/NNUE development release
+## **3.0.0 — Performance and ergonomics release**
 
-- Published the fixed `.lan` source tree as LannerLang 2.0.0.
-- Added module imports, disjoint-field borrow support, exclusive `&mut`/LLVM `noalias` lowering, and explicit thread contexts.
-- Added NNUE-oriented integer SIMD types, widening, multiply-add, reductions, and AVX-512 development coverage.
-- Corrected POSIX runtime filesystem access to use `st.st_mode` and `st.st_size`.
-- Added chess-engine and NNUE examples plus deterministic regression fixtures.
+### Language
+- Compound assignment operators: `+= -= *= /= %= &= |= ^= <<= >>=` on variables, fields and indexed elements.
+- Range loops: `for i in a..b` and `for i in a..=b` with literal-bound type adoption, read-only loop variable, and overflow-safe inclusive ranges.
+- `elif` as shorthand for `else if`.
+- Digit separators in integer and float literals (`1_000_000`, `0xFF_FF`, `0b1010_0101`).
 
+### Performance
+- Dynamic-array growth outlined into one shared by-value `cold noinline` helper; the selfhost compiler's generated IR shrank from 88,098 to about 80,900 lines and its `-O2` build got faster.
+- Internal linkage for whole-program hosted executables (`--keep-symbols` opts out; skipped for objects, web, freestanding and `--link` builds).
+- Counted loops emit `add nuw`/`nsw` increments for exact trip counts.
+
+### Tooling and tests
+- New `--keep-symbols` flag.
+- 10 new CTest cases (language features at `-O0`/`-O2`, must-fail diagnostics, outlined-grow IR shape).
+- Version bumped to 3.0.0 in `VERSION`, CMake, `lanner --version`, installers, Python packaging, the VS Code extension and the documentation. Earlier changelog entries below are historical and keep their original version numbers.
+
+## **1.0.0 — Native performance pass**
+
+- Optimized dynamic-array `push` lowering to update scalar header fields instead of repeatedly rebuilding the full aggregate.
+- Optimized dynamic-array indexing for local arrays/references to load data and length fields directly.
+- Added conservative compile-time bounds-range analysis for fixed-array indices, including constant masks, modulo, and CPU bit-count helpers.
+- Added LLVM branch-probability hints so successful bounds/capacity/allocation paths are treated as hot while traps stay cold.
+- Added allocator alias/size facts (`noalias`, `allocsize`) to generated LLVM declarations.
+- Added a `nuw` guarantee for the post-checked dynamic-array length increment.
+- Added `--native` for host-specific CPU tuning (`-march=native`/`-mcpu=native`) and frame-pointer/PLT optimization where supported.
+- Added a standalone engine-style performance example under `examples/perf_hot.lan`.
+
+This pass targets generated native code while preserving the existing safety checks and portable default behavior.
 
 Lanner was created and is developed by **Monank Gohil**, who began developing the language at age **15**.
 
 ## **1.0.0 — Initial packaged release**
+### Dynamic-array ergonomics
+
+- **Typed empty dynamic arrays via `[]T.new()`**
+- **`[]T.with_capacity(n)`, `reserve(n)`, and `capacity()`**
+
 
 ### Toolchain installer update
 

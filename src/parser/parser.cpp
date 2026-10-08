@@ -4,6 +4,77 @@
 #include <stdexcept>
 #include <utility>
 
+namespace {
+
+// ---- Lanner 3.0.0 compound assignment support -------------------------------
+// `place op= value` is lowered to `place = place op value`. The place is cloned,
+// so it must be side-effect free: calls are rejected rather than evaluated twice.
+std::unique_ptr<TypeNode> cloneTypeNodeForDesugar(const TypeNode* t);
+std::unique_ptr<Expr> clonePlaceExpr(const Expr* e);
+
+std::unique_ptr<TypeNode> cloneTypeNodeForDesugar(const TypeNode* t) {
+    if (!t) return nullptr;
+    auto c = std::make_unique<TypeNode>();
+    c->name = t->name;
+    c->isArray = t->isArray;
+    c->line = t->line;
+    c->column = t->column;
+    c->fixedArraySize = t->fixedArraySize;
+    if (t->fixedArraySizeExpr) {
+        c->fixedArraySizeExpr = clonePlaceExpr(t->fixedArraySizeExpr.get());
+        if (!c->fixedArraySizeExpr) return nullptr;
+    }
+    c->isOptional = t->isOptional;
+    c->isReference = t->isReference;
+    c->isMutable = t->isMutable;
+    c->isRawPointer = t->isRawPointer;
+    c->isUnsafeFunction = t->isUnsafeFunction;
+    for (const auto& g : t->generics) {
+        auto cg = cloneTypeNodeForDesugar(g.get());
+        if (!cg) return nullptr;
+        c->generics.push_back(std::move(cg));
+    }
+    c->origin = t->origin;
+    c->nestedOrigins = t->nestedOrigins;
+    return c;
+}
+
+std::unique_ptr<Expr> clonePlaceExpr(const Expr* e) {
+    if (!e) return nullptr;
+    switch (e->kind) {
+        case ExprKind::IntLit: case ExprKind::FloatLit: case ExprKind::BoolLit:
+        case ExprKind::Identifier: case ExprKind::BinaryOp: case ExprKind::UnaryOp:
+        case ExprKind::FieldAccess: case ExprKind::Index: case ExprKind::Cast:
+            break;
+        default:
+            return nullptr;
+    }
+    auto c = std::make_unique<Expr>();
+    c->kind = e->kind;
+    c->line = e->line;
+    c->column = e->column;
+    c->strValue = e->strValue;
+    c->op = e->op;
+    c->field = e->field;
+    if (e->castType) {
+        c->castType = cloneTypeNodeForDesugar(e->castType.get());
+        if (!c->castType) return nullptr;
+    }
+    if (e->left)   { c->left = clonePlaceExpr(e->left.get());     if (!c->left)   return nullptr; }
+    if (e->right)  { c->right = clonePlaceExpr(e->right.get());   if (!c->right)  return nullptr; }
+    if (e->target) { c->target = clonePlaceExpr(e->target.get()); if (!c->target) return nullptr; }
+    if (e->value)  { c->value = clonePlaceExpr(e->value.get());   if (!c->value)  return nullptr; }
+    for (const auto& a : e->args) {
+        if (!a) { c->args.push_back(nullptr); continue; }
+        auto ca = clonePlaceExpr(a.get());
+        if (!ca) return nullptr;
+        c->args.push_back(std::move(ca));
+    }
+    return c;
+}
+
+} // namespace
+
 Parser::Parser(std::vector<Token> toks) : tokens(std::move(toks)) {}
 
 const Token& Parser::peek(int offset) const {
@@ -432,7 +503,11 @@ std::unique_ptr<Stmt> Parser::parseIfStmt() {
     expect(TokenType::Colon, "expected ':' after if condition");
     s->body = parseBlock();
 
-    if (match(TokenType::Else)) {
+    if (check(TokenType::Identifier) && peek().lexeme == "elif") {
+        // Lanner 3.0.0: `elif cond:` is shorthand for `else if cond:`.
+        auto nested = parseIfStmt();
+        s->elseBody.push_back(std::move(nested));
+    } else if (match(TokenType::Else)) {
         if (check(TokenType::If)) {
             auto nested = parseIfStmt();
             s->elseBody.push_back(std::move(nested));
@@ -463,6 +538,11 @@ std::unique_ptr<Stmt> Parser::parseForStmt() {
     s->loopVar = expect(TokenType::Identifier, "expected loop variable").lexeme;
     expect(TokenType::In, "expected 'in' in for loop");
     s->iterable = parseExpr();
+    if (check(TokenType::DotDot) || check(TokenType::DotDotEq)) {
+        // Lanner 3.0.0: `for i in a..b:` (exclusive) and `for i in a..=b:` (inclusive).
+        s->rangeInclusive = advance().type == TokenType::DotDotEq;
+        s->rangeEnd = parseExpr();
+    }
     expect(TokenType::Colon, "expected ':' before for body");
     s->body = parseBlock();
     return s;
@@ -486,6 +566,30 @@ std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr(bool isConst) {
                                  ": expected name after 'const'");
     }
 
+    if (!isConst && check(TokenType::Identifier) && peek(1).type == TokenType::CompoundAssign) {
+        auto s = std::make_unique<Stmt>();
+        s->kind = StmtKind::Assign;
+        s->line = line;
+        s->column = peek().column;
+        const Token nameTok = advance();
+        s->assignTarget = nameTok.lexeme;
+        const Token opTok = advance();
+        auto lhs = std::make_unique<Expr>();
+        lhs->kind = ExprKind::Identifier;
+        lhs->line = nameTok.line;
+        lhs->column = nameTok.column;
+        lhs->strValue = nameTok.lexeme;
+        auto bin = std::make_unique<Expr>();
+        bin->kind = ExprKind::BinaryOp;
+        bin->line = nameTok.line;
+        bin->column = nameTok.column;
+        bin->op = opTok.lexeme.substr(0, opTok.lexeme.size() - 1);
+        bin->left = std::move(lhs);
+        bin->right = parseExpr();
+        s->assignValue = std::move(bin);
+        return s;
+    }
+
     if (check(TokenType::Identifier)) {
         const bool typed = peek(1).type == TokenType::Colon;
         const bool plain = peek(1).type == TokenType::Equals;
@@ -503,6 +607,29 @@ std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr(bool isConst) {
     }
 
     auto targetOrExpr = parseExpr();
+    if (!isConst && check(TokenType::CompoundAssign)) {
+        const Token opTok = advance();
+        auto lhs = clonePlaceExpr(targetOrExpr.get());
+        if (!lhs) {
+            throw std::runtime_error("Parse error at " + std::to_string(opTok.line) + ":" +
+                                     std::to_string(opTok.column) + ": '" + opTok.lexeme +
+                                     "' needs a simple place on its left (a variable, field, or index without calls)");
+        }
+        auto bin = std::make_unique<Expr>();
+        bin->kind = ExprKind::BinaryOp;
+        bin->line = targetOrExpr->line;
+        bin->column = targetOrExpr->column;
+        bin->op = opTok.lexeme.substr(0, opTok.lexeme.size() - 1);
+        bin->left = std::move(lhs);
+        bin->right = parseExpr();
+        auto s = std::make_unique<Stmt>();
+        s->kind = StmtKind::Assign;
+        s->line = line;
+        s->column = targetOrExpr->column;
+        s->expr = std::move(targetOrExpr);
+        s->assignValue = std::move(bin);
+        return s;
+    }
     if (!isConst && match(TokenType::Equals)) {
         auto s = std::make_unique<Stmt>();
         s->kind = StmtKind::Assign;

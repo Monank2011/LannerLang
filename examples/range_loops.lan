@@ -1,0 +1,56 @@
+main() i32:
+    sum: i32 = 0
+    for i in 0..10:
+        sum += i
+    # exclusive: 0+1+...+9 = 45
+    sum != 45 -> return 1
+
+    inc: i32 = 0
+    for i in 1..=10:
+        inc += i
+    # inclusive: 55
+    inc != 55 -> return 2
+
+    n: usize = 5
+    cnt: usize = 0
+    for i in 0..n:
+        cnt += i
+    cnt != 10 -> return 3
+
+    # continue must still advance the counter
+    odd: i32 = 0
+    for i in 0..10:
+        i % 2 == 0 -> continue
+        odd += 1
+    odd != 5 -> return 4
+
+    # break works, empty ranges run zero times
+    seen: i32 = 0
+    for i in 0..100:
+        i == 7 -> break
+        seen += 1
+    seen != 7 -> return 5
+    empty: i32 = 0
+    for i in 5..5:
+        empty += 1
+    empty != 0 -> return 6
+
+    # u8 inclusive range ending at the type maximum must terminate
+    total: u32 = 0
+    for b in 250..=255 as u8:
+        total += b as u32
+    total != 1515 -> return 7
+
+    # negative signed bounds
+    neg: i32 = 0
+    for i in -3..=3:
+        neg += i
+    neg != 0 -> return 8
+
+    # nested loops
+    grid: u64 = 0
+    for r in 0..4:
+        for c in 0..4:
+            grid += (r * 4 + c) as u64
+    grid != 120 -> return 9
+    return 0

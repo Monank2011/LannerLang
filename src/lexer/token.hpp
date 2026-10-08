@@ -7,7 +7,7 @@ enum class TokenType {
     Comptime, In, Return, Is, None, Null, Ok, Err, For, Continue, If, Else, While, Break, Const, As, True, False, Enum, Mut, Static, Extern, Unsafe, Packed, Align, Section, Fn, ThreadLocal,
 
     LParen, RParen, LBracket, RBracket, LBrace, RBrace,
-    Colon, Comma, Dot, Arrow,
+    Colon, Comma, Dot, DotDot, DotDotEq, Arrow, CompoundAssign,
     Equals, Question,
     Plus, Minus, Star, Slash, Percent, Pipe, Caret, Tilde, ShiftLeft, ShiftRight, AndAnd, OrOr,
     EqEq, NotEq, Less, Greater, LessEq, GreaterEq,

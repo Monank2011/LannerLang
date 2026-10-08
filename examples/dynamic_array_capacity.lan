@@ -1,0 +1,36 @@
+main() i32:
+    a: []u64 = []u64.new()
+    if a.len() != 0:
+        return 1
+    if a.capacity() != 0:
+        return 2
+
+    b: []u64 = []u64.with_capacity(128)
+    if b.len() != 0:
+        return 3
+    if b.capacity() != 128:
+        return 4
+
+    b.push(7)
+    b.push(11)
+    b.push(13)
+    if b.len() != 3:
+        return 5
+    if b.capacity() != 128:
+        return 6
+
+    b.reserve(256)
+    if b.capacity() != 256:
+        return 7
+    if b[0] != 7:
+        return 8
+    if b[1] != 11:
+        return 9
+    if b[2] != 13:
+        return 10
+
+    b.reserve(64)
+    if b.capacity() != 256:
+        return 11
+
+    return b.len() as i32
